@@ -50,12 +50,12 @@ a remote MQTT server.
 - Export PICO_SDK_PATH variable with the path to the Raspberry C SDK.
 - Copy [params-example.txt](app/params_example.txt) file as params.txt in the application directory
 and modify it with your configuration.
-- In the build/<application> directory, run cmake ../../app/<applicattion>
-- In the build/<application> directory, run make
+- In the `build/<application>` directory, run `cmake ../../app/<applicattion>`
+- In the `build/<application>` directory, run `make`
 
 ### Installation
 - Attach to your Pico W over USB and start it in the bootloader mode (hold down the BOOTSEL button).
-- Copy the generated image build/<application>/<app-name>.uf2 to your Pico W.
+- Copy the generated image `build/<application>/<app-name>.uf2` to your Pico W.
 
 ## Documentation
 - [MAX communication protocol](docs/MAX-Communication-Protocol.pdf).
