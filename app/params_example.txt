@@ -1,39 +1,44 @@
 # Example parameters file. Please copy it as 'params.txt' and fill with your
 # parameters. All parameter names are mandatory, the values are optional.
 
-DEV_HOSTNAME		device_hostname
+DEV_HOSTNAME		<device-hostname>
 
 # LCD connection parameters, separated by ";" in the specified order
 # example:		0x27;400;8;9
 # Leave blank if no LCD is attached
-LCD_CONFIG		i2c_address_hex;i2c_clock;i2c_sda_pin;i2c_scl_pin
+LCD_CONFIG		<i2c_address_hex>;<i2c_clock>;<i2c_sda_pin>;<i2c_scl_pin>
 
 # List of WiFi networks, separated by ";" - the first successful connection wins.
 # Up to 3 networks are supported. The count of ssd ids and passwords must match.
-WIFI_SSD		wifi_ssd1;wifi_ssd2...
-WIFI_PASS		wifi_pass1;wifi_pass2...
+WIFI_SSD		<wifi_ssd1>;<wifi_ssd2>...
+WIFI_PASS		<wifi_pass1>;<wifi_pass2>...
 
-# MQTT
-MQTT_SERVER_URL		mqqt_server_name_or_address
-MQTT_SERVER_PORT	mqqt_server_port
-MQTT_TOPIC		mqqt_topic_srting
-MQTT_USER		mqqt_user_name
-MQTT_PASS		mqqt_user_pass
+# MQTT client configuration
+MQTT_SERVER_ENDPOINT	<server_name_or_address>:<server_port>
+MQTT_TOPIC		<topic_srting>
+MQTT_USER		<user_name>:<user_password>
 #filter the rate of MQTT updates - minimum and maximum packets per minute
 MQTT_RATE_PPM		min_ppm;max_ppm
 
 # Pin, used as digital output
-SW_OUT_PIN		digital_out_pin
+SW_OUT_PIN		<digital_out_pin>
 
 # List of NTP servers, separated by ";". Up to 2 servers are supported.
-NTP_SERVER		ntp_server1_name_or_address;ntp_server2_name_or_address...
+NTP_SERVER		<server1_name_or_address>;<server2_name_or_address>...
 
-SYSLOG_SERVER		syslog_server_name_or_address
-SYSLOG_PORT		syslog_server_port
+# Remote logging configuration
+SYSLOG_SERVER_ENDPOINT	<server_name_or_address>:<server_port>
 
-#Config of AJ-SR04M sonar sensor, in format ECHO_PIN;TRIGGER_PIN
-SONAR_CONFIG		sonar_echo_pin;sonar_trigger_pin
+###### Config, specific to shaft application:
+#AJ-SR04M sonar sensor, in format ECHO_PIN;TRIGGER_PIN
+SONAR_CONFIG		<sonar_echo_pin>;<sonar_trigger_pin>
 
-#Config connected one-wire sensors, such as Dallas DS18S20, DS18B20 and DS1822,
+#Connected one-wire sensors, such as Dallas DS18S20, DS18B20 and DS1822,
 # Maxim MAX31820 and MAX31826. 
-ONE_WIRE_DEVICES	sensor_pin
+ONE_WIRE_DEVICES	<sensor_pin>
+
+###### Config, specific to solar application:
+# Daly BMS - Bluethooth <address>:<pin>
+BMS_DALY_BT		<XX:XX:XX:XX:XX:XX>;<XXXX>
+# Voltron inverter - USB address, <venodr-id>:<device-id>
+MPPT_VOLTRON_USB	<XXXX:XXXX>
