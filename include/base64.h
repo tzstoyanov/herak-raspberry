@@ -22,7 +22,7 @@ Encodes ASCCI string into base64 format string
 @param length of the buffer
 @return encoded base64 format string
 ***********************************************/
-char* base64_encode(const char *encoded, int len);
+char *base64_encode(const char *encoded, int len);
 
 
 /***********************************************
@@ -31,7 +31,7 @@ decodes base64 format string into ASCCI string
 @param length of the buffer
 @return ASCII string to be encoded
 ***********************************************/
-char* base64_decode(const char *encoded, int len);
+char *base64_decode(const char *encoded, int len);
 
 #ifdef __cplusplus
 }
