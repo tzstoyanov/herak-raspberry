@@ -29,9 +29,9 @@ struct {
 	uint32_t send_time;
 	uint32_t last_distance;
 	uint32_t samples[SONAR_MEASURE_COUNT];
-}static sonar_context;
+} static sonar_context;
 
-static uint32_t sonar_read()
+static uint32_t sonar_read(void)
 {
 	absolute_time_t start, end, timeout;
 	uint32_t duration_us, distance;
@@ -43,14 +43,14 @@ static uint32_t sonar_read()
 	gpio_put(sonar_context.trigger_pin, 0);
 
 	timeout = get_absolute_time();
-	while(!gpio_get(sonar_context.echo_pin)) {
+	while (!gpio_get(sonar_context.echo_pin)) {
 		start = get_absolute_time();
 		if (absolute_time_diff_us(timeout, start) > MAX_TIME_USEC)
 			return 0;
 	}
 
 	timeout = get_absolute_time();
-	while(gpio_get(sonar_context.echo_pin)) {
+	while (gpio_get(sonar_context.echo_pin)) {
 		end = get_absolute_time();
 		if (absolute_time_diff_us(timeout, end) > MAX_TIME_USEC)
 			return 0;
@@ -125,7 +125,7 @@ bool sonar_init(void)
 	lcd_set_text(0, SONAR_TXT_ROW, 3, "cm");
 	lcd_set_text(1, SONAR_NUM_ROW, 3, "--");
 
-	hlog_info(AJLOG,"Sensor AJ-SR04M initialized");
+	hlog_info(AJLOG, "Sensor AJ-SR04M initialized");
 
 	return true;
 
@@ -133,6 +133,6 @@ out_error:
 	free(config);
 	sonar_context.echo_pin = -1;
 	sonar_context.trigger_pin = -1;
-	hlog_info(AJLOG,"No valid configuration for sensor AJ-SR04M");
+	hlog_info(AJLOG, "No valid configuration for sensor AJ-SR04M");
 	return false;
 }

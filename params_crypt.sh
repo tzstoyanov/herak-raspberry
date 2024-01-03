@@ -12,13 +12,13 @@ function write_param() {
         echo "extern const char $2[];" >> $fname.h
         echo "extern const int $2_len;" >> $fname.h
     fi
-    echo -n "const char $2[]={" >> $fname.c
+    echo -n "const char $2[] = {" >> $fname.c
     cval=$(echo "$3" | tr -d '\n\r' | base64)
     length=${#cval}
     for ((i = 0; i < length; i++)); do
        vascii=$(echo -n "${cval:i:1}"|hexdump -ve '"%02X"')
        if [ $i -ge 1 ]; then
-          echo -n ",0x$vascii" >> $fname.c
+          echo -n ", 0x$vascii" >> $fname.c
        else
           echo -n "0x$vascii" >> $fname.c
        fi
@@ -28,7 +28,7 @@ function write_param() {
 
 # $1 - param name
 function write_param_len() {
-	echo "const int $1_len=sizeof($1);" >> $fname.c
+	echo "const int $1_len = sizeof($1);" >> $fname.c
 }
 
 LicenseString="// SPDX-License-Identifier: GPL-2.0-or-later"

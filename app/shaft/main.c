@@ -16,7 +16,7 @@
 #define TEMP_TXT_ROW	0
 #define TEMP_NUM_ROW	1
 
-static void internal_temp_query()
+static void internal_temp_query(void)
 {
 	static float int_temp;
 	float temp;
@@ -30,13 +30,13 @@ static void internal_temp_query()
 	mqtt_data_internal_temp(int_temp);
 }
 
-static void internal_temp_init()
+static void internal_temp_init(void)
 {
-	lcd_set_text(2, TEMP_TXT_ROW, 11, (char*)"*C");
-	lcd_set_text(3, TEMP_NUM_ROW, 11, (char*)"--");
+	lcd_set_text(2, TEMP_TXT_ROW, 11, (char *)"*C");
+	lcd_set_text(3, TEMP_NUM_ROW, 11, (char *)"--");
 }
 
-int main()
+int main(void)
 {
 	int blinik_count = 0;
 	bool has_sonar;
@@ -48,7 +48,7 @@ int main()
 	internal_temp_init();
 	has_sonar = sonar_init();
 
-	while(true){
+	while (true) {
 		if (blinik_count++ % BLINK_INERVAL == 0) {
 			LED_ON;
 		}

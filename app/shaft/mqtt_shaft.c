@@ -23,7 +23,7 @@ struct {
 	float sonar_distance;
 	float internal_temp;
 	char payload[MQTT_DATA_LEN + 1];
-}static mqtt_shaft_context;
+} static mqtt_shaft_context;
 
 static void mqtt_data_send(bool force)
 {
