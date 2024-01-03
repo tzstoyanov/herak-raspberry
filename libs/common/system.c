@@ -30,7 +30,7 @@ struct {
 	bool has_swout;
 	bool has_temp;
 	bool has_usb;
-}static sys_context;
+} static sys_context;
 
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count)
 {
@@ -80,24 +80,24 @@ uint32_t get_free_heap(void)
 void dump_hex_data(char *topic, const char *data, int len)
 {
 	char print_buff[PRINT_BUF_LEN], buf[4];
-	int i=0, j=0;
+	int i = 0, j = 0;
 
-	print_buff[0]=0;
+	print_buff[0] = 0;
 	while (i < len) {
 		snprintf(buf, 4, "%0.2X ", data[i++]);
 		if ((j + strlen(buf)) >= PRINT_BUF_LEN) {
 			j = 0;
-			hlog_info(topic,"\t %s", print_buff);
-			print_buff[0]=0;
+			hlog_info(topic, "\t %s", print_buff);
+			print_buff[0] = 0;
 		}
 		strcat(print_buff, buf);
 		j += strlen(buf);
 	}
 	if (j)
-		hlog_info(topic,"\t %s", print_buff);
+		hlog_info(topic, "\t %s", print_buff);
 }
 
-bool sw_out_init()
+bool sw_out_init(void)
 {
 	char *config = param_get(SW_OUT_PIN);
 	bool ret = false;
@@ -130,10 +130,10 @@ void sw_out_set(bool state)
 		gpio_put(sys_context.sw_out_pin, 0);
 }
 
-static bool base_init()
+static bool base_init(void)
 {
 	if (cyw43_arch_init()) {
-		hlog_info(COMMONSYSLOG,"failed to initialize");
+		hlog_info(COMMONSYSLOG, "failed to initialize");
 		return false;
 	}
 	cyw43_arch_enable_sta_mode();
@@ -143,7 +143,7 @@ static bool base_init()
 	return true;
 }
 
-bool system_common_init()
+bool system_common_init(void)
 {
 
 	// Initialize chosen serial port, default 38400 baud
@@ -154,8 +154,8 @@ bool system_common_init()
 	watchdog_enable(WATCHDOG_TIMEOUT_MS, true);
 
 	hlog_init(HLOG_INFO);
-	hlog_info(COMMONSYSLOG,"Booting ... %d", watchdog_enable_caused_reboot());
-	hlog_info(COMMONSYSLOG,"RAM: %d total / %d free bytes", get_total_heap(), get_free_heap());
+	hlog_info(COMMONSYSLOG, "Booting ... %d", watchdog_enable_caused_reboot());
+	hlog_info(COMMONSYSLOG, "RAM: %d total / %d free bytes", get_total_heap(), get_free_heap());
 
 	if (!base_init())
 		return false;
@@ -163,9 +163,9 @@ bool system_common_init()
 	sys_context.has_wifi = wifi_init();
 	sys_context.has_lcd = lcd_init();
 	if (sys_context.has_lcd)
-		hlog_info(COMMONSYSLOG,"LCD initialized");
+		hlog_info(COMMONSYSLOG, "LCD initialized");
 	else
-		hlog_info(COMMONSYSLOG,"no LCD attached");
+		hlog_info(COMMONSYSLOG, "no LCD attached");
 	sys_context.has_bt = bt_init();
 	sys_context.has_mqtt = mqtt_init();
 	sys_context.has_time = ntp_init();
@@ -178,10 +178,10 @@ bool system_common_init()
 	return true;
 }
 
-void system_log_status()
+void system_log_status(void)
 {
-	hlog_info(COMMONSYSLOG,"----------- Status -----------");
-	hlog_info(COMMONSYSLOG,"Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
+	hlog_info(COMMONSYSLOG, "----------- Status -----------");
+	hlog_info(COMMONSYSLOG, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
 			  get_uptime(), get_free_heap(), temperature_internal_get());
 	hlog_status();
 	wifi_log_status();
@@ -189,25 +189,25 @@ void system_log_status()
 	bt_log_status();
 	usb_log_status();
 	main_log();
-	hlog_info(COMMONSYSLOG,"----------- Status end--------");
+	hlog_info(COMMONSYSLOG, "----------- Status end--------");
 }
 
-static void log_wd_boot()
+static void log_wd_boot(void)
 {
-	static bool one_time = false;
+	static bool one_time;
 
 	if (one_time || !hlog_remoute())
 		return;
 
 	if (watchdog_enable_caused_reboot())
-		hlog_warning(COMMONSYSLOG,"The device recovered from a watchdog reboot");
+		hlog_warning(COMMONSYSLOG, "The device recovered from a watchdog reboot");
 	else
-		hlog_info(COMMONSYSLOG,"Normal power-on boot");
+		hlog_info(COMMONSYSLOG, "Normal power-on boot");
 
 	one_time = true;
 }
 
-void system_common_run()
+void system_common_run(void)
 {
 	watchdog_update();
 	if (sys_context.has_lcd)

@@ -6,13 +6,13 @@
 #include "common_internal.h"
 
 /* Log app status every hour */
-__attribute__ ((weak)) void main_log()
+__attribute__ ((weak)) void main_log(void)
 {
 
 }
 
 /* USB dymmy APIs */
-__attribute__ ((weak)) void usb_log_status()
+__attribute__ ((weak)) void usb_log_status(void)
 {
 
 }
@@ -20,7 +20,7 @@ __attribute__ ((weak)) bool usb_init(void)
 {
 	return false;
 }
-__attribute__ ((weak)) void usb_run()
+__attribute__ ((weak)) void usb_run(void)
 {
 
 }

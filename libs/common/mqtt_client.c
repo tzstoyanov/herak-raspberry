@@ -43,7 +43,7 @@ typedef enum {
 	MQTT_CLIENT_INIT = 0,
 	MQTT_CLIENT_DISCONNECTED,
 	MQTT_CLIENT_CONNECTED
-}mqtt_client_state_t;
+} mqtt_client_state_t;
 
 struct {
 	char *server_url;
@@ -63,7 +63,7 @@ struct {
 	bool send_in_progerss;
 	uint32_t last_send;
 	mutex_t lock;
-}static mqtt_context;
+} static mqtt_context;
 
 static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
 {
@@ -103,7 +103,7 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 	}
 }
 
-static void mqtt_server_found(const char* hostname, const ip_addr_t *ipaddr, void *arg)
+static void mqtt_server_found(const char *hostname, const ip_addr_t *ipaddr, void *arg)
 {
 	mutex_enter_blocking(&mqtt_context.lock);
 		memcpy(&(mqtt_context.server_addr), ipaddr, sizeof(ip_addr_t));
@@ -111,23 +111,23 @@ static void mqtt_server_found(const char* hostname, const ip_addr_t *ipaddr, voi
 	mutex_exit(&mqtt_context.lock);
 }
 
-bool mqtt_is_connected()
+bool mqtt_is_connected(void)
 {
 	uint8_t ret;
 
 	if (!mqtt_context.client)
 		return false;
 
-	LWIP_LOCK_START
+	LWIP_LOCK_START;
 		ret = mqtt_client_is_connected(mqtt_context.client);
-	LWIP_LOCK_END
+	LWIP_LOCK_END;
 
 	return ret;
 }
 
-void mqtt_log_status()
+void mqtt_log_status(void)
 {
-	if(!mqtt_is_connected())
+	if (!mqtt_is_connected())
 		hlog_info(MQTTLOG, "Not connected to a server, looking for %s ... ", mqtt_context.server_url);
 	else
 		hlog_info(MQTTLOG, "Connected to server %s, publish rate limit between %dppm and %dppm",
@@ -169,10 +169,10 @@ void mqtt_msg_publish(char *message, bool force)
 	if (!mqtt_context.data_send && mqtt_context.last_send)
 		return;
 
-	LWIP_LOCK_START
+	LWIP_LOCK_START;
 		err = mqtt_publish(mqtt_context.client, mqtt_context.topic, message,
 						   strlen(message), MQTT_QOS, MQTT_RETAIN, mqtt_publish_cb, NULL);
-	LWIP_LOCK_END
+	LWIP_LOCK_END;
 
 	if (err == ERR_OK) {
 		mutex_enter_blocking(&mqtt_context.lock);
@@ -184,7 +184,7 @@ void mqtt_msg_publish(char *message, bool force)
 	mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
 }
 
-void mqtt_connect()
+void mqtt_connect(void)
 {
 	ip_resolve_state_t res;
 	bool connecting;
@@ -201,7 +201,7 @@ void mqtt_connect()
 	if (mqtt_is_connected() || connecting)
 		return;
 
-	switch(res) {
+	switch (res) {
 	case IP_NOT_RESOLEVED:
 		if (dns_gethostbyname(mqtt_context.server_url, &mqtt_context.server_addr, mqtt_server_found, NULL) != ERR_OK) {
 			hlog_info(MQTTLOG, "Resolving %s ...", mqtt_context.server_url);
@@ -236,23 +236,23 @@ void mqtt_connect()
 		mqtt_context.state = MQTT_CLIENT_DISCONNECTED;
 	mutex_exit(&mqtt_context.lock);
 
-	LWIP_LOCK_START
+	LWIP_LOCK_START;
 		mqtt_client_connect(mqtt_context.client, &mqtt_context.server_addr,
 					mqtt_context.server_port, mqtt_hook, NULL, &mqtt_context.client_info);
-	LWIP_LOCK_END
+	LWIP_LOCK_END;
 
 	mutex_enter_blocking(&mqtt_context.lock);
 		mqtt_context.connecting = true;
 	mutex_exit(&mqtt_context.lock);
 }
 
-static int mqtt_get_config()
+static int mqtt_get_config(void)
 {
 	char *str, *tok, *rest;
 	int res;
 
 	if (MQTT_SERVER_ENDPOINT_len < 1 || MQTT_TOPIC_len < 1 || MQTT_USER_len < 1)
-			return -1;
+		return -1;
 
 	mqtt_context.topic = param_get(MQTT_TOPIC);
 
@@ -307,9 +307,9 @@ bool mqtt_init(void)
 	mqtt_context.connecting = false;
 	mqtt_context.max_payload_size = MQTT_OUTPUT_RINGBUF_SIZE - (strlen(mqtt_context.topic) + 2);
 
-	LWIP_LOCK_START
+	LWIP_LOCK_START;
 		mqtt_context.client = mqtt_client_new();
-	LWIP_LOCK_END
+	LWIP_LOCK_END;
 
 	return true;
 }

@@ -36,7 +36,7 @@ typedef enum {
 	IP_NOT_RESOLEVED = 0,
 	IP_RESOLVING,
 	IP_RESOLVED
-}ip_resolve_state_t;
+} ip_resolve_state_t;
 
 bool wifi_init(void);
 void wifi_connect(void);
@@ -50,19 +50,19 @@ void mqtt_log_status(void);
 
 bool bt_init(void);
 void bt_run(void);
-void bt_log_status();
+void bt_log_status(void);
 
 bool ntp_init(void);
 void ntp_connect(void);
 bool ntp_connected(void);
 
-bool temperature_init();
-void temperature_measure();
+bool temperature_init(void);
+void temperature_measure(void);
 
 bool sw_out_init(void);
 void sw_out_set(bool state);
 
-void usb_log_status();
+void usb_log_status(void);
 
 bool lcd_init(void);
 void lcd_refresh(void);
@@ -73,8 +73,8 @@ void hlog_init(int level);
 void hlog_connect(void);
 void hlog_status(void);
 
-void system_log_status();
-char *get_uptime();
+void system_log_status(void);
+char *get_uptime(void);
 uint32_t get_free_heap(void);
 uint32_t get_total_heap(void);
 

@@ -24,20 +24,21 @@ typedef struct  {
 	char *ssid;
 	char *pass;
 	bool connected;
-}wifi_net_t;
+} wifi_net_t;
 
 struct {
 	absolute_time_t connect_time;
 	bool connect_in_progress;
 	int net_id;
 	wifi_net_t *all_nets[MAX_WIFI_NETS];
-}static wifi_context;
+} static wifi_context;
 
-void get_wifi_networks() {
+void get_wifi_networks(void)
+{
 	char *nets;
-	int idx;
-	char* rest;
+	char *rest;
 	char *tok;
+	int idx;
 
 	rest = param_get(WIFI_SSD);
 	idx = 0;
@@ -51,20 +52,21 @@ void get_wifi_networks() {
 	}
 	if (!idx)
 		return;
-	hlog_info(WIFILOG,"Got %d wifi networks", idx);
+	hlog_info(WIFILOG, "Got %d wifi networks", idx);
 	rest = param_get(WIFI_PASS);
 	idx = 0;
 	while ((tok = strtok_r(rest, ";", &rest)) && idx < MAX_WIFI_NETS)
 		wifi_context.all_nets[idx++]->pass = tok;
 }
 
-bool wifi_init()
+bool wifi_init(void)
 {
 	int i = 0;
+
 	memset(&wifi_context, 0, sizeof(wifi_context));
 	get_wifi_networks();
-	while(i < MAX_WIFI_NETS && wifi_context.all_nets[i]) {
-		hlog_info(WIFILOG,"  [%s]", wifi_context.all_nets[i]->ssid);
+	while (i < MAX_WIFI_NETS && wifi_context.all_nets[i]) {
+		hlog_info(WIFILOG, "  [%s]", wifi_context.all_nets[i]->ssid);
 		i++;
 	}
 	if (!i)
@@ -77,34 +79,34 @@ bool wifi_init()
 	return true;
 }
 
-bool wifi_is_connected()
+bool wifi_is_connected(void)
 {
 	if (!wifi_context.all_nets[0])
 		return false;
 	return (cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP);
 }
 
-void wifi_log_status()
+void wifi_log_status(void)
 {
 	int i;
 
 	if (wifi_context.net_id < 0 || wifi_context.net_id  > MAX_WIFI_NETS) {
-		hlog_info(WIFILOG,"Not connected to a WiFi network, looking for:");
+		hlog_info(WIFILOG, "Not connected to a WiFi network, looking for:");
 		for (i = 0; i < MAX_WIFI_NETS; i++)
-			hlog_info(WIFILOG,"\t%s", wifi_context.all_nets[i]->ssid);
+			hlog_info(WIFILOG, "\t%s", wifi_context.all_nets[i]->ssid);
 		return;
 	}
 
-	hlog_info(WIFILOG,"Connected to %s -> %s", wifi_context.all_nets[wifi_context.net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
+	hlog_info(WIFILOG, "Connected to %s -> %s", wifi_context.all_nets[wifi_context.net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
 }
 
-void wifi_connect()
+void wifi_connect(void)
 {
 	int err;
 
 	if (wifi_is_connected()) {
 		if (wifi_context.connect_in_progress)
-			hlog_info(WIFILOG,"Connected to %s -> got %s", wifi_context.all_nets[wifi_context.net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
+			hlog_info(WIFILOG, "Connected to %s -> got %s", wifi_context.all_nets[wifi_context.net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
 		wifi_context.connect_in_progress = false;
 		wifi_context.all_nets[wifi_context.net_id]->connected = true;
 		return;
@@ -118,15 +120,15 @@ void wifi_connect()
 		err = cyw43_arch_wifi_connect_async(wifi_context.all_nets[wifi_context.net_id]->ssid,
 											wifi_context.all_nets[wifi_context.net_id]->pass, CYW43_AUTH_WPA2_AES_PSK);
 		if (err) {
-			hlog_info(WIFILOG,"FAILED to start wifi scan for %s: %d", wifi_context.all_nets[wifi_context.net_id]->ssid, err);
+			hlog_info(WIFILOG, "FAILED to start wifi scan for %s: %d", wifi_context.all_nets[wifi_context.net_id]->ssid, err);
 		} else {
 			wifi_context.connect_in_progress = true;
 			wifi_context.connect_time = make_timeout_time_ms(CONNECT_TIMEOUT_MS);
-			hlog_info(WIFILOG,"Connecting to %s ...", wifi_context.all_nets[wifi_context.net_id]->ssid);
+			hlog_info(WIFILOG, "Connecting to %s ...", wifi_context.all_nets[wifi_context.net_id]->ssid);
 		}
 	} else if (absolute_time_diff_us(get_absolute_time(), wifi_context.connect_time) < 0) {
 		wifi_context.connect_in_progress = false;
-		hlog_info(WIFILOG,"TimeOut connecting to %s: %d",
+		hlog_info(WIFILOG, "TimeOut connecting to %s: %d",
 				wifi_context.all_nets[wifi_context.net_id]->ssid, cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA));
 	}
 }

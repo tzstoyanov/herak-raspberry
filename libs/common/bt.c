@@ -19,9 +19,9 @@
 #define CONNECT_TIMEOUT_MS 10000
 
 #define GET_INDEX_FROM_ID(_id_, _dev_, _svc_, _char_) {\
-			(_dev_) = (_id_) >> 16; (_dev_) &= 0xFF; (_dev_) -=1;\
+			(_dev_) = (_id_) >> 16; (_dev_) &= 0xFF; (_dev_) -= 1;\
 			(_svc_) = (_id_) >> 8; (_svc_) &= 0xFF;	(_svc_) -= 1;\
-			(_char_) = (_id_) & 0xFF; (_char_) -= 1;}
+			(_char_) = (_id_) & 0xFF; (_char_) -= 1; }
 
 typedef enum {
 	BT_DEV_DISCONNECTED = 0,
@@ -30,7 +30,7 @@ typedef enum {
 	BT_DEV_DISCOVERING_SECONDARY,
 	BT_DEV_DISCOVERING_CHARACTERISTIC,
 	BT_DEV_READY
-}bt_dev_state_t;
+} bt_dev_state_t;
 
 //#define BT_LOCAL_LOCK	mutex_enter_blocking(&bt_context.lock);
 //#define BT_LOCAL_UNLOCK	mutex_exit(&bt_context.lock);
@@ -45,7 +45,7 @@ typedef struct {
 	bool notify;
 	gatt_client_characteristic_t gat_char;
 	gatt_client_notification_t gat_notify;
-}bt_char_t;
+} bt_char_t;
 
 typedef struct {
 	uint32_t id;
@@ -53,7 +53,7 @@ typedef struct {
 	gatt_client_service_t gat_svc;
 	bt_char_t chars[BT_MAX_SERVICES];
 	int char_count;
-}bt_svc_t;
+} bt_svc_t;
 
 typedef struct {
 	int id;
@@ -69,7 +69,7 @@ typedef struct {
 	int svc_current;
 	bt_event_handler_t user_cb;
 	void *user_context;
-}bt_device_t;
+} bt_device_t;
 
 struct {
 	btstack_packet_callback_registration_t hci_event_cb_reg;
@@ -82,13 +82,13 @@ struct {
 	bool scanning;
 	bool verbose;
 	mutex_t lock;
-}static bt_context;
+} static bt_context;
 
 static bt_device_t *bt_get_device_by_address(bd_addr_t btaddress)
 {
 	int i = 0;
 
-	while(i < bt_context.dev_count) {
+	while (i < bt_context.dev_count) {
 		if (!memcmp(btaddress, bt_context.devcies[i].btaddress, BD_ADDR_LEN))
 			return &bt_context.devcies[i];
 		i++;
@@ -101,7 +101,7 @@ static bt_device_t *bt_get_device_by_handle(hci_con_handle_t handle)
 {
 	int i;
 
-	for(i = 0; i < bt_context.dev_count; i++)
+	for (i = 0; i < bt_context.dev_count; i++)
 		if (bt_context.devcies[i].connection_handle == handle)
 			return &(bt_context.devcies[i]);
 
@@ -122,196 +122,194 @@ static bt_char_t *bt_get_char_by_handle(bt_device_t *dev, uint16_t val_handle)
 }
 
 typedef struct advertising_report {
-    uint8_t   type;
-    uint8_t   event_type;
-    uint8_t   address_type;
-    bd_addr_t address;
-    uint8_t   rssi;
-    uint8_t   length;
-    const uint8_t * data;
+	uint8_t   type;
+	uint8_t   event_type;
+	uint8_t   address_type;
+	bd_addr_t address;
+	uint8_t   rssi;
+	uint8_t   length;
+	const uint8_t *data;
 } advertising_report_t;
 
-static const char * ad_types[] = {
-    "",
-    "Flags",
-    "Incomplete List of 16-bit Service Class UUIDs",
-    "Complete List of 16-bit Service Class UUIDs",
-    "Incomplete List of 32-bit Service Class UUIDs",
-    "Complete List of 32-bit Service Class UUIDs",
-    "Incomplete List of 128-bit Service Class UUIDs",
-    "Complete List of 128-bit Service Class UUIDs",
-    "Shortened Local Name",
-    "Complete Local Name",
-    "Tx Power Level",
-    "",
-    "",
-    "Class of Device",
-    "Simple Pairing Hash C",
-    "Simple Pairing Randomizer R",
-    "Device ID",
-    "Security Manager TK Value",
-    "Slave Connection Interval Range",
-    "",
-    "List of 16-bit Service Solicitation UUIDs",
-    "List of 128-bit Service Solicitation UUIDs",
-    "Service Data",
-    "Public Target Address",
-    "Random Target Address",
-    "Appearance",
-    "Advertising Interval"
+static const char *const ad_types[] = {
+	"",
+	"Flags",
+	"Incomplete List of 16-bit Service Class UUIDs",
+	"Complete List of 16-bit Service Class UUIDs",
+	"Incomplete List of 32-bit Service Class UUIDs",
+	"Complete List of 32-bit Service Class UUIDs",
+	"Incomplete List of 128-bit Service Class UUIDs",
+	"Complete List of 128-bit Service Class UUIDs",
+	"Shortened Local Name",
+	"Complete Local Name",
+	"Tx Power Level",
+	"",
+	"",
+	"Class of Device",
+	"Simple Pairing Hash C",
+	"Simple Pairing Randomizer R",
+	"Device ID",
+	"Security Manager TK Value",
+	"Slave Connection Interval Range",
+	"",
+	"List of 16-bit Service Solicitation UUIDs",
+	"List of 128-bit Service Solicitation UUIDs",
+	"Service Data",
+	"Public Target Address",
+	"Random Target Address",
+	"Appearance",
+	"Advertising Interval"
 };
 
-static const char * flags[] = {
-    "LE Limited Discoverable Mode",
-    "LE General Discoverable Mode",
-    "BR/EDR Not Supported",
-    "Simultaneous LE and BR/EDR to Same Device Capable (Controller)",
-    "Simultaneous LE and BR/EDR to Same Device Capable (Host)",
-    "Reserved",
-    "Reserved",
-    "Reserved"
+static const char * const flags[] = {
+	"LE Limited Discoverable Mode",
+	"LE General Discoverable Mode",
+	"BR/EDR Not Supported",
+	"Simultaneous LE and BR/EDR to Same Device Capable (Controller)",
+	"Simultaneous LE and BR/EDR to Same Device Capable (Host)",
+	"Reserved",
+	"Reserved",
+	"Reserved"
 };
 
-static void get_advertisement_data(bt_device_t *dev, const uint8_t * adv_data, uint8_t adv_size)
+static void get_advertisement_data(bt_device_t *dev, const uint8_t *adv_data, uint8_t adv_size)
 {
-    ad_context_t context;
-    bd_addr_t address;
-    uint8_t uuid_128[16];
-    int sz;
+	uint8_t uuid_128[16];
+	ad_context_t context;
+	bd_addr_t address;
+	int sz;
 
-    for (ad_iterator_init(&context, adv_size, (uint8_t *)adv_data) ; ad_iterator_has_more(&context) ; ad_iterator_next(&context)) {
-        uint8_t data_type    = ad_iterator_get_data_type(&context);
-        uint8_t size         = ad_iterator_get_data_len(&context);
-        const uint8_t * data = ad_iterator_get_data(&context);
+	for (ad_iterator_init(&context, adv_size, (uint8_t *)adv_data) ; ad_iterator_has_more(&context) ; ad_iterator_next(&context)) {
+		uint8_t data_type	= ad_iterator_get_data_type(&context);
+		uint8_t size		= ad_iterator_get_data_len(&context);
+		const uint8_t *data	= ad_iterator_get_data(&context);
+		int i;
 
-        if (data_type > 0 && data_type < 0x1B){
-        	if (bt_context.verbose)
-        		hlog_info(BTLOG,"    (%d)%s: ", data_type, ad_types[data_type]);
-        }
-        int i;
-        // Assigned Numbers GAP
+		if (data_type > 0 && data_type < 0x1B) {
+			if (bt_context.verbose)
+				hlog_info(BTLOG, "	(%d)%s: ", data_type, ad_types[data_type]);
+		}
 
-        switch (data_type){
-            case BLUETOOTH_DATA_TYPE_FLAGS:
-                // show only first octet, ignore rest
-            	if (bt_context.verbose) {
-					for (i=0; i<8;i++){
-						if (data[0] & (1<<i)){
-							hlog_info(BTLOG,"%s; ", flags[i]);
-						}
-					}
-            	}
-                break;
-            case BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS:
-            case BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS:
-            case BLUETOOTH_DATA_TYPE_LIST_OF_16_BIT_SERVICE_SOLICITATION_UUIDS:
-            	if (bt_context.verbose) {
-            		for (i=0; i<size;i+=2)
-            			hlog_info(BTLOG,"%02X ", little_endian_read_16(data, i));
-                }
-                break;
-            case BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_32_BIT_SERVICE_CLASS_UUIDS:
-            case BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_32_BIT_SERVICE_CLASS_UUIDS:
-            case BLUETOOTH_DATA_TYPE_LIST_OF_32_BIT_SERVICE_SOLICITATION_UUIDS:
-            	if (bt_context.verbose) {
-            		for (i=0; i<size;i+=4)
-            			hlog_info(BTLOG,"%04X", little_endian_read_32(data, i));
-                }
-                break;
-            case BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS:
-            case BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS:
-            case BLUETOOTH_DATA_TYPE_LIST_OF_128_BIT_SERVICE_SOLICITATION_UUIDS:
-                reverse_128(data, uuid_128);
-                if (bt_context.verbose)
-                	hlog_info(BTLOG, UUID_128_FMT, UUID_128_PARAM(uuid_128));
-                break;
-            case BLUETOOTH_DATA_TYPE_SHORTENED_LOCAL_NAME:
-            case BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME:
-            	sz = BT_DEV_MAX_NAME-1;
-            	if (size < sz)
-            		sz = size;
-            	memcpy(dev->name, data, sz);
-            	dev->name[sz] = 0;
-            	if (bt_context.verbose)
-            		hlog_info(BTLOG,"%s", dev->name);
-                break;
-            case BLUETOOTH_DATA_TYPE_TX_POWER_LEVEL:
-            	if (bt_context.verbose)
-            		hlog_info(BTLOG,"%d dBm", *(int8_t*)data);
-                break;
-            case BLUETOOTH_DATA_TYPE_SLAVE_CONNECTION_INTERVAL_RANGE:
-            	if (bt_context.verbose)
-            		hlog_info(BTLOG,"Connection Interval Min = %u ms, Max = %u ms", little_endian_read_16(data, 0) * 5/4, little_endian_read_16(data, 2) * 5/4);
-                break;
-            case BLUETOOTH_DATA_TYPE_SERVICE_DATA:
-            	if (bt_context.verbose)
-            		printf_hexdump(data, size);
-                break;
-            case BLUETOOTH_DATA_TYPE_PUBLIC_TARGET_ADDRESS:
-            case BLUETOOTH_DATA_TYPE_RANDOM_TARGET_ADDRESS:
-                reverse_bd_addr(data, address);
-                if (bt_context.verbose)
-                	hlog_info(BTLOG,"%s", bd_addr_to_str(address));
-                break;
-            case BLUETOOTH_DATA_TYPE_APPEARANCE:
-                // https://developer.bluetooth.org/gatt/characteristics/Pages/CharacteristicViewer.aspx?u=org.bluetooth.characteristic.gap.appearance.xml
-            	if (bt_context.verbose)
-            		hlog_info(BTLOG,"%02X", little_endian_read_16(data, 0) );
-                break;
-            case BLUETOOTH_DATA_TYPE_ADVERTISING_INTERVAL:
-            	if (bt_context.verbose)
-            		hlog_info(BTLOG,"%u ms", little_endian_read_16(data, 0) * 5/8 );
-                break;
-            case BLUETOOTH_DATA_TYPE_3D_INFORMATION_DATA:
-            	if (bt_context.verbose)
-            		printf_hexdump(data, size);
-                break;
-            case BLUETOOTH_DATA_TYPE_MANUFACTURER_SPECIFIC_DATA: // Manufacturer Specific Data
-                break;
-            case BLUETOOTH_DATA_TYPE_CLASS_OF_DEVICE:
-            case BLUETOOTH_DATA_TYPE_SIMPLE_PAIRING_HASH_C:
-            case BLUETOOTH_DATA_TYPE_SIMPLE_PAIRING_RANDOMIZER_R:
-            case BLUETOOTH_DATA_TYPE_DEVICE_ID:
-            case BLUETOOTH_DATA_TYPE_SECURITY_MANAGER_OUT_OF_BAND_FLAGS:
-            default:
-            	if (bt_context.verbose)
-            		hlog_info(BTLOG,"Advertising Data Type 0x%2x not handled yet", data_type);
-                break;
-        }
-    }
+		// Assigned Numbers GAP
+		switch (data_type) {
+		case BLUETOOTH_DATA_TYPE_FLAGS:
+			// show only first octet, ignore rest
+			if (bt_context.verbose) {
+				for (i = 0; i < 8; i++) {
+					if (data[0] & (1<<i))
+						hlog_info(BTLOG, "%s; ", flags[i]);
+				}
+			}
+			break;
+		case BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS:
+		case BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS:
+		case BLUETOOTH_DATA_TYPE_LIST_OF_16_BIT_SERVICE_SOLICITATION_UUIDS:
+			if (bt_context.verbose)
+				for (i = 0; i < size; i += 2)
+					hlog_info(BTLOG, "%02X ", little_endian_read_16(data, i));
+			break;
+		case BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_32_BIT_SERVICE_CLASS_UUIDS:
+		case BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_32_BIT_SERVICE_CLASS_UUIDS:
+		case BLUETOOTH_DATA_TYPE_LIST_OF_32_BIT_SERVICE_SOLICITATION_UUIDS:
+			if (bt_context.verbose)
+				for (i = 0; i < size; i += 4)
+					hlog_info(BTLOG, "%04X", little_endian_read_32(data, i));
+			break;
+		case BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS:
+		case BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS:
+		case BLUETOOTH_DATA_TYPE_LIST_OF_128_BIT_SERVICE_SOLICITATION_UUIDS:
+			reverse_128(data, uuid_128);
+			if (bt_context.verbose)
+				hlog_info(BTLOG, UUID_128_FMT, UUID_128_PARAM(uuid_128));
+			break;
+		case BLUETOOTH_DATA_TYPE_SHORTENED_LOCAL_NAME:
+		case BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME:
+			sz = BT_DEV_MAX_NAME-1;
+			if (size < sz)
+				sz = size;
+			memcpy(dev->name, data, sz);
+			dev->name[sz] = 0;
+			if (bt_context.verbose)
+				hlog_info(BTLOG, "%s", dev->name);
+			break;
+		case BLUETOOTH_DATA_TYPE_TX_POWER_LEVEL:
+			if (bt_context.verbose)
+				hlog_info(BTLOG, "%d dBm", *(int8_t *)data);
+			break;
+		case BLUETOOTH_DATA_TYPE_SLAVE_CONNECTION_INTERVAL_RANGE:
+			if (bt_context.verbose)
+				hlog_info(BTLOG, "Connection Interval Min = %u ms, Max = %u ms", little_endian_read_16(data, 0) * 5/4, little_endian_read_16(data, 2) * 5/4);
+			break;
+		case BLUETOOTH_DATA_TYPE_SERVICE_DATA:
+			if (bt_context.verbose)
+				printf_hexdump(data, size);
+			break;
+		case BLUETOOTH_DATA_TYPE_PUBLIC_TARGET_ADDRESS:
+		case BLUETOOTH_DATA_TYPE_RANDOM_TARGET_ADDRESS:
+			reverse_bd_addr(data, address);
+			if (bt_context.verbose)
+				hlog_info(BTLOG, "%s", bd_addr_to_str(address));
+			break;
+		case BLUETOOTH_DATA_TYPE_APPEARANCE:
+			// https://developer.bluetooth.org/gatt/characteristics/Pages/CharacteristicViewer.aspx?u=org.bluetooth.characteristic.gap.appearance.xml
+			if (bt_context.verbose)
+				hlog_info(BTLOG, "%02X", little_endian_read_16(data, 0));
+			break;
+		case BLUETOOTH_DATA_TYPE_ADVERTISING_INTERVAL:
+			if (bt_context.verbose)
+				hlog_info(BTLOG, "%u ms", little_endian_read_16(data, 0) * 5/8);
+			break;
+		case BLUETOOTH_DATA_TYPE_3D_INFORMATION_DATA:
+			if (bt_context.verbose)
+				printf_hexdump(data, size);
+			break;
+		case BLUETOOTH_DATA_TYPE_MANUFACTURER_SPECIFIC_DATA: // Manufacturer Specific Data
+			break;
+		case BLUETOOTH_DATA_TYPE_CLASS_OF_DEVICE:
+		case BLUETOOTH_DATA_TYPE_SIMPLE_PAIRING_HASH_C:
+		case BLUETOOTH_DATA_TYPE_SIMPLE_PAIRING_RANDOMIZER_R:
+		case BLUETOOTH_DATA_TYPE_DEVICE_ID:
+		case BLUETOOTH_DATA_TYPE_SECURITY_MANAGER_OUT_OF_BAND_FLAGS:
+		default:
+			if (bt_context.verbose)
+				hlog_info(BTLOG, "Advertising Data Type 0x%2x not handled yet", data_type);
+			break;
+		}
+	}
 }
 
-static void printUUID(uint8_t * uuid128, uint16_t uuid16)
+static void printUUID(uint8_t *uuid128, uint16_t uuid16)
 {
 	if (uuid16)
-		hlog_info(BTLOG,"%04x",uuid16);
+		hlog_info(BTLOG, "%04x", uuid16);
 	else
 		hlog_info(BTLOG, UUID_128_FMT, UUID_128_PARAM(uuid128));
 }
 
-static void dump_characteristic(gatt_client_characteristic_t * characteristic){
-	hlog_info(BTLOG,"    * characteristic: [0x%04x-0x%04x-0x%04x], properties 0x%02x, uuid ",
+static void dump_characteristic(gatt_client_characteristic_t *characteristic)
+{
+	hlog_info(BTLOG, "\t * characteristic: [0x%04x-0x%04x-0x%04x], properties 0x%02x, uuid ",
 			  characteristic->start_handle, characteristic->value_handle, characteristic->end_handle, characteristic->properties);
 	printUUID(characteristic->uuid128, characteristic->uuid16);
 }
 
-static void dump_service(gatt_client_service_t * service)
+static void dump_service(gatt_client_service_t *service)
 {
-	hlog_info(BTLOG,"    * service: [0x%04x-0x%04x], uuid ", service->start_group_handle, service->end_group_handle);
+	hlog_info(BTLOG, "\t * service: [0x%04x-0x%04x], uuid ", service->start_group_handle, service->end_group_handle);
 	printUUID(service->uuid128, service->uuid16);
 }
 
-static void parse_advertising_report(bt_device_t *dev, advertising_report_t * e)
+static void parse_advertising_report(bt_device_t *dev, advertising_report_t *e)
 {
 	if (bt_context.verbose) {
-		hlog_info(BTLOG,"    * adv. event: evt-type %u, addr-type %u, addr %s, rssi %u, length adv %u, data: ",
+		hlog_info(BTLOG, "\t * adv. event: evt-type %u, addr-type %u, addr %s, rssi %u, length adv %u, data: ",
 			e->event_type, e->address_type, bd_addr_to_str(e->address), e->rssi, e->length);
 		printf_hexdump(e->data, e->length);
 	}
 	get_advertisement_data(dev, e->data, e->length);
 }
 
-static void fill_advertising_report_from_packet(advertising_report_t * report, uint8_t *packet)
+static void fill_advertising_report_from_packet(advertising_report_t *report, uint8_t *packet)
 {
 	gap_event_advertising_report_get_address(packet, report->address);
 	report->event_type = gap_event_advertising_report_get_advertising_event_type(packet);
@@ -328,45 +326,45 @@ static void handle_gatt_client_read_value(uint8_t packet_type, uint16_t channel,
 	bool notify = false;
 	bt_device_t *dev;
 
-	switch(hci_event_packet_get_type(packet)){
-		case GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT:
-			val.len = gatt_event_characteristic_value_query_result_get_value_length(packet);
-			val.data = (uint8_t*)gatt_event_characteristic_value_query_result_get_value(packet);
-			val.val_long = false;
-			dev = bt_get_device_by_handle(gatt_event_characteristic_value_query_result_get_handle(packet));
-			if (dev)
-				charc = bt_get_char_by_handle(dev, gatt_event_characteristic_value_query_result_get_value_handle(packet));
-			if (charc) {
-				val.charId = charc->id;
-				notify = true;
-			}
-			if (bt_context.verbose)
-				hlog_info(BTLOG,"\t [%s] got characteristic value %d bytes: 0x%2X ... ", dev ? dev->name : "Unknown", val.len, val.data[0]);
-			break;
-		case GATT_EVENT_LONG_CHARACTERISTIC_VALUE_QUERY_RESULT:
-			val.len = gatt_event_long_characteristic_value_query_result_get_value_length(packet);
-			val.data = (uint8_t*)gatt_event_long_characteristic_value_query_result_get_value(packet);
-			val.val_long = true;
-			dev = bt_get_device_by_handle(gatt_event_characteristic_value_query_result_get_handle(packet));
-			if (dev)
-				charc = bt_get_char_by_handle(dev, gatt_event_characteristic_value_query_result_get_value_handle(packet));
-			if (charc) {
-				val.charId = charc->id;
-				notify = true;
-			}
-			if (bt_context.verbose)
-				hlog_info(BTLOG,"\t [%s] got characteristic LONG value %d bytes: 0x%2X ... ", dev ? dev->name : "Unknown", val.len, val.data[0]);
-			break;
-		case GATT_EVENT_QUERY_COMPLETE:
-			break;
-		default:
-			break;
+	switch (hci_event_packet_get_type(packet)) {
+	case GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT:
+		val.len = gatt_event_characteristic_value_query_result_get_value_length(packet);
+		val.data = (uint8_t *)gatt_event_characteristic_value_query_result_get_value(packet);
+		val.val_long = false;
+		dev = bt_get_device_by_handle(gatt_event_characteristic_value_query_result_get_handle(packet));
+		if (dev)
+			charc = bt_get_char_by_handle(dev, gatt_event_characteristic_value_query_result_get_value_handle(packet));
+		if (charc) {
+			val.charId = charc->id;
+			notify = true;
+		}
+		if (bt_context.verbose)
+			hlog_info(BTLOG, "\t [%s] got characteristic value %d bytes: 0x%2X ... ", dev ? dev->name : "Unknown", val.len, val.data[0]);
+		break;
+	case GATT_EVENT_LONG_CHARACTERISTIC_VALUE_QUERY_RESULT:
+		val.len = gatt_event_long_characteristic_value_query_result_get_value_length(packet);
+		val.data = (uint8_t *)gatt_event_long_characteristic_value_query_result_get_value(packet);
+		val.val_long = true;
+		dev = bt_get_device_by_handle(gatt_event_characteristic_value_query_result_get_handle(packet));
+		if (dev)
+			charc = bt_get_char_by_handle(dev, gatt_event_characteristic_value_query_result_get_value_handle(packet));
+		if (charc) {
+			val.charId = charc->id;
+			notify = true;
+		}
+		if (bt_context.verbose)
+			hlog_info(BTLOG, "\t [%s] got characteristic LONG value %d bytes: 0x%2X ... ", dev ? dev->name : "Unknown", val.len, val.data[0]);
+		break;
+	case GATT_EVENT_QUERY_COMPLETE:
+		break;
+	default:
+		break;
 	}
 	if (notify) {
-		BT_LOCAL_LOCK
+		BT_LOCAL_LOCK;
 			if (dev && dev->user_cb)
 				dev->user_cb(dev->id, BT_VALUE_RECEIVED, &val, sizeof(val), dev->user_context);
-		BT_LOCAL_UNLOCK
+		BT_LOCAL_UNLOCK;
 	}
 }
 
@@ -400,7 +398,7 @@ static void bt_new_characteristic(gatt_client_characteristic_t *gchar)
 	if (bt_context.verbose)
 		hlog_info(BTLOG, "Device [%s] svc %X got CHARACTERISTIC [%X] "UUID_128_FMT", properties 0x%X",
 				  bt_context.current_device->name, btsvc->gat_svc.uuid16, gchar->uuid16,
-				  UUID_128_PARAM((uint8_t*)gchar->uuid128), gchar->properties);
+				  UUID_128_PARAM((uint8_t *)gchar->uuid128), gchar->properties);
 	if (bt_context.current_device->user_cb) {
 		api_char.char_id = btsvc->chars[btsvc->char_count].id;
 		api_char.properties = gchar->properties;
@@ -438,7 +436,7 @@ static void bt_new_service(bt_device_t *dev, gatt_client_service_t *svc)
 	dev->services[dev->svc_count].char_count = 0;
 	if (bt_context.verbose)
 		hlog_info(BTLOG, "Device [%s] got %s SERVICE [%X]: "UUID_128_FMT, dev->name,
-				  btsvc->primary?"primary":"secondary", btsvc->gat_svc.uuid16, UUID_128_PARAM((uint8_t*)btsvc->gat_svc.uuid128));
+				  btsvc->primary?"primary":"secondary", btsvc->gat_svc.uuid16, UUID_128_PARAM((uint8_t *)btsvc->gat_svc.uuid128));
 	if (dev->user_cb) {
 		api_svc.svc_id = btsvc->id;
 		api_svc.primary = btsvc->primary;
@@ -457,12 +455,12 @@ static void handle_gatt_client_event(uint8_t packet_type, uint16_t channel, uint
 	bd_addr_t btaddr;
 	bt_device_t *dev;
 
-	BT_LOCAL_LOCK
+	BT_LOCAL_LOCK;
 		dev = bt_context.current_device;
 		if (!dev)
 			goto out;
 
-		switch(hci_event_packet_get_type(packet)){
+		switch (hci_event_packet_get_type(packet)) {
 		case GATT_EVENT_SERVICE_QUERY_RESULT:
 			gatt_event_service_query_result_get_service(packet, &svc);
 			bt_new_service(dev, &svc);
@@ -480,36 +478,36 @@ static void handle_gatt_client_event(uint8_t packet_type, uint16_t channel, uint
 			break;
 		default:
 			if (bt_context.verbose)
-				hlog_info(BTLOG,"handle_gatt_client_event for %s: %X", dev->name, hci_event_packet_get_type(packet));
+				hlog_info(BTLOG, "handle client event for %s: %X", dev->name, hci_event_packet_get_type(packet));
 			break;
 	}
 out:
-	BT_LOCAL_UNLOCK
+	BT_LOCAL_UNLOCK;
 }
 
-static void bt_wlist_all_devices()
+static void bt_wlist_all_devices(void)
 {
 	int i = 0;
 
-	while(i < bt_context.dev_count) {
+	while (i < bt_context.dev_count) {
 		if (gap_whitelist_add(BD_ADDR_TYPE_LE_PUBLIC, bt_context.devcies[i].btaddress))
-			hlog_info(BTLOG,"Error adding device %s to the whitelist", bt_context.devcies[i].name);
+			hlog_info(BTLOG, "Error adding device %s to the whitelist", bt_context.devcies[i].name);
 		else
 			if (bt_context.verbose)
-				hlog_info(BTLOG,"Whitelisted device %0.2X:%0.2X:%0.2X:%0.2X:%0.2X:%0.2X [%s]",
-						  bt_context.devcies[i].btaddress[0],bt_context.devcies[i].btaddress[1],
-						  bt_context.devcies[i].btaddress[2],bt_context.devcies[i].btaddress[3],bt_context.devcies[i].btaddress[4],
+				hlog_info(BTLOG, "Whitelisted device %0.2X:%0.2X:%0.2X:%0.2X:%0.2X:%0.2X [%s]",
+						  bt_context.devcies[i].btaddress[0], bt_context.devcies[i].btaddress[1],
+						  bt_context.devcies[i].btaddress[2], bt_context.devcies[i].btaddress[3], bt_context.devcies[i].btaddress[4],
 						  bt_context.devcies[i].btaddress[5], bt_context.devcies[i].pin);
 		i++;
 	}
 }
 
-static void trigger_scanning()
+static void trigger_scanning(void)
 {
 	bool scan = false;
 	int i;
 
-	for(i = 0; i < bt_context.dev_count; i++) {
+	for (i = 0; i < bt_context.dev_count; i++) {
 		if (bt_context.devcies[i].state == BT_DEV_DISCONNECTED) {
 			scan = true;
 			break;
@@ -533,13 +531,13 @@ static void bt_reset_device(bt_device_t *dev, bt_dev_state_t state)
 {
 	if (state == BT_DEV_DISCONNECTED && dev->user_cb)
 		dev->user_cb(dev->id, BT_DISCONNECTED, NULL, 0, dev->user_context);
-	BT_LOCAL_LOCK
+	BT_LOCAL_LOCK;
 		dev->svc_count = 0;
 		dev->state = state;
 		dev->discovering = false;
 		dev->svc_current = -1;
 		memset(dev->services, 0, BT_MAX_SERVICES * sizeof(bt_svc_t));
-	BT_LOCAL_UNLOCK
+	BT_LOCAL_UNLOCK;
 }
 
 static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
@@ -559,7 +557,7 @@ static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 			break;
 		BT_LOCAL_LOCK
 			bt_context.running = true;
-		BT_LOCAL_UNLOCK
+		BT_LOCAL_UNLOCK;
 		bt_wlist_all_devices();
 		gap_set_scan_params(1, 0x0030, 0x0030, 0);
 		trigger_scanning();
@@ -572,7 +570,7 @@ static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 			parse_advertising_report(dev, &report);
 			if (bt_context.verbose)
 				hlog_info(BTLOG, "Detected %s, connecting ... ", dev->name);
-			gap_connect(report.address,(bd_addr_type_t)report.address_type);
+			gap_connect(report.address, (bd_addr_type_t)report.address_type);
 		}
 		break;
 	case HCI_EVENT_LE_META:
@@ -582,7 +580,7 @@ static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 		hci_subevent_le_connection_complete_get_peer_address(packet, btaddr);
 		dev = bt_get_device_by_address(btaddr);
 		if (dev) {
-			BT_LOCAL_LOCK
+			BT_LOCAL_LOCK;
 				dev->state = BT_DEV_CONNECTED;
 				dev->svc_count = 0;
 				memset(dev->services, 0, BT_MAX_SERVICES * sizeof(bt_svc_t));
@@ -590,7 +588,7 @@ static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 				dev->state_time = to_ms_since_boot(get_absolute_time());
 				if (dev->user_cb)
 					dev->user_cb(dev->id, BT_CONNECTED, dev->name, strlen(dev->name)+1, dev->user_context);
-			BT_LOCAL_UNLOCK
+			BT_LOCAL_UNLOCK;
 		}
 		trigger_scanning();
 		break;
@@ -599,7 +597,7 @@ static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 		dev = bt_get_device_by_handle(handle);
 		// reason 0x3B - Unacceptable Connection Parameters
 		if (bt_context.verbose)
-			hlog_info(BTLOG,"GATT browser - DISCONNECTED %s: status 0x%2X, reason 0x%2X", dev?dev->name:"Uknown",
+			hlog_info(BTLOG, "GATT browser - DISCONNECTED %s: status 0x%2X, reason 0x%2X", dev?dev->name:"Uknown",
 					  hci_event_disconnection_complete_get_status(packet), hci_event_disconnection_complete_get_reason(packet));
 		if (dev)
 			bt_reset_device(dev, BT_DEV_DISCONNECTED);
@@ -609,13 +607,13 @@ static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 		hci_event_pin_code_request_get_bd_addr(packet, btaddr);
 		dev = bt_get_device_by_address(btaddr);
 		if (dev) {
-			hlog_info(BTLOG,"GATT device %s requested PIN %s", dev->name, dev->pin);
+			hlog_info(BTLOG, "GATT device %s requested PIN %s", dev->name, dev->pin);
 			gap_pin_code_response(dev->btaddress, dev->pin);
 		}
 		break;
 	case HCI_EVENT_COMMAND_STATUS:
 		if (bt_context.verbose)
-			hlog_info(BTLOG,"Command status : %d", hci_event_command_complete_get_command_opcode(packet));
+			hlog_info(BTLOG, "Command status : %d", hci_event_command_complete_get_command_opcode(packet));
 		break;
 	case HCI_EVENT_TRANSPORT_PACKET_SENT:
 	case HCI_EVENT_COMMAND_COMPLETE:
@@ -624,7 +622,7 @@ static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 		break;
 	default:
 		if (bt_context.verbose)
-			hlog_info(BTLOG,"Got unknown HCI event 0x%0.2X", hci_event_packet_get_type(packet));
+			hlog_info(BTLOG, "Got unknown HCI event 0x%0.2X", hci_event_packet_get_type(packet));
 		break;
 	}
 }
@@ -658,7 +656,7 @@ int bt_add_known_device(bt_addr_t addr, char *pin, bt_event_handler_t cb, void *
 	return bt_context.devcies[i].id;
 }
 
-static int bt_discover_next_char()
+static int bt_discover_next_char(void)
 {
 	int i;
 
@@ -669,7 +667,7 @@ static int bt_discover_next_char()
 	bt_context.current_device->discovering = true;
 	bt_context.current_device->state_time = to_ms_since_boot(get_absolute_time());
 	if (bt_context.verbose)
-		hlog_info(BTLOG,"Device [%s], discovery characteristic for service "UUID_128_FMT, bt_context.current_device->name,
+		hlog_info(BTLOG, "Device [%s], discovery characteristic for service "UUID_128_FMT, bt_context.current_device->name,
 				  UUID_128_PARAM(bt_context.current_device->services[bt_context.current_device->svc_current].gat_svc.uuid128));
 	if (!gatt_client_discover_characteristics_for_service(handle_gatt_client_event, bt_context.current_device->connection_handle,
 														  &bt_context.current_device->services[bt_context.current_device->svc_current].gat_svc))
@@ -678,7 +676,7 @@ static int bt_discover_next_char()
 	return -1;
 }
 
-static int bt_device_state()
+static int bt_device_state(void)
 {
 	uint32_t now;
 	int ret;
@@ -699,13 +697,13 @@ static int bt_device_state()
 	case BT_DEV_DISCOVERING_CHARACTERISTIC:
 		if (bt_context.current_device->discovering) {
 			if ((now - bt_context.current_device->state_time) > CONNECT_TIMEOUT_MS) {
-				hlog_info(BTLOG,"Timeout discovering BT services of [%s] ... ", bt_context.current_device->name);
+				hlog_info(BTLOG, "Timeout discovering BT services of [%s] ... ", bt_context.current_device->name);
 				return -1;
 			}
 		} else { /* discovery completed */
 			if (bt_context.current_device->state == BT_DEV_DISCOVERING_PRIMARY) {
 				if (bt_context.verbose)
-					hlog_info(BTLOG,"Discover secondary BT services of [%s] ... ", bt_context.current_device->name);
+					hlog_info(BTLOG, "Discover secondary BT services of [%s] ... ", bt_context.current_device->name);
 				if (gatt_client_discover_secondary_services(handle_gatt_client_event, bt_context.current_device->connection_handle))
 					return -1;
 				bt_context.current_device->state = BT_DEV_DISCOVERING_SECONDARY;
@@ -723,7 +721,7 @@ static int bt_device_state()
 					//bms_bt_char_notify_enable();
 					bt_context.current_device->state_time = to_ms_since_boot(get_absolute_time());
 					if (bt_context.verbose)
-						hlog_info(BTLOG,"Discovery of [%s] completed, device is ready", bt_context.current_device->name);
+						hlog_info(BTLOG, "Discovery of [%s] completed, device is ready", bt_context.current_device->name);
 					if (bt_context.current_device->user_cb)
 						bt_context.current_device->user_cb(bt_context.current_device->id, BT_READY, NULL, 0, bt_context.current_device->user_context);
 				}
@@ -738,7 +736,7 @@ static int bt_device_state()
 	return 0;
 }
 
-static void bt_statck_init()
+static void bt_statck_init(void)
 {
 	l2cap_init();
 	sdp_init();
@@ -807,7 +805,7 @@ static bt_char_t *get_characteristic_by_id(uint32_t char_id)
 }
 
 /************************ API ************************/
-void bt_run()
+void bt_run(void)
 {
 	bt_device_t *dev = NULL;
 	int i;
@@ -816,7 +814,7 @@ void bt_run()
 		return;
 
 	if (!bt_context.started) {
-		hlog_info(BTLOG,"Init BT stack");
+		hlog_info(BTLOG, "Init BT stack");
 		bt_statck_init();
 		if (!hci_power_control(HCI_POWER_ON))
 			bt_context.started = true;
@@ -826,7 +824,7 @@ void bt_run()
 		return;
 
 	if (bt_context.current_device) {
-		if(bt_device_state()) {
+		if (bt_device_state()) {
 			bt_reset_device(bt_context.current_device, BT_DEV_CONNECTED);
 			bt_context.current_device->state_time = to_ms_since_boot(get_absolute_time());
 			bt_context.current_device = NULL;
@@ -845,27 +843,27 @@ void bt_run()
 		bt_context.current_device = dev;
 }
 
-void bt_log_status()
+void bt_log_status(void)
 {
 	int i;
 
 	if (!bt_context.started)
 		return;
 
-	hlog_info(BTLOG,"BT stack started, %s, %s.",
+	hlog_info(BTLOG, "BT stack started, %s, %s.",
 				bt_context.running?"running":"not running yet",
 				bt_context.scanning?"scanning for devices":"not scanning for devices");
 	for (i = 0; i < bt_context.dev_count; i++) {
 		if (bt_context.devcies[i].state != BT_DEV_DISCONNECTED)
-			hlog_info(BTLOG,"\t  %s to [%s].",
+			hlog_info(BTLOG, "\t  %s to [%s].",
 					bt_context.devcies[i].state < BT_DEV_READY?"Connecting":"Connected",
 					bt_context.devcies[i].name);
 		else
-			hlog_info(BTLOG,"\t  Looking for [%s] ...", bt_context.devcies[i].name);
+			hlog_info(BTLOG, "\t  Looking for [%s] ...", bt_context.devcies[i].name);
 	}
 }
 
-bool bt_init()
+bool bt_init(void)
 {
 	memset(&bt_context, 0, sizeof(bt_context));
 	mutex_init(&bt_context.lock);
@@ -878,7 +876,7 @@ static int notify_characteristic_enable(uint32_t char_id)
 	bt_device_t *dev;
 	int ret = -1;
 
-	BT_LOCAL_LOCK
+	BT_LOCAL_LOCK;
 		dev = get_device_by_id(char_id);
 		charc = get_characteristic_by_id(char_id);
 		if (dev && charc && !charc->notify) {
@@ -888,31 +886,35 @@ static int notify_characteristic_enable(uint32_t char_id)
 			if (!ret)
 				charc->notify = true;
 		}
-	BT_LOCAL_UNLOCK
+	BT_LOCAL_UNLOCK;
 
 	return ret;
 }
 
 
-static void notify_characteristic_disable(uint32_t char_id)
+static int notify_characteristic_disable(uint32_t char_id)
 {
 	bt_char_t *charc;
 
-	BT_LOCAL_LOCK
+	BT_LOCAL_LOCK;
 		charc = get_characteristic_by_id(char_id);
 		if (charc && charc->notify)
 			gatt_client_stop_listening_for_characteristic_value_updates(&(charc->gat_notify));
-	BT_LOCAL_UNLOCK
+	BT_LOCAL_UNLOCK;
+
+	return 0;
 }
 
 int bt_characteristic_notify(uint32_t char_id, bool enable)
 {
-	if (enable)
-		return notify_characteristic_enable(char_id);
-	else
-		notify_characteristic_disable(char_id);
+	int ret;
 
-	return 0;
+	if (enable)
+		ret = notify_characteristic_enable(char_id);
+	else
+		ret = notify_characteristic_disable(char_id);
+
+	return ret;
 }
 
 int bt_characteristic_get_uuid(uint32_t id, bt_uuid128_t *u128, uint16_t *u16)
@@ -920,7 +922,7 @@ int bt_characteristic_get_uuid(uint32_t id, bt_uuid128_t *u128, uint16_t *u16)
 	bt_char_t *charc;
 	int ret = -1;
 
-	BT_LOCAL_LOCK
+	BT_LOCAL_LOCK;
 		charc = get_characteristic_by_id(id);
 		if (charc) {
 			if (u128)
@@ -929,7 +931,7 @@ int bt_characteristic_get_uuid(uint32_t id, bt_uuid128_t *u128, uint16_t *u16)
 				*u16 = charc->gat_char.uuid16;
 			ret = 0;
 		}
-	BT_LOCAL_UNLOCK
+	BT_LOCAL_UNLOCK;
 
 	return ret;
 }
@@ -939,7 +941,7 @@ int bt_service_get_uuid(uint32_t id, bt_uuid128_t *u128, uint16_t *u16)
 	bt_svc_t *svc;
 	int ret = -1;
 
-	BT_LOCAL_LOCK
+	BT_LOCAL_LOCK;
 		svc = get_service_by_id(id);
 		if (svc) {
 			if (u128)
@@ -948,7 +950,7 @@ int bt_service_get_uuid(uint32_t id, bt_uuid128_t *u128, uint16_t *u16)
 				*u16 = svc->gat_svc.uuid16;
 			ret = 0;
 		}
-	BT_LOCAL_UNLOCK
+	BT_LOCAL_UNLOCK;
 
 	return ret;
 }
@@ -959,13 +961,13 @@ int bt_characteristic_read(uint32_t char_id)
 	bt_device_t *dev;
 	int ret = -1;
 
-	BT_LOCAL_LOCK
+	BT_LOCAL_LOCK;
 		dev = get_device_by_id(char_id);
 		charc = get_characteristic_by_id(char_id);
 		if (dev && charc)
 			ret = gatt_client_read_value_of_characteristic(handle_gatt_client_read_value,
 														   dev->connection_handle, &(charc->gat_char));
-	BT_LOCAL_UNLOCK
+	BT_LOCAL_UNLOCK;
 
 	return ret;
 }
@@ -976,14 +978,14 @@ int bt_characteristic_write(uint32_t char_id, uint8_t *data, uint16_t data_len)
 	bt_device_t *dev;
 	int ret = -1;
 
-	BT_LOCAL_LOCK
+	BT_LOCAL_LOCK;
 		dev = get_device_by_id(char_id);
 		charc = get_characteristic_by_id(char_id);
 		if (dev && charc)
 			ret = gatt_client_write_value_of_characteristic_without_response(dev->connection_handle,
 																			 charc->gat_char.value_handle,
 																			 data_len, data);
-	BT_LOCAL_UNLOCK
+	BT_LOCAL_UNLOCK;
 
 	return ret;
 }

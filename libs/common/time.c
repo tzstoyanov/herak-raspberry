@@ -30,21 +30,21 @@ struct {
 	datetime_t datetime;
 	bool time_synched;
 	mutex_t lock;
-}static ntp_context;
+} static ntp_context;
 
-bool ntp_connected()
+bool ntp_connected(void)
 {
 	return ntp_context.init;
 }
 
-static const char *mnames[] = {
+static const char * const mnames[] = {
 	"Ukn", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
-void get_ntp_servers()
+void get_ntp_servers(void)
 {
-	char* rest;
+	char *rest;
 	char *tok;
 	int idx;
 
@@ -54,31 +54,31 @@ void get_ntp_servers()
 		ntp_context.ntp_servers[idx++] = tok;
 }
 
-bool ntp_init()
+bool ntp_init(void)
 {
 	int i = 0;
 
 	memset(&ntp_context, 0, sizeof(ntp_context));
 	mutex_init(&ntp_context.lock);
 	get_ntp_servers();
-	while(i < SNTP_MAX_SERVERS && ntp_context.ntp_servers[i])
+	while (i < SNTP_MAX_SERVERS && ntp_context.ntp_servers[i])
 		i++;
 	if (!i)
 		return false;
-	hlog_info(NTPLOG,"Got %d NTP servers", i, SNTP_MAX_SERVERS);
+	hlog_info(NTPLOG, "Got %d NTP servers", i, SNTP_MAX_SERVERS);
 	rtc_init();
 	sntp_setoperatingmode(SNTP_OPMODE_POLL);
 	sntp_servermode_dhcp(1);
 	i = 0;
-	while(ntp_context.ntp_servers[i] && i < SNTP_MAX_SERVERS) {
+	while (ntp_context.ntp_servers[i] && i < SNTP_MAX_SERVERS) {
 		sntp_setservername(i, ntp_context.ntp_servers[i]);
-		hlog_info(NTPLOG,"  [%s]", ntp_context.ntp_servers[i]);
+		hlog_info(NTPLOG, "  [%s]", ntp_context.ntp_servers[i]);
 		i++;
 	}
 	return true;
 }
 
-void ntp_connect()
+void ntp_connect(void)
 {
 	static char buff[64];
 
@@ -87,7 +87,7 @@ void ntp_connect()
 			if (ntp_context.time_synched) {
 				ntp_context.time_synched = false;
 				datetime_to_str(buff, 64, &ntp_context.datetime);
-				hlog_info(NTPLOG,"Time synched to [%s] UTC", buff);
+				hlog_info(NTPLOG, "Time synched to [%s] UTC", buff);
 				system_log_status();
 			}
 		mutex_exit(&ntp_context.lock);
@@ -95,18 +95,14 @@ void ntp_connect()
 	}
 	if (!wifi_is_connected())
 		return;
-	LWIP_LOCK_START
+	LWIP_LOCK_START;
 		sntp_init();
-	LWIP_LOCK_END
+	LWIP_LOCK_END;
 	ntp_context.init = true;
 }
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define UPTIME_STR_LEN	64
-char *get_uptime()
+char *get_uptime(void)
 {
 	static char buf[UPTIME_STR_LEN];
 	uint32_t msec = 0;
@@ -153,7 +149,8 @@ char *get_uptime()
 	else if (sec)
 		snprintf(buf, UPTIME_STR_LEN, "%.2d.%.3d sec",
 				sec, msec);
-	else snprintf(buf, UPTIME_STR_LEN, "%.3d msec", msec);
+	else
+		snprintf(buf, UPTIME_STR_LEN, "%.3d msec", msec);
 
 	return buf;
 }
@@ -210,9 +207,9 @@ bool tz_datetime_get(datetime_t *date)
 	int offset;
 	bool ret;
 
-	SYS_LOCK_START
+	SYS_LOCK_START;
 		ret = rtc_get_datetime(date);
-	SYS_LOCK_END
+	SYS_LOCK_END;
 	if (!ret)
 		return false;
 
@@ -252,24 +249,28 @@ char *get_current_time_str(char *buf, int buflen)
 	return buf;
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void herak_set_system_time(uint32_t sec)
 {
 	time_t epoch = sec;
-    struct tm time;
+	struct tm time;
 
-    gmtime_r(&epoch, &time);
-    ntp_context.datetime.year = (int16_t) (1900 + time.tm_year);
-    ntp_context.datetime.month = (int8_t) (time.tm_mon + 1);
-    ntp_context.datetime.day = (int8_t) time.tm_mday;
-    ntp_context.datetime.dotw = (int8_t) time.tm_wday;
-    ntp_context.datetime.hour = (int8_t) time.tm_hour;
-    ntp_context.datetime.min = (int8_t) time.tm_min;
-    ntp_context.datetime.sec = (int8_t) time.tm_sec;
+	gmtime_r(&epoch, &time);
+	ntp_context.datetime.year = (int16_t) (1900 + time.tm_year);
+	ntp_context.datetime.month = (int8_t) (time.tm_mon + 1);
+	ntp_context.datetime.day = (int8_t) time.tm_mday;
+	ntp_context.datetime.dotw = (int8_t) time.tm_wday;
+	ntp_context.datetime.hour = (int8_t) time.tm_hour;
+	ntp_context.datetime.min = (int8_t) time.tm_min;
+	ntp_context.datetime.sec = (int8_t) time.tm_sec;
 
 	/* Set time in UTC */
-	SYS_LOCK_START
+	SYS_LOCK_START;
 		rtc_set_datetime(&(ntp_context.datetime));
-	SYS_LOCK_END
+	SYS_LOCK_END;
 
 	mutex_enter_blocking(&ntp_context.lock);
 		ntp_context.time_synched = true;
