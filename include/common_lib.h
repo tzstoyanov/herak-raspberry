@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+#define ARRAY_SIZE(_a) (sizeof(_a) / sizeof((_a)[0]))
+
 #define LED_ON	{cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);}
 #define LED_OFF {cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);}
 #define param_get(X) base64_decode(X, X ## _len)

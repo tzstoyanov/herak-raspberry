@@ -31,7 +31,7 @@ typedef struct {
 	float	pv_in_bat_a;
 	float	pv_in_v;
 	int		bat_discharge_a;
-}mqtt_mppt_data_t;
+} mqtt_mppt_data_t;
 void mqtt_data_mppt(mqtt_mppt_data_t *data);
 
 typedef struct {
@@ -40,12 +40,12 @@ typedef struct {
 	float soc_p;
 	uint8_t bms_life;
 	uint32_t remain_capacity;
-}mqtt_bms_data_t;
+} mqtt_bms_data_t;
 void mqtt_data_bms(mqtt_bms_data_t *data);
 
 /* MPPT Voltron */
-bool mppt_solar_init();
-void mppt_solar_query();
+bool mppt_solar_init(void);
+void mppt_solar_query(void);
 typedef enum {
 	MPPT_QPI = 0,	/* Device Protocol ID Inquiry */
 	MPPT_QID,		/* The device serial number inquiry */
@@ -81,7 +81,7 @@ typedef enum {
 	MPPT_QLD,		/* Query output load energy of day */
 	MPPT_QLED,		/* LED status parameters */
 	MPPT_QMAX
-}voltron_qcmd_t;
+} voltron_qcmd_t;
 
 typedef enum {
 	MPPT_S_PE = 0,	/* <XXX>: setting some status enable */
@@ -104,15 +104,15 @@ typedef enum {
 	MPPT_S_POPM,	/* <mn >: Set output mode (For 4000/5000) */
 	MPPT_S_PPCP,	/* <MNN>: Setting parallel device charger priority (For 4000/5000) */
 	MPPT_S_MAX
-}voltron_scmd_t;
+} voltron_scmd_t;
 char *mppt_get_qcommand(voltron_qcmd_t idx, int *len, char *append);
 int mppt_get_qcommand_desc(voltron_qcmd_t idx, const char **cmd, const char **desc);
 int mppt_verify_reply(char *reply, int len);
 void mppt_volt_log(void);
 
 /* BMS Daly */
-bool bms_solar_init();
-void bms_solar_query();
+bool bms_solar_init(void);
+void bms_solar_query(void);
 typedef enum {
 	DALY_90 = 0,/* Query SOC of Total Voltage Current */
 	DALY_91,	/* Query Maximum Minimum Voltage of Monomer */
@@ -137,7 +137,7 @@ typedef enum {
 	DALY_62,	/* Query Software Version */
 	DALY_63,	/* Query Hardware Version */
 	DALY_MAX
-}daly_qcmd_t;
+} daly_qcmd_t;
 
 typedef enum {
 	DALY_S_10 = 0,	/* Set the rated pack capacity and nominal cell voltage */
@@ -152,7 +152,7 @@ typedef enum {
 	DALY_S_1F,		/* Set the voltage thresholds that control balancing */
 	DALY_S_20,		/* Set the short-circuit shutdown threshold and the current sampling resolution */
 	DALY_S_MAX
-}daly_scmd_t;
+} daly_scmd_t;
 char *bms_get_qcommand(daly_qcmd_t idx, int *len);
 int bms_get_qcommand_desc(daly_qcmd_t idx, const char **cmd, const char **desc);
 daly_qcmd_t bms_verify_response(char *buf, int len);

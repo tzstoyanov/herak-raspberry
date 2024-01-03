@@ -2,7 +2,6 @@
 /*
  * Copyright (C) 2023, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
  */
-
 #include <stdio.h>
 #include "string.h"
 
@@ -56,7 +55,7 @@ typedef struct {
 	int		overload_bypass_b;
 	int		output_mode;
 	float	bat_redischarge_v;
-}voltron_qdi_data_t;
+} voltron_qdi_data_t;
 
 typedef struct {
 	float	grid_v;
@@ -84,7 +83,7 @@ typedef struct {
 	float	bat_redischarge_v;
 	int		pv_ok_parallel_b;
 	int		pv_power_balance_b;
-}voltron_qpiri_data_t;
+} voltron_qpiri_data_t;
 
 typedef struct {
 	float	grid_v;
@@ -104,7 +103,7 @@ typedef struct {
 	float	bat_scc_v;
 	int		bat_discharge_a;
 	int	stat_mask;
-}voltron_qpigs_data_t;
+} voltron_qpigs_data_t;
 
 typedef struct {
 	bool	inverter_fault;
@@ -134,7 +133,7 @@ typedef struct {
 	bool	MPPT_overload_fault;
 	bool	MPPT_overload_warning;
 	bool	battery_low_to_charge;
-}voltron_qpiws_data_t;
+} voltron_qpiws_data_t;
 
 typedef struct {
 	uint8_t	buzzer:1;
@@ -146,10 +145,10 @@ typedef struct {
 	uint8_t	backlight:1;
 	uint8_t	primary_source_interrupt_alarm:1;
 	uint8_t	fault_code_record:1;
-}voltron_qflags_data_t;
+} voltron_qflags_data_t;
 
 typedef struct {
-	char	serial_number[PARAM_FIXED_SIZE]; 	// QID
+	char	serial_number[PARAM_FIXED_SIZE];	// QID
 	char	firmware_vesion[PARAM_FIXED_SIZE];	// QVFW
 	char	firmware_vesion3[PARAM_FIXED_SIZE];	// QVFW3
 	char	model_name[PARAM_FIXED_SIZE];		// QMN
@@ -161,8 +160,8 @@ typedef struct {
 	voltron_qpiws_data_t	warnings;			// QPIWS
 	voltron_qdi_data_t		qdi_data;			// QDI
 	voltron_qpiri_data_t	qpiri_data;			// QPIRI
-	voltron_qpigs_data_t	qpigs_data; 		// QPIGS
-}voltron_data_t;
+	voltron_qpigs_data_t	qpigs_data;			// QPIGS
+} voltron_data_t;
 
 struct {
 	int vid; /* Vendor ID */
@@ -177,13 +176,13 @@ struct {
 	char cmd_buff[CMD_BUF_SIZE];
 	int cmd_buf_len;
 	voltron_data_t vdata;
-}static mppt_context;
+} static mppt_context;
 
-static bool get_mppt_config()
+static bool get_mppt_config(void)
 {
 	bool ret = false;
 	char *usb_id;
-	char* rest;
+	char *rest;
 	char *tok;
 	int  id;
 
@@ -234,7 +233,7 @@ int qvfw_cmd_process(void)
 }
 
 // (EaxyzDbjkuv
-int qflag_cmd_process()
+int qflag_cmd_process(void)
 {
 	char *e = strchr(mppt_context.cmd_buff, 'E');
 
@@ -242,8 +241,8 @@ int qflag_cmd_process()
 
 	memset(&(mppt_context.vdata.status_flags), 0, sizeof(mppt_context.vdata.status_flags));
 	if (e) {
-		while(*e != '\0' && *e != 'D' && *e != '\r') {
-			switch(*e) {
+		while (*e != '\0' && *e != 'D' && *e != '\r') {
+			switch (*e) {
 			case 'A':
 			case 'a':
 					mppt_context.vdata.status_flags.buzzer = 1;
@@ -291,7 +290,7 @@ int qflag_cmd_process()
 // (230.0 50.0 0030 21.0 27.0 28.2 23.0 60 0 0 2 0 0 0 0 0 1 1 1 0 1 0 27.0 0 1
 // (BBB.B CC.C 00DD EE.E FF.F GG.G HH.H II J K L M N O P Q R S T U V W YY.Y X Z
 //   %f    %f   %d   %f   %f   %f   %f   %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d  %f %d %d
-int qdi_cmd_process()
+int qdi_cmd_process(void)
 {
 	voltron_qdi_data_t q, z;
 	int ret;
@@ -326,7 +325,7 @@ int qdi_cmd_process()
 // (230.0 13.0 230.0 50.0 13.0 3000 3000 24.0 23.0 21.5 28.2 27.0 0 40 060 0 1 2 1 01 0 0 27.0 0 1
 // (BBB.B CC.C DDD.D EE.E FF.F HHHH IIII JJ.J KK.K JJ.J KK.K LL.L O PP QQ0 O P Q R SS T U VV.V W X
 //   %f    %f    %f   %f   %f    %d  %d   %f   %f   %f   %f   %f %d %d  %d %d %d %d %d %d %d %d %f %d %d
-int qpiri_cmd_process()
+int qpiri_cmd_process(void)
 {
 	voltron_qpiri_data_t q, z;
 	int ret;
@@ -358,7 +357,7 @@ int qpiri_cmd_process()
 // (000.0 00.0 230.1 49.9 0046 0027 001 379 26.90 019 100 0012 02.2 211.6 00.00 00000 10010110 00 00 00472 110
 // (BBB.B CC.C DDD.D EE.E FFFF GGGG HHH III JJ.JJ KKK OOO TTTT EEEE UUU.U WW.WW PPPPP 76543210
 //	 %f    %f    %f    %f  %d    %d  %d  %d   %f   %d  %d   %d  %f     %f   %f    %d     %d
-int qpigs_cmd_process()
+int qpigs_cmd_process(void)
 {
 	voltron_qpigs_data_t q, z;
 	int ret;
@@ -385,7 +384,7 @@ int qpigs_cmd_process()
 }
 
 // (B
-int qmod_cmd_process()
+int qmod_cmd_process(void)
 {
 	mppt_context.vdata.mode = *(mppt_context.cmd_buff+1);
 	DBG_LOG(MPPT, "QMOD reply: [%s]: ", mppt_context.cmd_buff);
@@ -393,7 +392,7 @@ int qmod_cmd_process()
 }
 
 // (00106000
-int qet_cmd_process()
+int qet_cmd_process(void)
 {
 	uint32_t t;
 	int ret;
@@ -410,7 +409,7 @@ int qet_cmd_process()
 }
 
 // (VMIII-3000
-int qmn_cmd_process()
+int qmn_cmd_process(void)
 {
 	strncpy(mppt_context.vdata.model_name, mppt_context.cmd_buff+1, PARAM_FIXED_SIZE);
 	DBG_LOG(MPPT, "QMN reply: [%s]", mppt_context.vdata.model_name);
@@ -418,7 +417,7 @@ int qmn_cmd_process()
 }
 
 // (037
-int qgmn_cmd_process()
+int qgmn_cmd_process(void)
 {
 	strncpy(mppt_context.vdata.gen_model_name, mppt_context.cmd_buff+1, PARAM_FIXED_SIZE);
 	DBG_LOG(MPPT, "QGMN reply: [%s]", mppt_context.vdata.gen_model_name);
@@ -426,7 +425,7 @@ int qgmn_cmd_process()
 }
 
 // (20231231090017
-int qt_cmd_process()
+int qt_cmd_process(void)
 {
 	datetime_t date;
 	char buf[5];
@@ -485,7 +484,7 @@ broken:
 }
 
 // (VERFW:00002.61
-int qvfw3_cmd_process()
+int qvfw3_cmd_process(void)
 {
 	char *ver = strchr(mppt_context.cmd_buff, ':');
 
@@ -502,10 +501,10 @@ int qvfw3_cmd_process()
 typedef struct {
 	int bit;
 	bool *var;
-}qpiws_offset_t;
+} qpiws_offset_t;
 
 // (00000100000000000000000000000000000
-int qpiws_cmd_process()
+int qpiws_cmd_process(void)
 {
 	qpiws_offset_t warn[] = {
 			{1, &mppt_context.vdata.warnings.inverter_fault},			// Inverter fault
@@ -536,7 +535,7 @@ int qpiws_cmd_process()
 			{28, &mppt_context.vdata.warnings.MPPT_overload_warning},	// MPPT overload warning
 			{29, &mppt_context.vdata.warnings.battery_low_to_charge},	// Battery too low to charge
 	};
-	int sz = sizeof(warn) / sizeof(warn[0]);
+	int sz = ARRAY_SIZE(warn);
 	int i;
 
 	memset(&(mppt_context.vdata.warnings), 0, sizeof(mppt_context.vdata.warnings));
@@ -556,14 +555,14 @@ struct {
 	bool one_time;
 	bool send;
 	uint16_t min_reply_size;
-}static voltron_commnds_handler[] = {
+} static voltron_commnds_handler[] = {
 		{MPPT_QID, qid_cmd_process, 1, 1, 15},
 		{MPPT_QVFW, qvfw_cmd_process, 1, 1, 15},
 		{MPPT_QFLAG, qflag_cmd_process, 1, 1, 12},
 		{MPPT_QDI, qdi_cmd_process, 1, 1, 76},
 		{MPPT_QPIRI, qpiri_cmd_process, 1, 1, 95},
 		{MPPT_QPIGS, qpigs_cmd_process, 0, 1, 107},
-		{MPPT_QMOD, qmod_cmd_process, 1, 1 ,2},
+		{MPPT_QMOD, qmod_cmd_process, 1, 1, 2},
 		{MPPT_QPIWS, qpiws_cmd_process, 1, 1, 37},
 		{MPPT_QET, qet_cmd_process, 0, 1, 9},
 		{MPPT_QMN, qmn_cmd_process, 1, 1, 11},
@@ -571,21 +570,22 @@ struct {
 		{MPPT_QT, qt_cmd_process, 0, 1, 15}
 };
 
-static void mppt_send_mqtt_data()
+static void mppt_send_mqtt_data(void)
 {
 	mqtt_mppt_data_t data;
+
 	data.ac_out_v		= mppt_context.vdata.qpigs_data.ac_out_v;
-	data.ac_out_hz	 	= mppt_context.vdata.qpigs_data.ac_out_hz;
-	data.ac_out_va	 	= mppt_context.vdata.qpigs_data.ac_out_va;
-	data.ac_out_w	 	= mppt_context.vdata.qpigs_data.ac_out_w;
-	data.out_load_p	 	= mppt_context.vdata.qpigs_data.out_load_p;
-	data.bus_v		 	= mppt_context.vdata.qpigs_data.bus_v;
+	data.ac_out_hz		= mppt_context.vdata.qpigs_data.ac_out_hz;
+	data.ac_out_va		= mppt_context.vdata.qpigs_data.ac_out_va;
+	data.ac_out_w		= mppt_context.vdata.qpigs_data.ac_out_w;
+	data.out_load_p		= mppt_context.vdata.qpigs_data.out_load_p;
+	data.bus_v			= mppt_context.vdata.qpigs_data.bus_v;
 	data.bat_v			= mppt_context.vdata.qpigs_data.bat_v;
 	data.bat_capacity_p	= mppt_context.vdata.qpigs_data.bat_capacity_p;
 	data.bat_charge_a	= mppt_context.vdata.qpigs_data.bat_charge_a;
-	data.sink_temp 		= mppt_context.vdata.qpigs_data.sink_temp;
-	data.pv_in_bat_a 	= mppt_context.vdata.qpigs_data.pv_in_bat_a;
-	data.pv_in_v 		= mppt_context.vdata.qpigs_data.pv_in_v;
+	data.sink_temp		= mppt_context.vdata.qpigs_data.sink_temp;
+	data.pv_in_bat_a	= mppt_context.vdata.qpigs_data.pv_in_bat_a;
+	data.pv_in_v		= mppt_context.vdata.qpigs_data.pv_in_v;
 	data.bat_discharge_a	= mppt_context.vdata.qpigs_data.bat_discharge_a;
 
 	mqtt_data_mppt(&data);
@@ -610,7 +610,7 @@ static int mppt_cmd_process_known(int len)
 			ret = voltron_commnds_handler[i].cb();
 		if (!ret) {
 			if (voltron_commnds_handler[i].one_time)
-				voltron_commnds_handler[i].send =false;
+				voltron_commnds_handler[i].send = false;
 			mppt_send_mqtt_data();
 		}
 	} else {
@@ -619,7 +619,7 @@ static int mppt_cmd_process_known(int len)
 	return 0;
 }
 
-static void mppt_cmd_process ()
+static void mppt_cmd_process(void)
 {
 	const char *cmd;
 	int ret = -1;
@@ -636,11 +636,11 @@ static void mppt_cmd_process ()
 	len = mppt_verify_reply(mppt_context.cmd_buff, mppt_context.cmd_buf_len);
 	if (mppt_cmd_process_known(len)) {
 		mppt_get_qcommand_desc(mppt_context.cmd_idx, &cmd, NULL);
-		hlog_info(MPPT,"Got reply of unknown command [%s] %d bytes", cmd, len);
+		hlog_info(MPPT, "Got reply of unknown command [%s] %d bytes", cmd, len);
 	}
 }
 
-static void reset_state()
+static void reset_state(void)
 {
 	int i;
 
@@ -651,20 +651,20 @@ static void reset_state()
 		voltron_commnds_handler[i].send = true;
 }
 
-static void mppt_usb_callback (int idx, usb_event_t event, const void *data, int len, void *context)
+static void mppt_usb_callback(int idx, usb_event_t event, const void *data, int len, void *context)
 {
 	const char *cmd;
 	int i;
 
-	switch(event) {
+	switch (event) {
 	case HID_MOUNT:
 		reset_state();
 		mppt_context.usb_connected = true;
-		hlog_info(MPPT,"Voltron device %d attached", idx);
+		hlog_info(MPPT, "Voltron device %d attached", idx);
 		break;
 	case HID_UNMOUNT:
 		reset_state();
-		hlog_info(MPPT,"Voltron device %d detached", idx);
+		hlog_info(MPPT, "Voltron device %d detached", idx);
 		break;
 	case HID_REPORT:
 		DBG_LOG(MPPT, "Received HID_REPORT %d bytes", len);
@@ -672,10 +672,10 @@ static void mppt_usb_callback (int idx, usb_event_t event, const void *data, int
 		dump_hex_data(MPPT, data, len);
 #endif
 		if ((mppt_context.cmd_buf_len + len) < CMD_BUF_SIZE) {
-			memcpy(mppt_context.cmd_buff+mppt_context.cmd_buf_len, (char*)data, len);
+			memcpy(mppt_context.cmd_buff + mppt_context.cmd_buf_len, (char *)data, len);
 			mppt_context.cmd_buf_len += len;
 			for (i = 0; i < len; i++)
-				if (((char*)data)[i] == CMD_END_CHAR)
+				if (((char *)data)[i] == CMD_END_CHAR)
 					break;
 			if (i < len) {
 				mppt_cmd_process();
@@ -684,19 +684,19 @@ static void mppt_usb_callback (int idx, usb_event_t event, const void *data, int
 				mppt_context.timeout_state = false;
 			}
 		} else {
-			hlog_info(MPPT,"Command buffer overflow %d / %d", CMD_BUF_SIZE, mppt_context.cmd_buf_len + len);
+			hlog_info(MPPT, "Command buffer overflow %d / %d", CMD_BUF_SIZE, mppt_context.cmd_buf_len + len);
 		}
 
 		break;
 	}
 }
 
-bool mppt_solar_init()
+bool mppt_solar_init(void)
 {
 	memset(&mppt_context, 0, sizeof(mppt_context));
 	mppt_context.usb_idx = -1;
 	mppt_context.cmd_idx = 0;
-	mppt_context.cmd_count = sizeof(voltron_commnds_handler) / sizeof(voltron_commnds_handler[0]);
+	mppt_context.cmd_count = ARRAY_SIZE(voltron_commnds_handler);
 	if (!get_mppt_config())
 		return false;
 	mppt_context.usb_idx = usb_add_known_device(mppt_context.vid, mppt_context.pid, mppt_usb_callback, NULL);
@@ -706,9 +706,9 @@ bool mppt_solar_init()
 	return true;
 }
 
-static voltron_qcmd_t mppt_solar_cmd_test()
+static voltron_qcmd_t mppt_solar_cmd_test(void)
 {
-	static int idx = 0;
+	static int idx;
 	voltron_qcmd_t ids[] = {
 			MPPT_QT,
 			MPPT_QEY,		/* Query PV generated energy of year */
@@ -718,7 +718,7 @@ static voltron_qcmd_t mppt_solar_cmd_test()
 			MPPT_QLM,		/* Query output load energy of year */
 			MPPT_QLD,		/* Query output load energy of day */
 	};
-	static int qsize = sizeof(ids) / sizeof(ids[0]);
+	static int qsize = ARRAY_SIZE(ids);
 
 	if (idx >= qsize)
 		idx = 0;
@@ -727,9 +727,9 @@ static voltron_qcmd_t mppt_solar_cmd_test()
 
 }
 
-static voltron_qcmd_t mppt_solar_cmd_next()
+static voltron_qcmd_t mppt_solar_cmd_next(void)
 {
-	static int idx = 0;
+	static int idx;
 	int id;
 	int i;
 
@@ -783,7 +783,7 @@ static char *cmd_get(voltron_qcmd_t idx, int *len)
 	return mppt_get_qcommand(mppt_context.cmd_idx, len, param);
 }
 
-void mppt_solar_query()
+void mppt_solar_query(void)
 {
 	const char *qcmd, *qdesc;
 	uint32_t now;
@@ -795,9 +795,9 @@ void mppt_solar_query()
 		if ((now - mppt_context.cmd_send_time) > SENT_WAIT_MS) {
 			if (!mppt_context.timeout_state) {
 				if (!mppt_get_qcommand_desc(mppt_context.cmd_idx, &qcmd, &qdesc))
-					hlog_info(MPPT,"Response timeout of %s [%s]", qcmd, qdesc);
+					hlog_info(MPPT, "Response timeout of %s [%s]", qcmd, qdesc);
 				else
-					hlog_info(MPPT,"Response timeout of %d", mppt_context.cmd_idx);
+					hlog_info(MPPT, "Response timeout of %d", mppt_context.cmd_idx);
 			}
 			mppt_context.send_in_progress = false;
 			mppt_context.timeout_state = true;
@@ -819,7 +819,7 @@ void mppt_solar_query()
 					mppt_context.cmd_send_time = now;
 				}
 			} else {
-				hlog_info(MPPT,"Failed to prepare command %d", mppt_context.cmd_idx);
+				hlog_info(MPPT, "Failed to prepare command %d", mppt_context.cmd_idx);
 			}
 		}
 	}
@@ -828,16 +828,16 @@ void mppt_solar_query()
 void mppt_volt_log(void)
 {
 	if (mppt_context.usb_connected) {
-		hlog_info(MPPT,"Connected to Voltronic, connection %s",
+		hlog_info(MPPT, "Connected to Voltronic, connection %s",
 				  mppt_context.timeout_state?"timeout":"is active");
 		hlog_info(MPPT, "   Model [%s], generic name [%s], firmware [%s], firmware3 [%s], S/N [%s]",
 				  mppt_context.vdata.model_name, mppt_context.vdata.gen_model_name,
 				  mppt_context.vdata.firmware_vesion, mppt_context.vdata.firmware_vesion3,
 				  mppt_context.vdata.serial_number);
-		hlog_info(MPPT, "   Mode [%c], Device date [%.2d %.2d %.4d %.2dh], Total PV [%d] Wh",
+		hlog_info(MPPT, "   Mode [%c], Device date [%.2d.%.2d.%.4d %.2dh], Total PV [%d] Wh",
 				  mppt_context.vdata.mode, mppt_context.vdata.date.day, mppt_context.vdata.date.month,
 				  mppt_context.vdata.date.year, mppt_context.vdata.date.hour, mppt_context.vdata.pv_total_wh);
 	} else {
-		hlog_info(MPPT,"Not connected to Voltronic");
+		hlog_info(MPPT, "Not connected to Voltronic");
 	}
 }

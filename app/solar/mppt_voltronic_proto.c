@@ -15,9 +15,9 @@
 
 #define END_OF_INPUT '\r'
 #define IS_RESERVED_BYTE(_ch_) ( \
-  ((_ch_) == 0x28) || \
-  ((_ch_) == 0x0D) || \
-  ((_ch_) == 0x0A))
+		((_ch_) == 0x28) || \
+		((_ch_) == 0x0D) || \
+		((_ch_) == 0x0A))
 
 static const uint16_t crc_table[16] = {
 	0x0000, 0x1021, 0x2042, 0x3063,
@@ -29,7 +29,7 @@ static const uint16_t crc_table[16] = {
 typedef struct {
 	char *cmd;
 	char *desc;
-}mppt_command_t;
+} mppt_command_t;
 
 /* Inquiry Commands */
 static const mppt_command_t Qcommands[] = {
@@ -43,7 +43,7 @@ static const mppt_command_t Qcommands[] = {
 	{ "QFLAG",		"Device flag status"},			// (EaxyzDbjkuv<CRC><cr>
 	{ "QPIGS",		"Device general status parameters"},	// (000.0 00.0 230.1 49.9 0046 0027 001 379 26.90 019 100 0012 02.2 211.6 00.00 00000 10010110 00 00 00472 110<CRC><cr>
 	{ "QPIGS2",		"Device general status parameters (48V model)"}, // (BB.B CCC.C DDDDD <CRC><cr>
-	{ "QMOD",		"Device Mode"}, 							// (B<CRC><cr>
+	{ "QMOD",		"Device Mode"},					// (B<CRC><cr>
 	{ "QPIWS",		"Device Warning Status"},		// (00000100000000000000000000000000000<CRC><cr>
 	{ "QDI",		"Default setting value information"},	// (230.0 50.0 0030 21.0 27.0 28.2 23.0 60 0 0 2 0 0 0 0 0 1 10100 1 0 27.0 0 1<CRC><cr>
 	{ "QMCHGCR",	"Selectable value about max charging current" },			// ?
@@ -60,18 +60,18 @@ static const mppt_command_t Qcommands[] = {
 	{ "QET",		"Query total PV generated energy" },	// (00106000<CRC><cr>
 	{ "QEY2023",	"Query PV generated energy of year" },	// (NNNNNNNN<CRC><cr>
 	{ "QEM202312",	"Query PV generated energy of month" },	// (NNNNNNNN<CRC><cr>
-	{ "QED20231231","Query PV generated energy of day" },	// (NNNNNNNN<CRC><cr>
+	{ "QED20231231", "Query PV generated energy of day" },	// (NNNNNNNN<CRC><cr>
 	{ "QLT",		"Query total output load energy" },		// (NAK<CRC><cr>
 	{ "QLY2023",	"Query output load energy of year" },	// (NNNNNNNN<CRC><cr>
 	{ "QLM202312",	"Query output load energy of year" },	// (NNNNNNNN<CRC><cr>
-	{ "QLD20231231","Query output load energy of day" },	// (NNNNNNNN<CRC><cr>
+	{ "QLD20231231", "Query output load energy of day" },	// (NNNNNNNN<CRC><cr>
 	{ "QLED",		"LED status parameters" }				// (NAK<cr>
 };
 
 /* Setting parameters Commands */
 static const mppt_command_t Scommands[] = {
 	{ "PE",		"<XXX>: setting some status enable" },
-	{ "PD"		"<XXX> setting some status disable" },
+	{ "PD",		"<XXX> setting some status disable" },
 	{ "PF",		"Setting control parameter to default value" },
 	{ "F",		"<nn>: Setting device output rating frequency" },
 	{ "POP",	"<NN>: Setting device output source priority" },
@@ -91,9 +91,9 @@ static const mppt_command_t Scommands[] = {
 	{ "PPCP",	"<MNN>: Setting parallel device charger priority (For 4000/5000)" }
 };
 
-static uint16_t calculate_crc(const char* str_buffer, size_t len)
+static uint16_t calculate_crc(const char *str_buffer, size_t len)
 {
-	const unsigned char* buffer = (const unsigned char*) str_buffer;
+	const unsigned char *buffer = (const unsigned char *) str_buffer;
 	unsigned char byte;
 	uint16_t crc = 0;
 
@@ -105,7 +105,7 @@ static uint16_t calculate_crc(const char* str_buffer, size_t len)
 		crc = crc_table[(crc >> 12) ^ (byte >> 4)] ^ (crc << 4);
 		crc = crc_table[(crc >> 12) ^ (byte & 0x0F)] ^ (crc << 4);
 		buffer += sizeof(unsigned char);
-	} while(--len);
+	} while (--len);
 
 	byte = crc;
 	if (IS_RESERVED_BYTE(byte))
@@ -114,7 +114,7 @@ static uint16_t calculate_crc(const char* str_buffer, size_t len)
 	if (IS_RESERVED_BYTE(byte))
 		crc += 1 << 8;
 
-  return crc;
+	return crc;
 }
 
 int mppt_verify_reply(char *reply, int len)
@@ -140,22 +140,22 @@ int mppt_verify_reply(char *reply, int len)
 		return -1;
 
 	crc = calculate_crc(reply, rlen-2);
-	if(reply[rlen-1] != (crc & 0xFF))
+	if (reply[rlen-1] != (crc & 0xFF))
 		return -1;
 
-	if(reply[rlen-2] != ((crc >> 8) & 0xFF))
+	if (reply[rlen-2] != ((crc >> 8) & 0xFF))
 		return -1;
 
 	reply[rlen-2] = 0;
 	return strlen(reply);
 }
 
-bool mppt_check_qcommands()
+bool mppt_check_qcommands(void)
 {
-	static int qcommads_count = sizeof(Qcommands) / sizeof(Qcommands[0]);
+	static int qcommads_count = ARRAY_SIZE(Qcommands);
 
 	if (qcommads_count != MPPT_QMAX) {
-		hlog_info("COLT","Broken QComamnds array: %5 != %d", qcommads_count, MPPT_QMAX);
+		hlog_info("COLT", "Broken QComamnds array: %5 != %d", qcommads_count, MPPT_QMAX);
 		return false;
 	}
 	return true;
@@ -163,7 +163,7 @@ bool mppt_check_qcommands()
 
 char *mppt_get_qcommand(voltron_qcmd_t idx, int *len, char *append)
 {
-	static int qcommads_count = sizeof(Qcommands) / sizeof(Qcommands[0]);
+	static int qcommads_count = ARRAY_SIZE(Qcommands);
 	static char cmd_buff[COMMAND_MAX_LEN];
 	uint16_t crc;
 	int cmd_len;
@@ -194,7 +194,7 @@ char *mppt_get_qcommand(voltron_qcmd_t idx, int *len, char *append)
 
 int mppt_get_qcommand_desc(voltron_qcmd_t idx, const char **cmd, const char **desc)
 {
-	static int qcommads_count = sizeof(Qcommands) / sizeof(Qcommands[0]);
+	static int qcommads_count = ARRAY_SIZE(Qcommands);
 
 	if (idx > qcommads_count)
 		return -1;

@@ -25,7 +25,7 @@ typedef struct {
 	int id;
 	int cmd;
 	char *desc;
-}bms_command_t;
+} bms_command_t;
 
 static const bms_command_t Qcommands[] = {
 		{DALY_90, 0x90, "Query SOC of Total Voltage Current"},
@@ -68,7 +68,7 @@ static const bms_command_t Scommands[] = {
 
 char *bms_get_qcommand(daly_qcmd_t idx, int *len)
 {
-	static int qcommads_count = sizeof(Qcommands) / sizeof(Qcommands[0]);
+	static int qcommads_count = ARRAY_SIZE(Qcommands);
 	static char cmd_buff[COMMAND_LEN];
 	int i;
 
@@ -94,7 +94,7 @@ char *bms_get_qcommand(daly_qcmd_t idx, int *len)
 
 daly_qcmd_t bms_verify_response(char *buf, int len)
 {
-	static int qcommads_count = sizeof(Qcommands) / sizeof(Qcommands[0]);
+	static int qcommads_count = ARRAY_SIZE(Qcommands);
 	uint8_t crc;
 	int i;
 
@@ -123,7 +123,7 @@ daly_qcmd_t bms_verify_response(char *buf, int len)
 
 int bms_get_qcommand_desc(daly_qcmd_t idx, const char **cmd, const char **desc)
 {
-	static int qcommads_count = sizeof(Qcommands) / sizeof(Qcommands[0]);
+	static int qcommads_count = ARRAY_SIZE(Qcommands);
 	static char cmd_id[5];
 	int i;
 

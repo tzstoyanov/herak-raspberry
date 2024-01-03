@@ -30,7 +30,7 @@ struct {
 	mqtt_bms_data_t bms;
 	float internal_temp;
 	char payload[MQTT_DATA_LEN + 1];
-}static mqtt_solar_context;
+} static mqtt_solar_context;
 
 static void mqtt_data_send(bool force)
 {

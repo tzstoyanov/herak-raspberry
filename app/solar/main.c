@@ -13,17 +13,17 @@
 #define MAINLOG	"main"
 #define BLINK_INERVAL	3
 
-static void internal_temp_query()
+static void internal_temp_query(void)
 {
 	mqtt_data_internal_temp(temperature_internal_get());
 }
 
-void main_log()
+void main_log(void)
 {
 	mppt_volt_log();
 }
 
-int main()
+int main(void)
 {
 	int blinik_count = 0;
 	bool has_solar = false;
@@ -37,7 +37,7 @@ int main()
 	has_solar = mppt_solar_init();
 	has_bms = bms_solar_init();
 
-	while(true){
+	while (true) {
 		if (blinik_count++ % BLINK_INERVAL == 0) {
 			LED_ON;
 		}

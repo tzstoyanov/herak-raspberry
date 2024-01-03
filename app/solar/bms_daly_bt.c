@@ -17,8 +17,8 @@
 #define STATE_WAIT_MS	20000 /* Send command each 20s */
 #define TERM_WAIT_MS	5000 /* Wait 5s for response from terminal */
 
-#define BMS_LOCAL_LOCK	mutex_enter_blocking(&bms_context.lock);
-#define BMS_LOCAL_UNLOCK	mutex_exit(&bms_context.lock);
+#define BMS_LOCAL_LOCK		mutex_enter_blocking(&bms_context.lock)
+#define BMS_LOCAL_UNLOCK	mutex_exit(&bms_context.lock)
 
 //#define BMS_LOCAL_LOCK
 //#define BMS_LOCAL_UNLOCK
@@ -28,7 +28,7 @@
 /* HLK B20 read characteristic	0000fff1-0000-1000-8000-00805f9b34fb (Read/Notify) */
 /* HLK B20 write characteristic	0000fff2-0000-1000-8000-00805f9b34fb (Write Without Response) */
 /*							    0000FFF2-0000-1000-8000-00805F9B34FB, properties 0xE */
-#define SERIAL_SVC_UID 		  {0x00, 0x00, 0xff, 0xf0, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5f, 0x9b, 0x34, 0xfb}
+#define SERIAL_SVC_UID		  {0x00, 0x00, 0xff, 0xf0, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5f, 0x9b, 0x34, 0xfb}
 #define SERIAL_CHAR_READ_UID  {0x00, 0x00, 0xff, 0xf1, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5f, 0x9b, 0x34, 0xfb}
 #define SERIAL_CHAR_WRITE_UID {0x00, 0x00, 0xff, 0xf2, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5f, 0x9b, 0x34, 0xfb}
 
@@ -80,8 +80,9 @@ typedef struct {
 	uint8_t t_sensors;		/* number of temperature sensors */
 	uint8_t charger_running; /* Charger status (0 disconnect 1 access) */
 	uint8_t load_running;	/* Load status (0 disconnect 1 access) */
-	uint8_t	dio_states;		/*  Bit 0:DI1, Bit 1:DI2, Bit 2:DI3, Bit 3:DI4
-								Bit 4:DO1, Bit 5:DO2, Bit 6:DO3, Bit 7:DO4 */
+	uint8_t	dio_states;	/*	Bit 0:DI1, Bit 1:DI2, Bit 2:DI3, Bit 3:DI4
+						 *	Bit 4:DO1, Bit 5:DO2, Bit 6:DO3, Bit 7:DO4
+						 */
 
 	/* 0x95 */
 	uint16_t	cells_voltage[DALY_MAX_CELLS];		/* Cell voltage (1 mV) */
@@ -91,9 +92,9 @@ typedef struct {
 	uint8_t	cells_states[DALY_MAX_CELLS/8];			/* 1 bit per cell: 0： Closed 1： Open */
 
 	/* 0x98 */
-	uint8_t fail_status[7];
+	uint8_t	fail_status[7];
 	uint8_t	fail_code;
-}bms_daly_state_t;
+} bms_daly_state_t;
 
 #define IS_TERMINAL_READY	(bms_context.terminal.readId && bms_context.terminal.writeId)
 
@@ -102,7 +103,7 @@ typedef struct {
 	uint32_t	writeId;
 	bool wait_response;
 	uint32_t send_time;
-}bt_terminal_t;
+} bt_terminal_t;
 
 struct {
 	bt_addr_t address;
@@ -116,12 +117,12 @@ struct {
 	uint32_t	read_chars[BT_MAX_SERVICES];
 	uint8_t		rchars_count;
 	int qcommand;
-}static bms_context;
+} static bms_context;
 
-#define GET_U16(_dd_) ((((char*)(_dd_))[0] << 8) | (((char*)(_dd_))[1]))
-#define GET_U32(_dd_) ((((char*)(_dd_))[0] << 0x18) | (((char*)(_dd_))[1]) << 0x10 | (((char*)(_dd_))[2]) << 0x08 | ((char*)(_dd_))[3])
+#define GET_U16(_dd_) ((((char *)(_dd_))[0] << 8) | (((char *)(_dd_))[1]))
+#define GET_U32(_dd_) ((((char *)(_dd_))[0] << 0x18) | (((char *)(_dd_))[1]) << 0x10 | (((char *)(_dd_))[2]) << 0x08 | ((char *)(_dd_))[3])
 
-static void bms_send_mqtt_data()
+static void bms_send_mqtt_data(void)
 {
 	mqtt_bms_data_t data;
 
@@ -229,7 +230,7 @@ typedef void (*cmd_handler_t) (char *buf);
 struct {
 	daly_qcmd_t id;
 	cmd_handler_t cb;
-}static daly_commnds_handler[] = {
+} static daly_commnds_handler[] = {
 		{DALY_90, d90_cmd_process},
 		{DALY_91, d91_cmd_process},
 		{DALY_92, d92_cmd_process},
@@ -245,37 +246,24 @@ static void check_terminal(bt_characteristic_t *charc)
 {
 	bt_uuid128_t svc128;
 
-	if (bt_service_get_uuid(charc->char_id, &svc128, NULL)) {
-		hlog_info(BMS,"check_terminal bt_service_get_uuid failed for 0x%X", charc->char_id);
+	if (bt_service_get_uuid(charc->char_id, &svc128, NULL))
 		return;
-	}
-	if (memcmp(svc128, bt_serial_svc, BT_UUID128_LEN)) {
-		hlog_info(BMS,"check_terminal svc mismatch: "UUID_128_FMT" != "UUID_128_FMT, UUID_128_PARAM(svc128), UUID_128_PARAM(bt_serial_svc));
+
+	if (memcmp(svc128, bt_serial_svc, BT_UUID128_LEN))
 		return;
-	}
 
 	if (!memcmp(charc->uuid128, bt_read_char, BT_UUID128_LEN) &&
-		(charc->properties & ATT_PROPERTY_READ)) {
-			bms_context.terminal.readId = charc->char_id;
-			hlog_info(BMS,"check_terminal READ found! 0x%X, ready %d", charc->char_id, IS_TERMINAL_READY);
-	} else {
-		hlog_info(BMS,"check_terminal READ mismatch: "UUID_128_FMT" != "UUID_128_FMT", 0x%X / 0x%X",
-				UUID_128_PARAM(charc->uuid128), UUID_128_PARAM(bt_read_char), charc->properties, ATT_PROPERTY_READ);
-	}
+		(charc->properties & ATT_PROPERTY_READ))
+		bms_context.terminal.readId = charc->char_id;
 
 	if (!memcmp(charc->uuid128, bt_write_char, BT_UUID128_LEN) &&
-		(charc->properties & ATT_PROPERTY_WRITE_WITHOUT_RESPONSE)) {
-			bms_context.terminal.writeId = charc->char_id;
-			hlog_info(BMS,"check_terminal WRITE found! 0x%X, ready %d", charc->char_id, IS_TERMINAL_READY);
-	} else {
-		hlog_info(BMS,"check_terminal WRITE mismatch: "UUID_128_FMT" != "UUID_128_FMT", 0x%X / 0x%X",
-				UUID_128_PARAM(charc->uuid128), UUID_128_PARAM(bt_write_char), charc->properties, ATT_PROPERTY_READ);
-	}
+		(charc->properties & ATT_PROPERTY_WRITE_WITHOUT_RESPONSE))
+		bms_context.terminal.writeId = charc->char_id;
 }
 
 static void process_response(daly_qcmd_t cmd, char *buf)
 {
-	static int qsize = sizeof(daly_commnds_handler) / sizeof(daly_commnds_handler[0]);
+	static int qsize = ARRAY_SIZE(daly_commnds_handler);
 	int i;
 
 	for (i = 0; i < qsize; i++) {
@@ -295,26 +283,26 @@ static void daly_bt_process_data(bt_characteristicvalue_t *val)
 
 	if (IS_TERMINAL_READY && val->charId == bms_context.terminal.readId) {
 		bms_context.terminal.wait_response = false;
-		hlog_info(BMS,"Got %d bytes %s data from terminal",
+		hlog_info(BMS, "Got %d bytes %s data from terminal",
 				  val->len, val->val_long?"long":"short");
 		cmd = bms_verify_response(val->data, val->len);
 		if (cmd < DALY_MAX && !bms_get_qcommand_desc(cmd, &qcmd, &qdesc)) {
-			hlog_info(BMS,"Got response [%s] %s", qcmd, qdesc);
+			hlog_info(BMS, "Got response [%s] %s", qcmd, qdesc);
 			process_response(cmd, val->data + 4);
 			bms_send_mqtt_data();
 		} else {
-			hlog_info(BMS,"Invalid terminal response:");
+			hlog_info(BMS, "Invalid terminal response:");
 			dump_hex_data(BMS, val->data, val->len);
 		}
 	} else {
-		hlog_info(BMS,"Got %d bytes %s data from characteristic ["UUID_128_FMT"], but terminal is not ready %d ",
+		hlog_info(BMS, "Got %d bytes %s data from characteristic ["UUID_128_FMT"], but terminal is not ready %d ",
 				  val->len, val->val_long?"long":"short", UUID_128_PARAM(char128), IS_TERMINAL_READY);
 #if 0
 		if (!bt_service_get_uuid(val->charId, &svc128, NULL) && !bt_characteristic_get_uuid(val->charId, &char128, NULL)) {
-			hlog_info(BMS,"Got %d bytes %s data from svc ["UUID_128_FMT"], characteristic ["UUID_128_FMT"]:",
+			hlog_info(BMS, "Got %d bytes %s data from svc ["UUID_128_FMT"], characteristic ["UUID_128_FMT"]:",
 					  val->len, val->val_long?"long":"short", UUID_128_PARAM(svc128), UUID_128_PARAM(char128));
-		}else {
-			hlog_info(BMS,"Got %d bytes %s data from uknown characteristic",
+		} else {
+			hlog_info(BMS, "Got %d bytes %s data from uknown characteristic",
 					  val->len, val->val_long?"long":"short");
 		}
 		dump_hex_data(BMS, val->data, val->len);
@@ -330,17 +318,17 @@ static void daly_bt_event(int idx, bt_event_t event, const void *data, int data_
 	bt_service_t *svc;
 	uint16_t u16;
 
-	BMS_LOCAL_LOCK
+	BMS_LOCAL_LOCK;
 		if (idx != bms_context.bt_index)
 			goto out;
-		switch(event) {
+		switch (event) {
 		case BT_CONNECTED:
 			bms_context.state = BT_CONNECTED;
 			free(bms_context.name);
 			bms_context.name = strdup(data);
 			memset(&bms_context.terminal, 0, sizeof(bms_context.terminal));
 			if (bms_context.state != BT_CONNECTED)
-				hlog_info(BMS,"Connected to %s", bms_context.name);
+				hlog_info(BMS, "Connected to %s", bms_context.name);
 			bms_context.state = BT_CONNECTED;
 			break;
 		case BT_DISCONNECTED:
@@ -360,13 +348,13 @@ static void daly_bt_event(int idx, bt_event_t event, const void *data, int data_
 		case BT_NEW_SERVICE:
 			if (data_len != sizeof(bt_service_t))
 				break;
-			svc = (bt_service_t*)data;
+			svc = (bt_service_t *)data;
 			hlog_info(BMS, "New service discovered (0x%X): ["UUID_128_FMT"]", svc->uuid16, UUID_128_PARAM(svc->uuid128));
 			break;
 		case BT_NEW_CHARACTERISTIC:
 			if (data_len != sizeof(bt_characteristic_t))
 				break;
-			charc = (bt_characteristic_t*)data;
+			charc = (bt_characteristic_t *)data;
 			check_terminal(charc);
 			if ((charc->properties & ATT_PROPERTY_READ) && bms_context.rchars_count < BT_MAX_SERVICES)
 				bms_context.read_chars[bms_context.rchars_count++] = charc->char_id;
@@ -377,23 +365,23 @@ static void daly_bt_event(int idx, bt_event_t event, const void *data, int data_
 			break;
 		case BT_VALUE_RECEIVED:
 			if (data_len == sizeof(bt_characteristicvalue_t) && bms_context.state == BT_READY)
-				daly_bt_process_data((bt_characteristicvalue_t*)data);
+				daly_bt_process_data((bt_characteristicvalue_t *)data);
 			break;
 		}
 out:
-	BMS_LOCAL_UNLOCK
+	BMS_LOCAL_UNLOCK;
 }
 
-void bms_solar_query()
+void bms_solar_query(void)
 {
-	static uint8_t rchar = 0;
 	const char *qcmd, *qdesc;
+	static uint8_t rchar;
 	uint32_t now;
 	int len, ret;
 	char *cmd;
 
 	now = to_ms_since_boot(get_absolute_time());
-	BMS_LOCAL_LOCK
+	BMS_LOCAL_LOCK;
 		if (bms_context.state != BT_READY)
 			goto out;
 		if (IS_TERMINAL_READY) {
@@ -402,15 +390,15 @@ void bms_solar_query()
 			bms_context.terminal.wait_response = false;
 			cmd = bms_get_qcommand(bms_context.qcommand, &len);
 			if (cmd && !bt_characteristic_write(bms_context.terminal.writeId, cmd, len)) {
-					bms_context.terminal.send_time = now;
-					bms_context.terminal.wait_response = true;
-					bms_get_qcommand_desc(bms_context.qcommand, &qcmd, &qdesc);
-					hlog_info(BMS,"Sent to device %d bytes query %d: [%s] (%s); %d",
-							  len, bms_context.qcommand, qcmd, qdesc, ret);
-					busy_wait_ms(20);
-					bt_characteristic_read(bms_context.terminal.readId);
+				bms_context.terminal.send_time = now;
+				bms_context.terminal.wait_response = true;
+				bms_get_qcommand_desc(bms_context.qcommand, &qcmd, &qdesc);
+				hlog_info(BMS, "Sent to device %d bytes query %d: [%s] (%s); %d",
+						  len, bms_context.qcommand, qcmd, qdesc, ret);
+				busy_wait_ms(20);
+				bt_characteristic_read(bms_context.terminal.readId);
 			} else {
-				hlog_info(BMS,"Failed to send command %d", bms_context.qcommand);
+				hlog_info(BMS, "Failed to send command %d", bms_context.qcommand);
 			}
 			bms_context.qcommand++;
 			if (bms_context.qcommand > DALY_98)
@@ -421,10 +409,10 @@ void bms_solar_query()
 //			bt_characteristic_read(bms_context.read_chars[rchar++]);
 		}
 out:
-	BMS_LOCAL_UNLOCK
+	BMS_LOCAL_UNLOCK;
 }
 
-static bool get_bms_config()
+static bool get_bms_config(void)
 {
 	bool ret = false;
 	char *bt_id;
@@ -446,7 +434,7 @@ static bool get_bms_config()
 
 	rest1 = tok;
 	i = 0;
-	while ((tok = strtok_r(rest1, ":", &rest1))  && i < 6 )
+	while ((tok = strtok_r(rest1, ":", &rest1))  && i < 6)
 		bms_context.address[i++] = (int)strtol(tok, NULL, 16);
 	if (i != 6)
 		goto out;
@@ -454,14 +442,14 @@ static bool get_bms_config()
 	ret = true;
 out:
 	free(bt_id);
-	if(!ret) {
+	if (!ret) {
 		free(bms_context.pin);
 		bms_context.pin = NULL;
 	}
 	return ret;
 }
 
-bool bms_solar_init()
+bool bms_solar_init(void)
 {
 	memset(&bms_context, 0, sizeof(bms_context));
 	mutex_init(&bms_context.lock);
@@ -470,7 +458,7 @@ bool bms_solar_init()
 	if (!get_bms_config())
 		return false;
 	bms_context.bt_index = bt_add_known_device(bms_context.address, bms_context.pin, daly_bt_event, NULL);
-	if (bms_context.bt_index < 1 )
+	if (bms_context.bt_index < 1)
 		return false;
 
 	return true;
