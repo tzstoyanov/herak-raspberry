@@ -24,10 +24,12 @@
 
 #define FACILITY 1
 
+#define LOG_LOCK	mutex_enter_blocking(&log_context.lock);
+#define LOG_UNLOCK	mutex_exit(&log_context.lock);
+
 struct {
 	char *server_url;
 	int server_port;
-	bool resolved;
 	ip_addr_t server_addr;
 	ip_resolve_state_t sever_ip_state;
 	struct udp_pcb *log_pcb;
@@ -38,19 +40,19 @@ struct {
 
 static void log_server_found(const char *hostname, const ip_addr_t *ipaddr, void *arg)
 {
-	mutex_enter_blocking(&log_context.lock);
+	LOG_LOCK;
 		memcpy(&(log_context.server_addr), ipaddr, sizeof(ip_addr_t));
 		log_context.sever_ip_state = IP_RESOLVED;
-	mutex_exit(&log_context.lock);
+	LOG_UNLOCK;
 }
 
 bool hlog_remoute(void)
 {
 	bool res;
 
-	mutex_enter_blocking(&log_context.lock);
+	LOG_LOCK;
 		res = (log_context.sever_ip_state == IP_RESOLVED);
-	mutex_exit(&log_context.lock);
+	LOG_UNLOCK;
 
 	return res;
 }
@@ -90,10 +92,10 @@ void hlog_status(void)
 		return;
 	}
 
-	mutex_enter_blocking(&log_context.lock);
+	LOG_LOCK;
 		memcpy(&server_addr, &(log_context.server_addr), sizeof(ip_addr_t));
 		sever_ip_state = log_context.sever_ip_state;
-	mutex_exit(&log_context.lock);
+	LOG_UNLOCK;
 
 	switch (sever_ip_state) {
 	case IP_NOT_RESOLEVED:
@@ -117,7 +119,7 @@ void hlog_connect(void)
 	if (!log_context.server_url || !wifi_is_connected())
 		return;
 
-	mutex_enter_blocking(&log_context.lock);
+	LOG_LOCK;
 		if (log_context.sever_ip_state == IP_RESOLVED)
 			goto out;
 
@@ -131,9 +133,9 @@ void hlog_connect(void)
 
 		switch (log_context.sever_ip_state) {
 		case IP_NOT_RESOLEVED:
-			mutex_exit(&log_context.lock);
+			LOG_UNLOCK;
 				res = dns_gethostbyname(log_context.server_url, &log_context.server_addr, log_server_found, NULL);
-			mutex_enter_blocking(&log_context.lock);
+			LOG_LOCK;
 			if (res != ERR_OK) {
 				log_context.sever_ip_state = IP_RESOLVING;
 				resolving = true;
@@ -151,7 +153,7 @@ void hlog_connect(void)
 			goto out;
 		}
 out:
-	mutex_exit(&log_context.lock);
+	LOG_UNLOCK;
 	if (resolving)
 		hlog_info(LLOG, "Resolving %s ...", log_context.server_url);
 	if (conncted)
@@ -211,7 +213,7 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 	if (log_context.log_level < severity)
 		return;
 
-	mutex_enter_blocking(&log_context.lock);
+	LOG_LOCK;
 		LBUFF_PRINT("<%d>", FACILITY*8 + severity);
 		LBUFF_PRINT("%s ", get_current_time_str(time_buff, 32));
 		LBUFF_PRINT("%s ", log_context.hostname);
@@ -225,5 +227,5 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 
 		if (log_context.sever_ip_state == IP_RESOLVED)
 			slog_send(log_buff);
-	mutex_exit(&log_context.lock);
+	LOG_UNLOCK;
 }

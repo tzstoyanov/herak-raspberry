@@ -25,6 +25,9 @@
 
 #define MAX_USB_DEVICES	2
 
+#define USB_LOCK	mutex_enter_blocking(&usb_context.lock);
+#define USB_UNLOCK	mutex_exit(&usb_context.lock);
+
 typedef struct {
 	int			index;
 	uint8_t		dev_addr;
@@ -65,7 +68,7 @@ int usb_add_known_device(uint16_t vid, uint16_t pid, usb_event_handler_t cb, voi
 {
 	int i;
 
-	mutex_enter_blocking(&usb_context.lock);
+	USB_LOCK;
 		if (vid) {
 			for (i = 0; i < MAX_USB_DEVICES; i++) {
 				if (!usb_context.devices[i].desc.vid && !usb_context.devices[i].desc.pid) {
@@ -81,7 +84,7 @@ int usb_add_known_device(uint16_t vid, uint16_t pid, usb_event_handler_t cb, voi
 		} else {
 			usb_context.force_init = true;
 		}
-	mutex_exit(&usb_context.lock);
+	USB_UNLOCK;
 
 	if (i >= MAX_USB_DEVICES)
 		i = -1;
@@ -98,13 +101,13 @@ int usb_send_to_device(int idx, char *buf, int len)
 	if (!usb_context.devices[idx].hid_mount)
 		return -1;
 
-	mutex_enter_blocking(&usb_context.lock);
+	USB_LOCK;
 
 //		report_id = 0, report_type = HID_REPORT_TYPE_OUTPUT, report = led bitmask (1 for each LED), len = 1
 		ret = tuh_hid_set_report(usb_context.devices[idx].dev_addr, usb_context.devices[idx].instance, 0, HID_REPORT_TYPE_OUTPUT, buf, len);
 //		ret = tuh_cdc_write(usb_context.devices[idx].cdc_index, buf, len);
 //		tuh_cdc_write_flush(usb_context.devices[idx].cdc_index);
-	mutex_exit(&usb_context.lock);
+	USB_UNLOCK;
 
 //	hlog_info(USBLOG,"Sent %d bytes to device %0.4X:%0.4X: %d",
 //			  len, usb_context.devices[idx].desc.vid, usb_context.devices[idx].desc.pid, ret);
@@ -469,7 +472,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 	tuh_vid_pid_get(dev_addr, &vid, &pid);
 	itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
-	mutex_enter_blocking(&usb_context.lock);
+	USB_LOCK;
 		dev = get_usb_device_by_vidpid(vid, pid);
 		if (dev) {
 			dev->dev_addr = dev_addr;
@@ -478,7 +481,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 		}
 		if (dev->user_cb)
 			dev->user_cb(dev->index, HID_MOUNT, &(dev->desc), sizeof(dev->desc), dev->user_context);
-	mutex_exit(&usb_context.lock);
+	USB_UNLOCK;
 
 	if (!dev) {
 		uint8_t pr, inst;
@@ -510,13 +513,13 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 	uint16_t vid, pid;
 
 	tuh_vid_pid_get(dev_addr, &vid, &pid);
-	mutex_enter_blocking(&usb_context.lock);
+	USB_LOCK;
 		dev = get_usb_device_by_vidpid(vid, pid);
 		if (dev)
 			dev->hid_mount = false;
 		if (dev->user_cb)
 			dev->user_cb(dev->index, HID_UNMOUNT, &(dev->desc), sizeof(dev->desc), dev->user_context);
-	mutex_exit(&usb_context.lock);
+	USB_UNLOCK;
 
 	if (!dev)
 		hlog_info(USBLOG, "Unknown HID device %0.4X:%0.4X is unmounted: address = %X, instance = %d",
@@ -530,11 +533,11 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 	uint16_t vid, pid;
 
 	tuh_vid_pid_get(dev_addr, &vid, &pid);
-	mutex_enter_blocking(&usb_context.lock);
+	USB_LOCK;
 		dev = get_usb_device_by_vidpid(vid, pid);
 		if (dev->user_cb)
 			dev->user_cb(dev->index, HID_REPORT, report, len, dev->user_context);
-	mutex_exit(&usb_context.lock);
+	USB_UNLOCK;
 
 	if (!dev) {
 		char print_buff[32], buf[4];

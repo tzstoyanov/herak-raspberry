@@ -20,6 +20,9 @@
 #define NTPLOG	"ntp"
 #define CONNECT_TIMEOUT_MS 5000
 
+#define TIME_LOCK	mutex_enter_blocking(&ntp_context.lock);
+#define TIME_UNLOCK	mutex_exit(&ntp_context.lock);
+
 struct {
 	char *ntp_servers[SNTP_MAX_SERVERS];
 	bool init;
@@ -83,14 +86,14 @@ void ntp_connect(void)
 	static char buff[64];
 
 	if (ntp_context.init) {
-		mutex_enter_blocking(&ntp_context.lock);
+		TIME_LOCK;
 			if (ntp_context.time_synched) {
 				ntp_context.time_synched = false;
 				datetime_to_str(buff, 64, &ntp_context.datetime);
 				hlog_info(NTPLOG, "Time synched to [%s] UTC", buff);
 				system_log_status();
 			}
-		mutex_exit(&ntp_context.lock);
+		TIME_UNLOCK;
 		return;
 	}
 	if (!wifi_is_connected())
@@ -272,9 +275,9 @@ void herak_set_system_time(uint32_t sec)
 		rtc_set_datetime(&(ntp_context.datetime));
 	SYS_LOCK_END;
 
-	mutex_enter_blocking(&ntp_context.lock);
+	TIME_LOCK;
 		ntp_context.time_synched = true;
-	mutex_exit(&ntp_context.lock);
+	TIME_UNLOCK;
 }
 
 #ifdef __cplusplus
