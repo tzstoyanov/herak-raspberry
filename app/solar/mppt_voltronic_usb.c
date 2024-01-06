@@ -835,7 +835,8 @@ void mppt_volt_log(void)
 				  mppt_context.vdata.firmware_vesion, mppt_context.vdata.firmware_vesion3,
 				  mppt_context.vdata.serial_number);
 		hlog_info(MPPT, "   Mode [%c], Device date [%.2d.%.2d.%.4d %.2dh], Total PV [%d] Wh",
-				  mppt_context.vdata.mode, mppt_context.vdata.date.day, mppt_context.vdata.date.month,
+				  mppt_context.vdata.mode?mppt_context.vdata.mode:'?',
+				  mppt_context.vdata.date.day, mppt_context.vdata.date.month,
 				  mppt_context.vdata.date.year, mppt_context.vdata.date.hour, mppt_context.vdata.pv_total_wh);
 	} else {
 		hlog_info(MPPT, "Not connected to Voltronic");
