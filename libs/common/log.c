@@ -134,7 +134,9 @@ void hlog_connect(void)
 		switch (log_context.sever_ip_state) {
 		case IP_NOT_RESOLEVED:
 			LOG_UNLOCK;
+			LWIP_LOCK_START;
 				res = dns_gethostbyname(log_context.server_url, &log_context.server_addr, log_server_found, NULL);
+			LWIP_LOCK_END;
 			LOG_LOCK;
 			if (res != ERR_OK) {
 				log_context.sever_ip_state = IP_RESOLVING;

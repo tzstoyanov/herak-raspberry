@@ -225,7 +225,10 @@ void mqtt_connect(void)
 
 	switch (res) {
 	case IP_NOT_RESOLEVED:
-		if (dns_gethostbyname(mqtt_context.server_url, &mqtt_context.server_addr, mqtt_server_found, NULL) != ERR_OK) {
+		LWIP_LOCK_START;
+			ret = dns_gethostbyname(mqtt_context.server_url, &mqtt_context.server_addr, mqtt_server_found, NULL);
+		LWIP_LOCK_END;
+		if (ret != ERR_OK) {
 			hlog_info(MQTTLOG, "Resolving %s ...", mqtt_context.server_url);
 			MQTT_CLIENT_LOCK;
 				mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
@@ -241,7 +244,7 @@ void mqtt_connect(void)
 	case IP_RESOLVED:
 		break;
 	case IP_RESOLVING:
-		if ((now - mqtt_context.last_send) > IP_TIMEOUT_MS) {
+		if ((now - last_send) > IP_TIMEOUT_MS) {
 			MQTT_CLIENT_LOCK;
 				mqtt_context.sever_ip_state = IP_NOT_RESOLEVED;
 			MQTT_CLIENTL_UNLOCK;
