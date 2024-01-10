@@ -170,6 +170,7 @@ struct {
 	bool usb_connected;
 	bool send_in_progress;
 	bool timeout_state;
+	uint32_t timeout_count;
 	uint32_t cmd_send_time;
 	voltron_qcmd_t cmd_idx;
 	int cmd_count;
@@ -681,6 +682,8 @@ static void mppt_usb_callback(int idx, usb_event_t event, const void *data, int 
 				mppt_cmd_process();
 				mppt_context.cmd_buf_len = 0;
 				mppt_context.send_in_progress = false;
+				if (mppt_context.timeout_state)
+					hlog_info(MPPT, "Got response of cmd %d, exit timeout state", mppt_context.cmd_idx);
 				mppt_context.timeout_state = false;
 			}
 		} else {
@@ -794,6 +797,7 @@ void mppt_solar_query(void)
 		now = to_ms_since_boot(get_absolute_time());
 		if ((now - mppt_context.cmd_send_time) > SENT_WAIT_MS) {
 			if (!mppt_context.timeout_state) {
+				mppt_context.timeout_count++;
 				if (!mppt_get_qcommand_desc(mppt_context.cmd_idx, &qcmd, &qdesc))
 					hlog_info(MPPT, "Response timeout of %s [%s]", qcmd, qdesc);
 				else
@@ -811,13 +815,13 @@ void mppt_solar_query(void)
 			cmd = cmd_get(mppt_context.cmd_idx, &len);
 			if (cmd) {
 				mppt_context.cmd_buf_len = 0;
-				mppt_get_qcommand_desc(mppt_context.cmd_idx, &qcmd, &qdesc);
 				ret = usb_send_to_device(mppt_context.usb_idx, cmd, len);
-				DBG_LOG(MPPT, "Sent command %d: %s [%s]; %d", mppt_context.cmd_idx, qcmd, qdesc, ret);
 				if (!ret) {
 					mppt_context.send_in_progress = true;
 					mppt_context.cmd_send_time = now;
 				}
+				mppt_get_qcommand_desc(mppt_context.cmd_idx, &qcmd, &qdesc);
+				DBG_LOG(MPPT, "Sent command %d: %s [%s]; %d", mppt_context.cmd_idx, qcmd, qdesc, ret);
 			} else {
 				hlog_info(MPPT, "Failed to prepare command %d", mppt_context.cmd_idx);
 			}
@@ -828,12 +832,11 @@ void mppt_solar_query(void)
 void mppt_volt_log(void)
 {
 	if (mppt_context.usb_connected) {
-		hlog_info(MPPT, "Connected to Voltronic, connection %s",
-				  mppt_context.timeout_state?"timeout":"is active");
-		hlog_info(MPPT, "   Model [%s], generic name [%s], firmware [%s], firmware3 [%s], S/N [%s]",
+		hlog_info(MPPT, "Connected to Voltronic, connection %s (%d)",
+				  mppt_context.timeout_state?"timeout":"is active", mppt_context.timeout_count);
+		hlog_info(MPPT, "   Model [%s], generic name [%s], firmware [%s], S/N [%s]",
 				  mppt_context.vdata.model_name, mppt_context.vdata.gen_model_name,
-				  mppt_context.vdata.firmware_vesion, mppt_context.vdata.firmware_vesion3,
-				  mppt_context.vdata.serial_number);
+				  mppt_context.vdata.firmware_vesion, mppt_context.vdata.serial_number);
 		hlog_info(MPPT, "   Mode [%c], Device date [%.2d.%.2d.%.4d %.2dh], Total PV [%d] Wh",
 				  mppt_context.vdata.mode?mppt_context.vdata.mode:'?',
 				  mppt_context.vdata.date.day, mppt_context.vdata.date.month,
