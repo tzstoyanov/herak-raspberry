@@ -81,9 +81,13 @@ bool wifi_init(void)
 
 bool wifi_is_connected(void)
 {
+	bool bret;
 	if (!wifi_context.all_nets[0])
 		return false;
-	return (cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP);
+	LWIP_LOCK_START;
+		bret = (cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP);
+	LWIP_LOCK_END;
+	return bret;
 }
 
 void wifi_log_status(void)
