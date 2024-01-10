@@ -68,6 +68,7 @@ target_sources(herak_common INTERFACE
   ${PROJECT_LIB_DIR}/common/bt.c
   ${PROJECT_LIB_DIR}/common/log.c
   ${PROJECT_LIB_DIR}/common/time.c
+  ${PROJECT_LIB_DIR}/common/webhook.c
   ${PROJECT_LIB_DIR}/common/temperature.cpp
 )
 target_include_directories(herak_common INTERFACE ${PROJECT_INLUDE_DIR})

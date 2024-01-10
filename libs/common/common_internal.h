@@ -80,6 +80,10 @@ char *get_uptime(void);
 uint32_t get_free_heap(void);
 uint32_t get_total_heap(void);
 
+bool webhook_init(void);
+void webhook_run(void);
+void webhook_log_status(void);
+
 #ifdef __cplusplus
 }
 #endif

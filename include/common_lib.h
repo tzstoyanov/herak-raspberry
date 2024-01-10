@@ -113,6 +113,12 @@ int bt_characteristic_read(uint32_t char_id);
 int bt_characteristic_write(uint32_t char_id, uint8_t *data, uint16_t data_len);
 int bt_characteristic_notify(uint32_t char_id, bool enable);
 
+typedef void (*webhook_reply_t) (int idx, int http_code, void *context);
+int webhook_state(int idx, bool *connected, bool *sending);
+int webhook_send(int idx, char *data, int datalen);
+int webhook_add(char *addr, int port, char *content_type, char *endpoint, char *http_command,
+				bool keep_open, webhook_reply_t user_cb, void *user_data);
+
 #ifdef __cplusplus
 }
 #endif

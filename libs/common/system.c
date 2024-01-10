@@ -33,6 +33,7 @@ struct {
 	uint8_t has_swout:1;
 	uint8_t has_temp:1;
 	uint8_t has_usb:1;
+	uint8_t has_wh:1;
 } static sys_context;
 
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count)
@@ -185,6 +186,7 @@ bool system_common_init(void)
 	sys_context.has_temp = temperature_init();
 	sys_context.has_swout = sw_out_init();
 	sys_context.has_usb = usb_init();
+	sys_context.has_wh = webhook_init();
 	LED_OFF;
 	watchdog_update();
 
@@ -201,6 +203,7 @@ void system_log_status(void)
 	mqtt_log_status();
 	bt_log_status();
 	usb_log_status();
+	webhook_log_status();
 	main_log();
 	hlog_info(COMMONSYSLOG, "----------- Status end--------");
 }
@@ -239,8 +242,12 @@ void system_common_run(void)
 		mqtt_connect();
 	if (sys_context.has_time)
 		ntp_connect();
+	watchdog_update();
 	if (sys_context.has_usb)
 		usb_run();
+	watchdog_update();
+	if (sys_context.has_wh)
+		webhook_run();
 	log_wd_boot();
 	watchdog_update();
 
