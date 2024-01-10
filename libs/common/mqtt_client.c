@@ -39,8 +39,8 @@
 #define WILL_TOPIC	"herak/status"
 #define WILL_MSG	"{\"status\":\"offline\"}"
 
-#define MQTT_CLIENT_LOCK	mutex_enter_blocking(&mqtt_context.lock);
-#define MQTT_CLIENTL_UNLOCK	mutex_exit(&mqtt_context.lock);
+#define MQTT_CLIENT_LOCK	mutex_enter_blocking(&mqtt_context.lock)
+#define MQTT_CLIENTL_UNLOCK	mutex_exit(&mqtt_context.lock)
 
 typedef enum {
 	MQTT_CLIENT_INIT = 0,
@@ -65,6 +65,7 @@ struct {
 	bool send_in_progerss;
 	uint32_t last_send;
 	mutex_t lock;
+	uint32_t connect_count;
 } static mqtt_context;
 
 static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
@@ -75,8 +76,10 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 
 	switch (status) {
 	case MQTT_CONNECT_ACCEPTED:
-		if (mqtt_context.state != MQTT_CLIENT_CONNECTED)
+		if (mqtt_context.state != MQTT_CLIENT_CONNECTED) {
 			system_log_status();
+			mqtt_context.connect_count++;
+		}
 		mqtt_context.state = MQTT_CLIENT_CONNECTED;
 		break;
 	case MQTT_CONNECT_DISCONNECTED:
@@ -127,10 +130,12 @@ bool mqtt_is_connected(void)
 void mqtt_log_status(void)
 {
 	if (!mqtt_is_connected())
-		hlog_info(MQTTLOG, "Not connected to a server, looking for %s ... ", mqtt_context.server_url);
+		hlog_info(MQTTLOG, "Not connected to a server, looking for %s ... connect count %d ",
+				  mqtt_context.server_url, mqtt_context.connect_count);
 	else
-		hlog_info(MQTTLOG, "Connected to server %s, publish rate limit between %dppm and %dppm",
-				mqtt_context.server_url, MSEC_INSEC/mqtt_context.mqtt_max_delay, MSEC_INSEC/mqtt_context.mqtt_min_delay);
+		hlog_info(MQTTLOG, "Connected to server %s, publish rate limit between %dppm and %dppm, connect count %d",
+				mqtt_context.server_url, MSEC_INSEC/mqtt_context.mqtt_max_delay,
+				MSEC_INSEC/mqtt_context.mqtt_min_delay, mqtt_context.connect_count);
 }
 
 static void mqtt_publish_cb(void *arg, err_t result)
@@ -154,7 +159,7 @@ void mqtt_msg_publish(char *message, bool force)
 		return;
 	}
 
-	MQTT_CLIENT_LOCK
+	MQTT_CLIENT_LOCK;
 		in_progress = mqtt_context.send_in_progerss;
 	MQTT_CLIENTL_UNLOCK;
 
@@ -181,6 +186,8 @@ void mqtt_msg_publish(char *message, bool force)
 			mqtt_context.send_in_progerss = true;
 			mqtt_context.data_send = false;
 		MQTT_CLIENTL_UNLOCK;
+	} else {
+		hlog_info(MQTTLOG, "Failed to publish the message: %d", err);
 	}
 
 	MQTT_CLIENT_LOCK;
@@ -228,17 +235,19 @@ void mqtt_connect(void)
 		LWIP_LOCK_START;
 			ret = dns_gethostbyname(mqtt_context.server_url, &mqtt_context.server_addr, mqtt_server_found, NULL);
 		LWIP_LOCK_END;
-		if (ret != ERR_OK) {
+		if (ret == ERR_INPROGRESS) {
 			hlog_info(MQTTLOG, "Resolving %s ...", mqtt_context.server_url);
 			MQTT_CLIENT_LOCK;
 				mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
 				mqtt_context.sever_ip_state = IP_RESOLVING;
 			MQTT_CLIENTL_UNLOCK;
 			return;
-		} else {
+		} else if (ret == ERR_OK) {
 			MQTT_CLIENT_LOCK;
 				mqtt_context.sever_ip_state = IP_RESOLVED;
 			MQTT_CLIENTL_UNLOCK;
+		} else {
+			return;
 		}
 		break;
 	case IP_RESOLVED:
@@ -257,6 +266,17 @@ void mqtt_connect(void)
 	MQTT_CLIENT_LOCK;
 		if (mqtt_context.state == MQTT_CLIENT_INIT)
 			hlog_info(MQTTLOG, "Connecting to MQTT server %s (%s) ...", mqtt_context.server_url, inet_ntoa(mqtt_context.server_addr));
+		LWIP_LOCK_START;
+			if (mqtt_context.client) {
+				mqtt_disconnect(mqtt_context.client);
+				mqtt_client_free(mqtt_context.client);
+			}
+			mqtt_context.client = mqtt_client_new();
+		LWIP_LOCK_END;
+		if (!mqtt_context.client) {
+			MQTT_CLIENTL_UNLOCK;
+			return;
+		}
 		mqtt_context.state = MQTT_CLIENT_CONNECTING;
 	MQTT_CLIENTL_UNLOCK;
 
@@ -266,10 +286,13 @@ void mqtt_connect(void)
 	LWIP_LOCK_END;
 
 	MQTT_CLIENT_LOCK;
-		if(!ret)
-				mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
-		else
+		if (!ret) {
+			mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
+		} else {
 			mqtt_context.state = MQTT_CLIENT_DISCONNECTED;
+			hlog_info(MQTTLOG, "Connecting to MQTT server %s (%s) failed: %d",
+					mqtt_context.server_url, inet_ntoa(mqtt_context.server_addr), ret);
+		}
 	MQTT_CLIENTL_UNLOCK;
 }
 
@@ -332,10 +355,6 @@ bool mqtt_init(void)
 	mqtt_context.client_info.will_retain = 1;
 	mqtt_context.send_in_progerss = false;
 	mqtt_context.max_payload_size = MQTT_OUTPUT_RINGBUF_SIZE - (strlen(mqtt_context.topic) + 2);
-
-	LWIP_LOCK_START;
-		mqtt_context.client = mqtt_client_new();
-	LWIP_LOCK_END;
 
 	return true;
 }
