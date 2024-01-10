@@ -15,7 +15,7 @@
 
 #define USBLOG	"usb"
 
-#define RAW_INTERFACE
+//#define RAW_INTERFACE
 //#define CDC_INTERFACE
 
 // English
@@ -25,8 +25,8 @@
 
 #define MAX_USB_DEVICES	2
 
-#define USB_LOCK	mutex_enter_blocking(&usb_context.lock);
-#define USB_UNLOCK	mutex_exit(&usb_context.lock);
+#define USB_LOCK	mutex_enter_blocking(&usb_context.lock)
+#define USB_UNLOCK	mutex_exit(&usb_context.lock)
 
 typedef struct {
 	int			index;
@@ -36,6 +36,7 @@ typedef struct {
 	bool		hid_mount;
 	bool		cdc_mount;
 	void		*user_context;
+	uint32_t	connect_count;
 	usb_dev_desc_t desc;
 	usb_event_handler_t user_cb;
 } usb_dev_t;
@@ -118,20 +119,25 @@ int usb_send_to_device(int idx, char *buf, int len)
 
 void usb_log_status(void)
 {
+	bool mounted;
 	int i;
 
 	if (!usb_context.init)
 		return;
-
-	for (i = 0; i < usb_context.dev_count; i++) {
-		if (usb_context.devices[i].hid_mount || usb_context.devices[i].cdc_mount)
-			hlog_info(USBLOG, "Connected to %s device %0.4X:%0.4X",
-					  usb_context.devices[i].hid_mount?"HID":"CDC",
-					  usb_context.devices[i].desc.vid, usb_context.devices[i].desc.pid);
-		else
-			hlog_info(USBLOG, "Looking for %0.4X:%0.4X ... ",
-					 usb_context.devices[i].desc.vid, usb_context.devices[i].desc.pid);
-	}
+	USB_LOCK;
+		for (i = 0; i < usb_context.dev_count; i++) {
+			mounted = tuh_hid_mounted(usb_context.devices[i].dev_addr, usb_context.devices[i].instance);
+			if (usb_context.devices[i].hid_mount || usb_context.devices[i].cdc_mount)
+				hlog_info(USBLOG, "Connected to %s device %0.4X:%0.4X, mounted %d, connect count %d",
+						  usb_context.devices[i].hid_mount?"HID":"CDC",
+						  usb_context.devices[i].desc.vid, usb_context.devices[i].desc.pid, mounted,
+						  usb_context.devices[i].connect_count);
+			else
+				hlog_info(USBLOG, "Looking for %0.4X:%0.4X ... connect count %d",
+						 usb_context.devices[i].desc.vid, usb_context.devices[i].desc.pid,
+						 usb_context.devices[i].connect_count);
+		}
+	USB_UNLOCK;
 }
 
 bool usb_init(void)
@@ -154,12 +160,22 @@ static void usb_stack_init(void)
 
 void usb_run(void)
 {
-	if (!hlog_remoute() || (!usb_context.dev_count && usb_context.force_init))
+	int i;
+
+	if (!usb_context.dev_count && !usb_context.force_init)
 		return;
+
 	if (!usb_context.init) {
 		usb_stack_init();
 		usb_context.init = true;
 	}
+
+	USB_LOCK;
+		for (i = 0; i < usb_context.dev_count; i++) {
+			if (usb_context.devices[i].hid_mount)
+				tuh_hid_receive_report(usb_context.devices[i].dev_addr, usb_context.devices[i].instance);
+		}
+	USB_UNLOCK;
 
 	tuh_task();
 }
@@ -477,6 +493,8 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 		if (dev) {
 			dev->dev_addr = dev_addr;
 			dev->instance = instance;
+			if (!dev->hid_mount)
+				dev->connect_count++;
 			dev->hid_mount = true;
 		}
 		if (dev->user_cb)
