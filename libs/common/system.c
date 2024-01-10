@@ -25,14 +25,14 @@ extern char __StackLimit, __bss_end__;
 struct {
 	int sw_out_pin;
 	uint32_t last_loop;
-	bool has_lcd;
-	bool has_wifi;
-	bool has_bt;
-	bool has_mqtt;
-	bool has_time;
-	bool has_swout;
-	bool has_temp;
-	bool has_usb;
+	uint8_t has_lcd:1;
+	uint8_t has_wifi:1;
+	uint8_t has_bt:1;
+	uint8_t has_mqtt:1;
+	uint8_t has_time:1;
+	uint8_t has_swout:1;
+	uint8_t has_temp:1;
+	uint8_t has_usb:1;
 } static sys_context;
 
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count)
