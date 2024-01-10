@@ -60,6 +60,7 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_LIST_DIR}/mppt_voltronic_proto.c
   ${CMAKE_CURRENT_LIST_DIR}/mppt_voltronic_usb.c
   ${CMAKE_CURRENT_LIST_DIR}/mqtt_solar.c
+  ${CMAKE_CURRENT_LIST_DIR}/wh_notify.c
   ${CMAKE_CURRENT_LIST_DIR}/main.c
   ${MPTT_TEST}
 )

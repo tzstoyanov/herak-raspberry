@@ -157,4 +157,7 @@ char *bms_get_qcommand(daly_qcmd_t idx, int *len);
 int bms_get_qcommand_desc(daly_qcmd_t idx, const char **cmd, const char **desc);
 daly_qcmd_t bms_verify_response(char *buf, int len);
 
+void wh_notify_send(void);
+bool wh_notify_init(void);
+
 #endif /* _MAIN_SOLAR_H_ */
