@@ -26,6 +26,7 @@ char *get_current_time_str(char *buf, int buflen);
 bool tz_datetime_get(datetime_t *date);
 float temperature_internal_get();
 void dump_hex_data(char *topic, const char *data, int len);
+void dump_char_data(char *topic, const char *data, int len);
 
 /* LCD API */
 int lcd_set_int(int idx, int row, int column, int num);

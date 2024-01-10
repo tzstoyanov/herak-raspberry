@@ -77,14 +77,14 @@ uint32_t get_free_heap(void)
 }
 
 #define PRINT_BUF_LEN	32
-void dump_hex_data(char *topic, const char *data, int len)
+static void dump_raw_data(char *topic, char *format, const char *data, int len)
 {
 	char print_buff[PRINT_BUF_LEN], buf[4];
 	int i = 0, j = 0;
 
 	print_buff[0] = 0;
 	while (i < len) {
-		snprintf(buf, 4, "%0.2X ", data[i++]);
+		snprintf(buf, 4, format, data[i++]);
 		if ((j + strlen(buf)) >= PRINT_BUF_LEN) {
 			j = 0;
 			hlog_info(topic, "\t %s", print_buff);
@@ -95,6 +95,16 @@ void dump_hex_data(char *topic, const char *data, int len)
 	}
 	if (j)
 		hlog_info(topic, "\t %s", print_buff);
+}
+
+void dump_hex_data(char *topic, const char *data, int len)
+{
+	dump_raw_data(topic, "%0.2X ", data, len);
+}
+
+void dump_char_data(char *topic, const char *data, int len)
+{
+	dump_raw_data(topic, "%c", data, len);
 }
 
 bool sw_out_init(void)
