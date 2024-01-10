@@ -24,13 +24,17 @@
 
 #define FACILITY 1
 
-#define LOG_LOCK	mutex_enter_blocking(&log_context.lock);
-#define LOG_UNLOCK	mutex_exit(&log_context.lock);
+#define LOG_LOCK	mutex_enter_blocking(&log_context.lock)
+#define LOG_UNLOCK	mutex_exit(&log_context.lock)
+
+#define IP_TIMEOUT_MS	10000
 
 struct {
 	char *server_url;
 	int server_port;
 	ip_addr_t server_addr;
+	uint32_t connect_count;
+	uint32_t last_send;
 	ip_resolve_state_t sever_ip_state;
 	struct udp_pcb *log_pcb;
 	char *hostname;
@@ -43,6 +47,7 @@ static void log_server_found(const char *hostname, const ip_addr_t *ipaddr, void
 	LOG_LOCK;
 		memcpy(&(log_context.server_addr), ipaddr, sizeof(ip_addr_t));
 		log_context.sever_ip_state = IP_RESOLVED;
+		log_context.connect_count++;
 	LOG_UNLOCK;
 }
 
@@ -86,6 +91,7 @@ void hlog_status(void)
 {
 	ip_resolve_state_t sever_ip_state;
 	ip_addr_t server_addr;
+	int dcount;
 
 	if (!log_context.server_url) {
 		hlog_info(LLOG, "Logs are not forwarded to an external server");
@@ -95,17 +101,19 @@ void hlog_status(void)
 	LOG_LOCK;
 		memcpy(&server_addr, &(log_context.server_addr), sizeof(ip_addr_t));
 		sever_ip_state = log_context.sever_ip_state;
+		dcount = log_context.connect_count;
 	LOG_UNLOCK;
 
 	switch (sever_ip_state) {
 	case IP_NOT_RESOLEVED:
-		hlog_info(LLOG, "Not connected to server %s", log_context.server_url);
+		hlog_info(LLOG, "Not connected to server %s, connect count %d", log_context.server_url, dcount);
 		break;
 	case IP_RESOLVING:
-		hlog_info(LLOG, "Resolving %s ... ", log_context.server_url);
+		hlog_info(LLOG, "Resolving %s ... connect count %d", log_context.server_url, dcount);
 		break;
 	case IP_RESOLVED:
-		hlog_info(LLOG, "Forwarding logs to %s (%s)", log_context.server_url, inet_ntoa(server_addr));
+		hlog_info(LLOG, "Forwarding logs to %s (%s), connect count %d",
+				  log_context.server_url, inet_ntoa(server_addr), dcount);
 		break;
 	}
 }
@@ -113,7 +121,8 @@ void hlog_status(void)
 void hlog_connect(void)
 {
 	bool resolving = false;
-	bool conncted = false;
+	bool connected = false;
+	uint32_t now;
 	int res;
 
 	if (!log_context.server_url || !wifi_is_connected())
@@ -123,6 +132,7 @@ void hlog_connect(void)
 		if (log_context.sever_ip_state == IP_RESOLVED)
 			goto out;
 
+		now = to_ms_since_boot(get_absolute_time());
 		if (!log_context.log_pcb) {
 			LWIP_LOCK_START;
 				log_context.log_pcb = udp_new_ip_type(IPADDR_TYPE_ANY);
@@ -138,27 +148,31 @@ void hlog_connect(void)
 				res = dns_gethostbyname(log_context.server_url, &log_context.server_addr, log_server_found, NULL);
 			LWIP_LOCK_END;
 			LOG_LOCK;
-			if (res != ERR_OK) {
+			if (res == ERR_INPROGRESS) {
 				log_context.sever_ip_state = IP_RESOLVING;
+				log_context.last_send = to_ms_since_boot(get_absolute_time());
 				resolving = true;
-				goto out;
-			} else {
+			} else if (res == ERR_OK) {
 				log_context.sever_ip_state = IP_RESOLVED;
+				log_context.connect_count++;
+				connected = true;
 			}
 			break;
 		case IP_RESOLVED:
-			conncted = true;
+			connected = true;
 			break;
 		case IP_RESOLVING:
-			goto out;
+			if ((now - log_context.last_send) > IP_TIMEOUT_MS)
+				log_context.sever_ip_state = IP_NOT_RESOLEVED;
+			break;
 		default:
-			goto out;
+			break;
 		}
 out:
 	LOG_UNLOCK;
 	if (resolving)
 		hlog_info(LLOG, "Resolving %s ...", log_context.server_url);
-	if (conncted)
+	if (connected)
 		system_log_status();
 }
 
@@ -193,15 +207,12 @@ static void slog_send(char *log_buff)
 	memcpy(p->payload, log_buff, len);
 	LWIP_LOCK_START;
 		err = udp_sendto(log_context.log_pcb, p, &log_context.server_addr, log_context.server_port);
+		pbuf_free(p);
 	LWIP_LOCK_END;
-	pbuf_free(p);
-	if (err != ERR_OK && err != ERR_MEM) {
-		LWIP_LOCK_START;
-			udp_remove(log_context.log_pcb);
-		LWIP_LOCK_END;
-		log_context.log_pcb = NULL;
+	if (err != ERR_OK && err != ERR_MEM)
 		log_context.sever_ip_state = IP_NOT_RESOLEVED;
-	}
+	else
+		log_context.last_send = to_ms_since_boot(get_absolute_time());
 }
 
 void hlog_any(int severity, const char *topic, const char *fmt, ...)
