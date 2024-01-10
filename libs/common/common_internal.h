@@ -32,6 +32,8 @@ extern "C" {
 #define SYS_LOCK_END \
 	SYS_ARCH_UNPROTECT(__lev__); }
 
+#define __weak	__attribute__((__weak__))
+
 typedef enum {
 	IP_NOT_RESOLEVED = 0,
 	IP_RESOLVING,

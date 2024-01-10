@@ -6,29 +6,29 @@
 #include "common_internal.h"
 
 /* Log app status every hour */
-__attribute__ ((weak)) void main_log(void)
+__weak void main_log(void)
 {
 
 }
 
 /* USB dymmy APIs */
-__attribute__ ((weak)) void usb_log_status(void)
+__weak void usb_log_status(void)
 {
 
 }
-__attribute__ ((weak)) bool usb_init(void)
+__weak bool usb_init(void)
 {
 	return false;
 }
-__attribute__ ((weak)) void usb_run(void)
+__weak void usb_run(void)
 {
 
 }
-__attribute__ ((weak)) int usb_send_to_device(int idx, char *buf, int len)
+__weak int usb_send_to_device(int idx, char *buf, int len)
 {
 	return 0;
 }
-__attribute__ ((weak)) int usb_add_known_device(uint16_t vid, uint16_t pid, usb_event_handler_t cb, void *context)
+__weak int usb_add_known_device(uint16_t vid, uint16_t pid, usb_event_handler_t cb, void *context)
 {
 	return 0;
 }
