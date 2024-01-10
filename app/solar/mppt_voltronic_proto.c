@@ -58,13 +58,13 @@ static const mppt_command_t Qcommands[] = {
 	{ "QMN",		"Query model name" },	// (VMIII-3000<CRC><cr>
 	{ "QGMN",		"Query general model name" },	// (037<CRC>
 	{ "QET",		"Query total PV generated energy" },	// (00106000<CRC><cr>
-	{ "QEY2023",	"Query PV generated energy of year" },	// (NNNNNNNN<CRC><cr>
-	{ "QEM202312",	"Query PV generated energy of month" },	// (NNNNNNNN<CRC><cr>
-	{ "QED20231231", "Query PV generated energy of day" },	// (NNNNNNNN<CRC><cr>
+	{ "QEY",	"Query PV generated energy of year" },	// (NNNNNNNN<CRC><cr>
+	{ "QEM",	"Query PV generated energy of month" },	// (NNNNNNNN<CRC><cr>
+	{ "QED", "Query PV generated energy of day" },	// (NNNNNNNN<CRC><cr>
 	{ "QLT",		"Query total output load energy" },		// (NAK<CRC><cr>
-	{ "QLY2023",	"Query output load energy of year" },	// (NNNNNNNN<CRC><cr>
-	{ "QLM202312",	"Query output load energy of year" },	// (NNNNNNNN<CRC><cr>
-	{ "QLD20231231", "Query output load energy of day" },	// (NNNNNNNN<CRC><cr>
+	{ "QLY",	"Query output load energy of year" },	// (NNNNNNNN<CRC><cr>
+	{ "QLM",	"Query output load energy of year" },	// (NNNNNNNN<CRC><cr>
+	{ "QLD", "Query output load energy of day" },	// (NNNNNNNN<CRC><cr>
 	{ "QLED",		"LED status parameters" }				// (NAK<cr>
 };
 
