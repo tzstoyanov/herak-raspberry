@@ -20,8 +20,11 @@ extern char __StackLimit, __bss_end__;
 #define COMMONSYSLOG	"system"
 #define WATCHDOG_TIMEOUT_MS	30000 /* Reboot on 30s inactivity */
 
+//#define PERIODIC_LOG_MS	5000
+
 struct {
 	int sw_out_pin;
+	uint32_t last_loop;
 	bool has_lcd;
 	bool has_wifi;
 	bool has_bt;
@@ -219,6 +222,7 @@ static void log_wd_boot(void)
 
 void system_common_run(void)
 {
+	sys_context.last_loop = to_ms_since_boot(get_absolute_time());
 	watchdog_update();
 	if (sys_context.has_lcd)
 		lcd_refresh();
@@ -237,6 +241,18 @@ void system_common_run(void)
 		ntp_connect();
 	if (sys_context.has_usb)
 		usb_run();
-log_wd_boot();
+	log_wd_boot();
 	watchdog_update();
+
+#ifdef PERIODIC_LOG_MS
+	{
+		static uint32_t llog;
+
+		if ((sys_context.last_loop - llog) > PERIODIC_LOG_MS) {
+			llog = sys_context.last_loop;
+			system_log_status();
+		}
+	}
+#endif
+
 }
