@@ -28,7 +28,7 @@
 #define USB_LOCK	mutex_enter_blocking(&usb_context.lock)
 #define USB_UNLOCK	mutex_exit(&usb_context.lock)
 
-typedef struct {
+struct usb_dev_t {
 	int			index;
 	uint8_t		dev_addr;
 	uint8_t		instance;
@@ -39,10 +39,10 @@ typedef struct {
 	uint32_t	connect_count;
 	usb_dev_desc_t desc;
 	usb_event_handler_t user_cb;
-} usb_dev_t;
+};
 
 struct {
-	usb_dev_t	devices[MAX_USB_DEVICES];
+	struct usb_dev_t	devices[MAX_USB_DEVICES];
 	int			dev_count;
 	mutex_t		lock;
 	bool		init;
@@ -53,7 +53,7 @@ struct {
 	tusb_desc_device_t desc_device;
 } static usb_context;
 
-static usb_dev_t *get_usb_device_by_vidpid(uint16_t vid, uint16_t pid)
+static struct usb_dev_t *get_usb_device_by_vidpid(uint16_t vid, uint16_t pid)
 {
 	int i;
 
@@ -481,7 +481,7 @@ static struct
 // therefore report_desc = NULL, desc_len = 0
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_report, uint16_t desc_len)
 {
-	usb_dev_t *dev = NULL;
+	struct usb_dev_t *dev = NULL;
 	uint8_t itf_protocol;
 	uint16_t vid, pid;
 
@@ -527,7 +527,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 // Invoked when device with hid interface is un-mounted
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 {
-	usb_dev_t *dev = NULL;
+	struct usb_dev_t *dev = NULL;
 	uint16_t vid, pid;
 
 	tuh_vid_pid_get(dev_addr, &vid, &pid);
@@ -547,7 +547,7 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 // Invoked when received report from device via interrupt endpoint
 void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len)
 {
-	usb_dev_t *dev = NULL;
+	struct usb_dev_t *dev = NULL;
 	uint16_t vid, pid;
 
 	tuh_vid_pid_get(dev_addr, &vid, &pid);

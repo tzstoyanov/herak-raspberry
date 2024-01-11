@@ -17,13 +17,14 @@
 
 #define MQTT_DATA_LEN	512
 
-#define MQTT_MESSAGE	"{ \"time\": \"%s\", \"in_temp\": %3.2f, \"mppt_ac_out_v\": %3.2f, \"mppt_ac_out_hz\": %3.2f,\
-						  \"mppt_ac_out_va\": %d, \"mppt_ac_out_w\": %d, \"mppt_out_load_p\": %d,\
-						  \"mppt_bus_v\": %d, \"mppt_bat_v\": %3.2f, \"mppt_bat_charge_a\": %d,\
-						  \"mppt_bat_capacity_p\": %d, \"mppt_sink_temp\": %d, \"mppt_pv_in_bat_a\": %3.2f,\
-						  \"mppt_pv_in_v\": %3.2f, \"mppt_bat_discharge_a\": %d, \
-						  \"bms_total_v\": %3.2f, \"bms_current_a\": %3.2f,\"bms_soc_p\": %3.2f, \
-						  \"bms_life\": %d, \"bms_remain_capacity_mah\": %d}"
+#define MQTT_MESSAGE	\
+"{ \"time\": \"%s\", \"in_temp\": %3.2f, \"mppt_ac_out_v\": %3.2f, \"mppt_ac_out_hz\": %3.2f,\
+\"mppt_ac_out_va\": %d, \"mppt_ac_out_w\": %d, \"mppt_out_load_p\": %d,\
+\"mppt_bus_v\": %d, \"mppt_bat_v\": %3.2f, \"mppt_bat_charge_a\": %d,\
+\"mppt_bat_capacity_p\": %d, \"mppt_sink_temp\": %d, \"mppt_pv_in_bat_a\": %3.2f,\
+\"mppt_pv_in_v\": %3.2f, \"mppt_bat_discharge_a\": %d,\
+\"bms_total_v\": %3.2f, \"bms_current_a\": %3.2f,\"bms_soc_p\": %3.2f,\
+\"bms_life\": %d, \"bms_remain_capacity_mah\": %d}"
 
 struct {
 	mqtt_mppt_data_t mppt;

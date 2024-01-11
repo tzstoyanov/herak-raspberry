@@ -26,13 +26,13 @@ static const uint16_t crc_table[16] = {
 	0xC18C, 0xD1AD, 0xE1CE, 0xF1EF
 };
 
-typedef struct {
+struct mppt_command_t {
 	char *cmd;
 	char *desc;
-} mppt_command_t;
+};
 
 /* Inquiry Commands */
-static const mppt_command_t Qcommands[] = {
+static const struct mppt_command_t Qcommands[] = {
 	{ "QPI",		"Device Protocol ID"},			// (PI<NN> <CRC><cr>
 	{ "QID",		"The device serial number"},	// (9283210100631<CRC><cr>
 	{ "QVFW",		"Main CPU Firmware version"},	// (VERFW:00041.17<CRC><cr>
@@ -69,7 +69,7 @@ static const mppt_command_t Qcommands[] = {
 };
 
 /* Setting parameters Commands */
-static const mppt_command_t Scommands[] = {
+static const struct mppt_command_t Scommands[] = {
 	{ "PE",		"<XXX>: setting some status enable" },
 	{ "PD",		"<XXX> setting some status disable" },
 	{ "PF",		"Setting control parameter to default value" },

@@ -49,9 +49,8 @@ int main(void)
 	has_sonar = sonar_init();
 
 	while (true) {
-		if (blinik_count++ % BLINK_INERVAL == 0) {
+		if (blinik_count++ % BLINK_INERVAL == 0)
 			LED_ON;
-		}
 		system_common_run();
 		if (has_sonar)
 			sonar_measure();

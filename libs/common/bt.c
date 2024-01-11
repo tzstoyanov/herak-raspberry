@@ -23,14 +23,14 @@
 			(_svc_) = (_id_) >> 8; (_svc_) &= 0xFF;	(_svc_) -= 1;\
 			(_char_) = (_id_) & 0xFF; (_char_) -= 1; }
 
-typedef enum {
+enum bt_dev_state_t {
 	BT_DEV_DISCONNECTED = 0,
 	BT_DEV_CONNECTED,
 	BT_DEV_DISCOVERING_PRIMARY,
 	BT_DEV_DISCOVERING_SECONDARY,
 	BT_DEV_DISCOVERING_CHARACTERISTIC,
 	BT_DEV_READY
-} bt_dev_state_t;
+};
 
 //#define BT_LOCAL_LOCK	mutex_enter_blocking(&bt_context.lock);
 //#define BT_LOCAL_UNLOCK	mutex_exit(&bt_context.lock);
@@ -40,43 +40,43 @@ typedef enum {
 
 #define BT_DEV_MAX_NAME	32
 
-typedef struct {
+struct bt_char_t {
 	uint32_t id;
 	bool notify;
 	gatt_client_characteristic_t gat_char;
 	gatt_client_notification_t gat_notify;
-} bt_char_t;
+};
 
-typedef struct {
+struct bt_svc_t {
 	uint32_t id;
 	bool primary;
 	gatt_client_service_t gat_svc;
-	bt_char_t chars[BT_MAX_SERVICES];
+	struct bt_char_t chars[BT_MAX_SERVICES];
 	int char_count;
-} bt_svc_t;
+};
 
-typedef struct {
+struct bt_device_t {
 	int id;
 	hci_con_handle_t connection_handle;
 	bd_addr_t btaddress;
 	char *pin;
 	char name[BT_DEV_MAX_NAME];
-	bt_dev_state_t state;
+	enum bt_dev_state_t state;
 	bool discovering;
 	uint32_t state_time;
-	bt_svc_t services[BT_MAX_SERVICES];
+	struct bt_svc_t services[BT_MAX_SERVICES];
 	int svc_count;
 	int svc_current;
 	bt_event_handler_t user_cb;
 	void *user_context;
-} bt_device_t;
+};
 
 struct {
 	btstack_packet_callback_registration_t hci_event_cb_reg;
-	bt_device_t devcies[BT_MAX_DEVICES];
+	struct bt_device_t devcies[BT_MAX_DEVICES];
 	int dev_count;
 	bool force_init;
-	bt_device_t *current_device;
+	struct bt_device_t *current_device;
 	bool started;
 	bool running;
 	bool scanning;
@@ -84,7 +84,7 @@ struct {
 	mutex_t lock;
 } static bt_context;
 
-static bt_device_t *bt_get_device_by_address(bd_addr_t btaddress)
+static struct bt_device_t *bt_get_device_by_address(bd_addr_t btaddress)
 {
 	int i = 0;
 
@@ -97,7 +97,7 @@ static bt_device_t *bt_get_device_by_address(bd_addr_t btaddress)
 	return NULL;
 }
 
-static bt_device_t *bt_get_device_by_handle(hci_con_handle_t handle)
+static struct bt_device_t *bt_get_device_by_handle(hci_con_handle_t handle)
 {
 	int i;
 
@@ -108,7 +108,7 @@ static bt_device_t *bt_get_device_by_handle(hci_con_handle_t handle)
 	return NULL;
 }
 
-static bt_char_t *bt_get_char_by_handle(bt_device_t *dev, uint16_t val_handle)
+static struct bt_char_t *bt_get_char_by_handle(struct bt_device_t *dev, uint16_t val_handle)
 {
 	int i, j;
 
@@ -121,7 +121,7 @@ static bt_char_t *bt_get_char_by_handle(bt_device_t *dev, uint16_t val_handle)
 	return NULL;
 }
 
-typedef struct advertising_report {
+struct advertising_report_t {
 	uint8_t   type;
 	uint8_t   event_type;
 	uint8_t   address_type;
@@ -129,7 +129,7 @@ typedef struct advertising_report {
 	uint8_t   rssi;
 	uint8_t   length;
 	const uint8_t *data;
-} advertising_report_t;
+};
 
 static const char *const ad_types[] = {
 	"",
@@ -172,7 +172,7 @@ static const char * const flags[] = {
 	"Reserved"
 };
 
-static void get_advertisement_data(bt_device_t *dev, const uint8_t *adv_data, uint8_t adv_size)
+static void get_advertisement_data(struct bt_device_t *dev, const uint8_t *adv_data, uint8_t adv_size)
 {
 	uint8_t uuid_128[16];
 	ad_context_t context;
@@ -299,7 +299,7 @@ static void dump_service(gatt_client_service_t *service)
 	printUUID(service->uuid128, service->uuid16);
 }
 
-static void parse_advertising_report(bt_device_t *dev, advertising_report_t *e)
+static void parse_advertising_report(struct bt_device_t *dev, struct advertising_report_t *e)
 {
 	if (bt_context.verbose) {
 		hlog_info(BTLOG, "\t * adv. event: evt-type %u, addr-type %u, addr %s, rssi %u, length adv %u, data: ",
@@ -309,7 +309,7 @@ static void parse_advertising_report(bt_device_t *dev, advertising_report_t *e)
 	get_advertisement_data(dev, e->data, e->length);
 }
 
-static void fill_advertising_report_from_packet(advertising_report_t *report, uint8_t *packet)
+static void fill_advertising_report_from_packet(struct advertising_report_t *report, uint8_t *packet)
 {
 	gap_event_advertising_report_get_address(packet, report->address);
 	report->event_type = gap_event_advertising_report_get_advertising_event_type(packet);
@@ -321,10 +321,10 @@ static void fill_advertising_report_from_packet(advertising_report_t *report, ui
 
 static void handle_gatt_client_read_value(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
 {
+	struct bt_char_t *charc = NULL;
 	bt_characteristicvalue_t val;
-	bt_char_t *charc = NULL;
+	struct bt_device_t *dev;
 	bool notify = false;
-	bt_device_t *dev;
 
 	switch (hci_event_packet_get_type(packet)) {
 	case GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT:
@@ -368,7 +368,7 @@ static void handle_gatt_client_read_value(uint8_t packet_type, uint16_t channel,
 	}
 }
 
-static bt_char_t *get_characteristic_by_uuid128(bt_svc_t *btsvc, uint8_t *uuid128)
+static struct bt_char_t *get_characteristic_by_uuid128(struct bt_svc_t *btsvc, uint8_t *uuid128)
 {
 	int i;
 
@@ -382,7 +382,7 @@ static bt_char_t *get_characteristic_by_uuid128(bt_svc_t *btsvc, uint8_t *uuid12
 static void bt_new_characteristic(gatt_client_characteristic_t *gchar)
 {
 	bt_characteristic_t api_char;
-	bt_svc_t *btsvc;
+	struct bt_svc_t *btsvc;
 
 	if (!bt_context.current_device || !bt_context.current_device->discovering ||
 		bt_context.current_device->svc_current < 0 || bt_context.current_device->svc_current >= BT_MAX_SERVICES)
@@ -411,16 +411,16 @@ static void bt_new_characteristic(gatt_client_characteristic_t *gchar)
 	bt_context.current_device->state_time = to_ms_since_boot(get_absolute_time());
 }
 
-static void bt_new_service(bt_device_t *dev, gatt_client_service_t *svc)
+static void bt_new_service(struct bt_device_t *dev, gatt_client_service_t *svc)
 {
 	bt_service_t api_svc;
-	bt_svc_t *btsvc;
+	struct bt_svc_t *btsvc;
 
 	if (!dev->discovering || dev->svc_count >= BT_MAX_SERVICES)
 		return;
 
 	btsvc = &dev->services[bt_context.current_device->svc_count];
-	memset(btsvc, 0, sizeof(bt_svc_t));
+	memset(btsvc, 0, sizeof(struct bt_svc_t));
 	memcpy(&(btsvc->gat_svc), svc, sizeof(gatt_client_service_t));
 	btsvc->id = dev->id | ((dev->svc_count+1) << 8);
 	switch (dev->state) {
@@ -453,7 +453,7 @@ static void handle_gatt_client_event(uint8_t packet_type, uint16_t channel, uint
 	gatt_client_characteristic_t characteristic;
 	gatt_client_service_t svc;
 	bd_addr_t btaddr;
-	bt_device_t *dev;
+	struct bt_device_t *dev;
 
 	BT_LOCAL_LOCK;
 		dev = bt_context.current_device;
@@ -527,7 +527,7 @@ static void trigger_scanning(void)
 	}
 }
 
-static void bt_reset_device(bt_device_t *dev, bt_dev_state_t state)
+static void bt_reset_device(struct bt_device_t *dev, enum bt_dev_state_t state)
 {
 	if (state == BT_DEV_DISCONNECTED && dev->user_cb)
 		dev->user_cb(dev->id, BT_DISCONNECTED, NULL, 0, dev->user_context);
@@ -536,16 +536,16 @@ static void bt_reset_device(bt_device_t *dev, bt_dev_state_t state)
 		dev->state = state;
 		dev->discovering = false;
 		dev->svc_current = -1;
-		memset(dev->services, 0, BT_MAX_SERVICES * sizeof(bt_svc_t));
+		memset(dev->services, 0, BT_MAX_SERVICES * sizeof(struct bt_svc_t));
 	BT_LOCAL_UNLOCK;
 }
 
 static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
 {
-	advertising_report_t report;
+	struct advertising_report_t report;
 	hci_con_handle_t handle;
 	bd_addr_t btaddr;
-	bt_device_t *dev;
+	struct bt_device_t *dev;
 
 	if (packet_type != HCI_EVENT_PACKET)
 		return;
@@ -583,7 +583,7 @@ static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 			BT_LOCAL_LOCK;
 				dev->state = BT_DEV_CONNECTED;
 				dev->svc_count = 0;
-				memset(dev->services, 0, BT_MAX_SERVICES * sizeof(bt_svc_t));
+				memset(dev->services, 0, BT_MAX_SERVICES * sizeof(struct bt_svc_t));
 				dev->connection_handle = hci_subevent_le_connection_complete_get_connection_handle(packet);
 				dev->state_time = to_ms_since_boot(get_absolute_time());
 				if (dev->user_cb)
@@ -748,7 +748,7 @@ static void bt_statck_init(void)
 	hci_add_event_handler(&bt_context.hci_event_cb_reg);
 }
 
-static bt_device_t *get_device_by_id(uint32_t char_id)
+static struct bt_device_t *get_device_by_id(uint32_t char_id)
 {
 	int dev_index, svc_index, char_index;
 
@@ -761,10 +761,10 @@ static bt_device_t *get_device_by_id(uint32_t char_id)
 	return &(bt_context.devcies[dev_index]);
 }
 
-static bt_svc_t *get_service_by_id(uint32_t svc_id)
+static struct bt_svc_t *get_service_by_id(uint32_t svc_id)
 {
 	int dev_index, svc_index, char_index;
-	bt_device_t *dev;
+	struct bt_device_t *dev;
 
 	GET_INDEX_FROM_ID(svc_id, dev_index, svc_index, char_index);
 	if (!bt_context.running)
@@ -780,11 +780,11 @@ static bt_svc_t *get_service_by_id(uint32_t svc_id)
 	return &(dev->services[svc_index]);
 }
 
-static bt_char_t *get_characteristic_by_id(uint32_t char_id)
+static struct bt_char_t *get_characteristic_by_id(uint32_t char_id)
 {
 	int dev_index, svc_index, char_index;
-	bt_device_t *dev;
-	bt_svc_t *svc;
+	struct bt_device_t *dev;
+	struct bt_svc_t *svc;
 
 	GET_INDEX_FROM_ID(char_id, dev_index, svc_index, char_index);
 
@@ -807,7 +807,7 @@ static bt_char_t *get_characteristic_by_id(uint32_t char_id)
 /************************ API ************************/
 void bt_run(void)
 {
-	bt_device_t *dev = NULL;
+	struct bt_device_t *dev = NULL;
 	int i;
 
 	if (!hlog_remoute() || (!bt_context.dev_count && !bt_context.force_init))
@@ -872,8 +872,8 @@ bool bt_init(void)
 
 static int notify_characteristic_enable(uint32_t char_id)
 {
-	bt_char_t *charc;
-	bt_device_t *dev;
+	struct bt_char_t *charc;
+	struct bt_device_t *dev;
 	int ret = -1;
 
 	BT_LOCAL_LOCK;
@@ -894,7 +894,7 @@ static int notify_characteristic_enable(uint32_t char_id)
 
 static int notify_characteristic_disable(uint32_t char_id)
 {
-	bt_char_t *charc;
+	struct bt_char_t *charc;
 
 	BT_LOCAL_LOCK;
 		charc = get_characteristic_by_id(char_id);
@@ -919,7 +919,7 @@ int bt_characteristic_notify(uint32_t char_id, bool enable)
 
 int bt_characteristic_get_uuid(uint32_t id, bt_uuid128_t *u128, uint16_t *u16)
 {
-	bt_char_t *charc;
+	struct bt_char_t *charc;
 	int ret = -1;
 
 	BT_LOCAL_LOCK;
@@ -938,7 +938,7 @@ int bt_characteristic_get_uuid(uint32_t id, bt_uuid128_t *u128, uint16_t *u16)
 
 int bt_service_get_uuid(uint32_t id, bt_uuid128_t *u128, uint16_t *u16)
 {
-	bt_svc_t *svc;
+	struct bt_svc_t *svc;
 	int ret = -1;
 
 	BT_LOCAL_LOCK;
@@ -957,8 +957,8 @@ int bt_service_get_uuid(uint32_t id, bt_uuid128_t *u128, uint16_t *u16)
 
 int bt_characteristic_read(uint32_t char_id)
 {
-	bt_char_t *charc;
-	bt_device_t *dev;
+	struct bt_char_t *charc;
+	struct bt_device_t *dev;
 	int ret = -1;
 
 	BT_LOCAL_LOCK;
@@ -974,8 +974,8 @@ int bt_characteristic_read(uint32_t char_id)
 
 int bt_characteristic_write(uint32_t char_id, uint8_t *data, uint16_t data_len)
 {
-	bt_char_t *charc;
-	bt_device_t *dev;
+	struct bt_char_t *charc;
+	struct bt_device_t *dev;
 	int ret = -1;
 
 	BT_LOCAL_LOCK;

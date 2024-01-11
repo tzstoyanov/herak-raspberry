@@ -20,17 +20,17 @@
 #define CONNECT_TIMEOUT_MS	30000
 #define WIFILOG	"wifi"
 
-typedef struct  {
+struct wifi_net_t {
 	char *ssid;
 	char *pass;
 	bool connected;
-} wifi_net_t;
+};
 
 struct {
 	absolute_time_t connect_time;
 	bool connect_in_progress;
 	int net_id;
-	wifi_net_t *all_nets[MAX_WIFI_NETS];
+	struct wifi_net_t *all_nets[MAX_WIFI_NETS];
 } static wifi_context;
 
 void get_wifi_networks(void)
@@ -46,10 +46,10 @@ void get_wifi_networks(void)
 	rest = param_get(WIFI_SSD);
 	idx = 0;
 	while ((tok = strtok_r(rest, ";", &rest)) && idx < MAX_WIFI_NETS) {
-		wifi_context.all_nets[idx] = malloc(sizeof(wifi_net_t));
+		wifi_context.all_nets[idx] = malloc(sizeof(struct wifi_net_t));
 		if (!wifi_context.all_nets[idx])
 			return;
-		memset(wifi_context.all_nets[idx], 0, sizeof(wifi_net_t));
+		memset(wifi_context.all_nets[idx], 0, sizeof(struct wifi_net_t));
 		wifi_context.all_nets[idx]->ssid = tok;
 		idx++;
 	}
@@ -85,6 +85,7 @@ bool wifi_init(void)
 bool wifi_is_connected(void)
 {
 	bool bret;
+
 	if (!wifi_context.all_nets[0])
 		return false;
 	LWIP_LOCK_START;

@@ -94,7 +94,7 @@ bool sonar_init(void)
 	int i;
 
 	memset(&sonar_context, 0, sizeof(sonar_context));
-	if (!config|| strlen(config) < 1)
+	if (!config || strlen(config) < 1)
 		goto out_error;
 
 	i = 0;

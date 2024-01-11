@@ -25,11 +25,11 @@
 
 #define SENT_WAIT_MS		20000 /* Wait up to 20s for reply */
 #define SENT_MIN_TIME_MS	5000 /* Send command each 5s */
-#define CMD_BUF_SIZE	128
-#define CMD_END_CHAR	'\r'
+#define CMD_BUF_SIZE		128
+#define CMD_END_CHAR		'\r'
 #define PARAM_FIXED_SIZE	16
 
-typedef struct {
+struct voltron_qdi_data_t {
 	float	ac_output_v;
 	float	ac_output_hz;
 	int	max_ac_charge_a;
@@ -55,9 +55,9 @@ typedef struct {
 	int		overload_bypass_b;
 	int		output_mode;
 	float	bat_redischarge_v;
-} voltron_qdi_data_t;
+};
 
-typedef struct {
+struct voltron_qpiri_data_t {
 	float	grid_v;
 	float	grid_a;
 	float	ac_out_v;
@@ -83,9 +83,9 @@ typedef struct {
 	float	bat_redischarge_v;
 	int		pv_ok_parallel_b;
 	int		pv_power_balance_b;
-} voltron_qpiri_data_t;
+};
 
-typedef struct {
+struct voltron_qpigs_data_t {
 	float	grid_v;
 	float	grid_hz;
 	float	ac_out_v;
@@ -103,9 +103,9 @@ typedef struct {
 	float	bat_scc_v;
 	int		bat_discharge_a;
 	int	stat_mask;
-} voltron_qpigs_data_t;
+};
 
-typedef struct {
+struct voltron_qpiws_data_t {
 	bool	inverter_fault;
 	bool	bus_over;
 	bool	bus_under;
@@ -133,9 +133,9 @@ typedef struct {
 	bool	MPPT_overload_fault;
 	bool	MPPT_overload_warning;
 	bool	battery_low_to_charge;
-} voltron_qpiws_data_t;
+};
 
-typedef struct {
+struct voltron_qflags_data_t {
 	uint8_t	buzzer:1;
 	uint8_t	overload_bypass:1;
 	uint8_t	power_saving:1;
@@ -145,9 +145,9 @@ typedef struct {
 	uint8_t	backlight:1;
 	uint8_t	primary_source_interrupt_alarm:1;
 	uint8_t	fault_code_record:1;
-} voltron_qflags_data_t;
+};
 
-typedef struct {
+struct voltron_data_t {
 	char	serial_number[PARAM_FIXED_SIZE];	// QID
 	char	firmware_vesion[PARAM_FIXED_SIZE];	// QVFW
 	char	firmware_vesion3[PARAM_FIXED_SIZE];	// QVFW3
@@ -156,12 +156,12 @@ typedef struct {
 	char	mode;								// QMOD
 	uint32_t pv_total_wh;						// QET
 	datetime_t date;							// QT
-	voltron_qflags_data_t	status_flags;		// QFLAG
-	voltron_qpiws_data_t	warnings;			// QPIWS
-	voltron_qdi_data_t		qdi_data;			// QDI
-	voltron_qpiri_data_t	qpiri_data;			// QPIRI
-	voltron_qpigs_data_t	qpigs_data;			// QPIGS
-} voltron_data_t;
+	struct voltron_qflags_data_t	status_flags;	// QFLAG
+	struct voltron_qpiws_data_t		warnings;		// QPIWS
+	struct voltron_qdi_data_t		qdi_data;		// QDI
+	struct voltron_qpiri_data_t		qpiri_data;		// QPIRI
+	struct voltron_qpigs_data_t		qpigs_data;		// QPIGS
+};
 
 struct {
 	int vid; /* Vendor ID */
@@ -176,7 +176,7 @@ struct {
 	int cmd_count;
 	char cmd_buff[CMD_BUF_SIZE];
 	int cmd_buf_len;
-	voltron_data_t vdata;
+	struct voltron_data_t vdata;
 } static mppt_context;
 
 static bool get_mppt_config(void)
@@ -295,10 +295,10 @@ int qflag_cmd_process(void)
 //   %f    %f   %d   %f   %f   %f   %f   %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d  %f %d %d
 int qdi_cmd_process(void)
 {
-	voltron_qdi_data_t q, z;
+	struct voltron_qdi_data_t q, z;
 	int ret;
 
-	memset(&z, 0, sizeof(voltron_qdi_data_t));
+	memset(&z, 0, sizeof(struct voltron_qdi_data_t));
 	ret = sscanf(mppt_context.cmd_buff+1, "%f %f %d %f %f %f %f %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %f %d %d",
 			&q.ac_output_v, &q.ac_output_hz, &q.max_ac_charge_a, &q.bat_under_v, &q.charge_float_v,
 			&q.charge_bulk_v, &q.bat_def_recharge_v, &q.max_charge_a, &q.ac_input_range_b, &q.out_src_prio_b,
@@ -307,8 +307,8 @@ int qdi_cmd_process(void)
 			&q.overload_bypass_b, &q.lcd_timeout_b, &q.output_mode, &q.bat_redischarge_v, &q.pv_ok_parallel_b,
 			&q.pv_power_balance_b);
 
-	if (ret == 25 && memcmp(&q, &z, sizeof(voltron_qdi_data_t))) {
-		memcpy(&(mppt_context.vdata.qdi_data), &q, sizeof(voltron_qdi_data_t));
+	if (ret == 25 && memcmp(&q, &z, sizeof(struct voltron_qdi_data_t))) {
+		memcpy(&(mppt_context.vdata.qdi_data), &q, sizeof(struct voltron_qdi_data_t));
 		DBG_LOG(MPPT, "QDI reply: [%s]: ", mppt_context.cmd_buff);
 		DBG_LOG(MPPT, "   %3.2f %3.2f %d %3.2f %3.2f %3.2f %3.2f %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %3.2f %d %d",
 				q.ac_output_v, q.ac_output_hz, q.max_ac_charge_a, q.bat_under_v, q.charge_float_v,
@@ -330,18 +330,18 @@ int qdi_cmd_process(void)
 //   %f    %f    %f   %f   %f    %d  %d   %f   %f   %f   %f   %f %d %d  %d %d %d %d %d %d %d %d %f %d %d
 int qpiri_cmd_process(void)
 {
-	voltron_qpiri_data_t q, z;
+	struct voltron_qpiri_data_t q, z;
 	int ret;
 
-	memset(&z, 0, sizeof(voltron_qpiri_data_t));
+	memset(&z, 0, sizeof(struct voltron_qpiri_data_t));
 	ret = sscanf(mppt_context.cmd_buff+1, "%f %f %f %f %f %d %d %f %f %f %f %f %d %d %d %d %d %d %d %d %d %d %f %d %d",
 			&q.grid_v, &q.grid_a, &q.ac_out_v, &q.ac_out_hz, &q.ac_out_a, &q.ac_out_va, &q.ac_out_w, &q.bat_v,
 			&q.bat_recharge_v, &q.bat_under_v, &q.bat_bulk_v, &q.bat_float_v, &q.bat_type_b, &q.ac_charging_a,
 			&q.charging_a, &q.in_voltage_b, &q.out_src_prio, &q.charge_src_prio, &q.parallel_num, &q.mach_type,
 			&q.topo, &q.out_mode, &q.bat_redischarge_v, &q.pv_ok_parallel_b, &q.pv_power_balance_b);
 
-	if (ret == 25 && memcmp(&q, &z, sizeof(voltron_qpiri_data_t))) {
-		memcpy(&(mppt_context.vdata.qpiri_data), &q, sizeof(voltron_qpiri_data_t));
+	if (ret == 25 && memcmp(&q, &z, sizeof(struct voltron_qpiri_data_t))) {
+		memcpy(&(mppt_context.vdata.qpiri_data), &q, sizeof(struct voltron_qpiri_data_t));
 		DBG_LOG(MPPT, "QPIRI reply: [%s]: ", mppt_context.cmd_buff);
 		DBG_LOG(MPPT, "  %3.2f %3.2f %3.2f %3.2f %3.2f %d %d %3.2f %3.2f %3.2f %3.2f %3.2f %d %d %d %d %d %d %d %d %d %d %3.2f %d %d",
 				q.grid_v, q.grid_a, q.ac_out_v, q.ac_out_hz, q.ac_out_a, q.ac_out_va, q.ac_out_w, q.bat_v,
@@ -362,17 +362,17 @@ int qpiri_cmd_process(void)
 //	 %f    %f    %f    %f  %d    %d  %d  %d   %f   %d  %d   %d  %f     %f   %f    %d     %d
 int qpigs_cmd_process(void)
 {
-	voltron_qpigs_data_t q, z;
+	struct voltron_qpigs_data_t q, z;
 	int ret;
 
-	memset(&z, 0, sizeof(voltron_qpigs_data_t));
+	memset(&z, 0, sizeof(struct voltron_qpigs_data_t));
 	ret = sscanf(mppt_context.cmd_buff+1, "%f %f %f %f %d %d %d %d %f %d %d %d %f %f %f %d %d",
 			&q.grid_v, &q.grid_hz, &q.ac_out_v, &q.ac_out_hz, &q.ac_out_va, &q.ac_out_w, &q.out_load_p, &q.bus_v,
 			&q.bat_v, &q.bat_charge_a, &q.bat_capacity_p, &q.sink_temp, &q.pv_in_bat_a, &q.pv_in_v, &q.bat_scc_v,
 			&q.bat_discharge_a, &q.stat_mask);
 
-	if (ret == 17 && memcmp(&q, &z, sizeof(voltron_qpigs_data_t))) {
-		memcpy(&(mppt_context.vdata.qpigs_data), &q, sizeof(voltron_qpigs_data_t));
+	if (ret == 17 && memcmp(&q, &z, sizeof(struct voltron_qpigs_data_t))) {
+		memcpy(&(mppt_context.vdata.qpigs_data), &q, sizeof(struct voltron_qpigs_data_t));
 		DBG_LOG(MPPT, "QPIGS reply: [%s]: ", mppt_context.cmd_buff);
 		DBG_LOG(MPPT, "  %3.2f %3.2f %3.2f %3.2f %d %d %d %d %3.2f %d %d %d %3.2f %3.2f %3.2f %d %d",
 				q.grid_v, q.grid_hz, q.ac_out_v, q.ac_out_hz, q.ac_out_va, q.ac_out_w, q.out_load_p, q.bus_v,
@@ -501,15 +501,15 @@ int qvfw3_cmd_process(void)
 	return -1;
 }
 
-typedef struct {
+struct qpiws_offset_t {
 	int bit;
 	bool *var;
-} qpiws_offset_t;
+};
 
 // (00000100000000000000000000000000000
 int qpiws_cmd_process(void)
 {
-	qpiws_offset_t warn[] = {
+	struct qpiws_offset_t warn[] = {
 			{1, &mppt_context.vdata.warnings.inverter_fault},			// Inverter fault
 			{2, &mppt_context.vdata.warnings.bus_over},					// Bus Over
 			{3, &mppt_context.vdata.warnings.bus_under},				// Bus Under

@@ -14,6 +14,8 @@
 
 #define BMS	"bms"
 
+//#define BMS_DEBUG
+
 #define STATE_WAIT_MS	20000 /* Send command each 20s */
 #define TERM_WAIT_MS	5000 /* Wait 5s for response from terminal */
 
@@ -49,7 +51,7 @@ static uint8_t bt_write_char[16] = SERIAL_CHAR_WRITE_UID;
 /* BMS Daly data */
 #define DALY_MAX_CELLS	48
 #define DALY_MAX_TEMPS	16
-typedef struct {
+struct bms_daly_state_t {
 	/* 0x90 */
 	float bat_v;			/* Cumulative total voltage (0.1 V) */
 	float acquisition_v;	/* Gather total voltage (0.1 V) */
@@ -94,16 +96,16 @@ typedef struct {
 	/* 0x98 */
 	uint8_t	fail_status[7];
 	uint8_t	fail_code;
-} bms_daly_state_t;
+};
 
 #define IS_TERMINAL_READY	(bms_context.terminal.readId && bms_context.terminal.writeId)
 
-typedef struct {
+struct bt_terminal_t {
 	uint32_t	readId;
 	uint32_t	writeId;
 	bool wait_response;
 	uint32_t send_time;
-} bt_terminal_t;
+};
 
 struct {
 	bt_addr_t address;
@@ -111,9 +113,9 @@ struct {
 	char *pin;
 	int bt_index;
 	mutex_t lock;
-	bt_terminal_t terminal;
+	struct bt_terminal_t terminal;
 	bt_event_t state;
-	bms_daly_state_t data;
+	struct bms_daly_state_t data;
 	uint32_t	read_chars[BT_MAX_SERVICES];
 	uint8_t		rchars_count;
 	int qcommand;
@@ -297,7 +299,7 @@ static void daly_bt_process_data(bt_characteristicvalue_t *val)
 	} else {
 		hlog_info(BMS, "Got %d bytes %s data from characteristic ["UUID_128_FMT"], but terminal is not ready %d ",
 				  val->len, val->val_long?"long":"short", UUID_128_PARAM(char128), IS_TERMINAL_READY);
-#if 0
+#if BMS_DEBUG
 		if (!bt_service_get_uuid(val->charId, &svc128, NULL) && !bt_characteristic_get_uuid(val->charId, &char128, NULL)) {
 			hlog_info(BMS, "Got %d bytes %s data from svc ["UUID_128_FMT"], characteristic ["UUID_128_FMT"]:",
 					  val->len, val->val_long?"long":"short", UUID_128_PARAM(svc128), UUID_128_PARAM(char128));

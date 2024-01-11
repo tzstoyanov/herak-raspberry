@@ -21,13 +21,13 @@
 #define FRAME_DATA_LEN	8
 #define COMMAND_LEN		13 /* head byte, address byte, data id byte, data length byte, 8 bytes data, crc byte */
 
-typedef struct {
+struct bms_command_t {
 	int id;
 	int cmd;
 	char *desc;
-} bms_command_t;
+};
 
-static const bms_command_t Qcommands[] = {
+static const struct bms_command_t Qcommands[] = {
 		{DALY_90, 0x90, "Query SOC of Total Voltage Current"},
 		{DALY_91, 0x91, "Query Maximum Minimum Voltage of Monomer"},
 		{DALY_92, 0x92, "Query Maximum minimum temperature of monomer"},
@@ -52,7 +52,7 @@ static const bms_command_t Qcommands[] = {
 		{DALY_63, 0x63, "Query Hardware Version"}
 };
 
-static const bms_command_t Scommands[] = {
+static const struct bms_command_t Scommands[] = {
 		{DALY_S_10, 0x10, "Set the rated pack capacity and nominal cell voltage"},
 		{DALY_S_11, 0x11, "Set the Number of acquisition board, Cell counts and Temp Sensor counts"},
 		{DALY_S_13, 0x13, "Set Battery operation mode / Production Date / Battery Type and Automatic sleep time"},

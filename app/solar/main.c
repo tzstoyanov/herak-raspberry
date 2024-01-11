@@ -40,9 +40,9 @@ int main(void)
 	has_wh = wh_notify_init();
 
 	while (true) {
-		if (blinik_count++ % BLINK_INERVAL == 0) {
+		if (blinik_count++ % BLINK_INERVAL == 0)
 			LED_ON;
-		}
+
 		system_common_run();
 		internal_temp_query();
 		if (has_solar)

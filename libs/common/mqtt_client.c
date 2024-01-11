@@ -42,12 +42,12 @@
 #define MQTT_CLIENT_LOCK	mutex_enter_blocking(&mqtt_context.lock)
 #define MQTT_CLIENTL_UNLOCK	mutex_exit(&mqtt_context.lock)
 
-typedef enum {
+enum mqtt_client_state_t {
 	MQTT_CLIENT_INIT = 0,
 	MQTT_CLIENT_DISCONNECTED,
 	MQTT_CLIENT_CONNECTING,
 	MQTT_CLIENT_CONNECTED
-} mqtt_client_state_t;
+};
 
 struct {
 	char *server_url;
@@ -56,7 +56,7 @@ struct {
 	int mqtt_max_delay;
 	int mqtt_min_delay;
 	int max_payload_size;
-	mqtt_client_state_t state;
+	enum mqtt_client_state_t state;
 	ip_addr_t server_addr;
 	ip_resolve_state_t sever_ip_state;
 	mqtt_client_t *client;
@@ -197,8 +197,8 @@ void mqtt_msg_publish(char *message, bool force)
 
 void mqtt_connect(void)
 {
+	enum mqtt_client_state_t st;
 	ip_resolve_state_t res;
-	mqtt_client_state_t st;
 	uint32_t last_send;
 	uint32_t now;
 	int ret;
