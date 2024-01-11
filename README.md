@@ -11,6 +11,7 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 - NTP client for time synchronization.
 - Logging to a remote rsyslog server.
 - MQTT client.
+- HTTP Webhooks.
 - Watchdog.
 - External HD44780 LCD display.
 
@@ -25,8 +26,8 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 
 ## Applications:
 Applications are built on top of common library, which provides basic functionality:
-Internet over WiFi, Bluetooth, remote logging, time synchronization, MQTT client, watchdog,
-encrypted key-value store.
+Internet over WiFi, Bluetooth, remote logging, time synchronization, MQTT client, Webhook client,
+watchdog, encrypted key-value store.
 All user specific parameters are defined in params.txt file which must be available at
 build time in the application directory. The [params-example.txt](app/params_example.txt) file can
 be used as template.
