@@ -118,7 +118,7 @@ bool sw_out_init(void)
 	int pin;
 
 	sys_context.sw_out_pin  = -1;
-	if (strlen(config) < 1)
+	if (!config || strlen(config) < 1)
 		goto out;
 
 	pin = (int)strtol(config, NULL, 10);

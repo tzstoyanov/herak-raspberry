@@ -34,15 +34,14 @@ static bool wh_notify_get_config(char **server, char **endpoint, int *port)
 	int port_id = 0;
 
 	srv = param_get(WEBHOOK_SERVER);
-	if (!srv)
-		return false;
+	if (!srv || strlen(srv) < 1)
+		goto out_err;
 	ep = param_get(WEBHOOK_ENDPINT);
-	if (!ep) {
-		free(srv);
-		return false;
-	}
+	if (!ep || strlen(ep) < 1)
+		goto out_err;
+
 	port_str = param_get(WEBHOOK_PORT);
-	if (port_str)
+	if (port_str && strlen(port_str) > 1)
 		port_id = atoi(port_str);
 	if (!port_id)
 		port_id = WH_DEFAULT_PORT;
@@ -60,6 +59,10 @@ static bool wh_notify_get_config(char **server, char **endpoint, int *port)
 		*port = port_id;
 
 	return true;
+out_err:
+	free(srv);
+	free(ep);
+	return false;
 }
 
 int wh_notify(int level)

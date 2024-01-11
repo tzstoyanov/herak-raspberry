@@ -40,6 +40,9 @@ void get_wifi_networks(void)
 	char *tok;
 	int idx;
 
+	if (WIFI_SSD_len < 1)
+		return;
+
 	rest = param_get(WIFI_SSD);
 	idx = 0;
 	while ((tok = strtok_r(rest, ";", &rest)) && idx < MAX_WIFI_NETS) {

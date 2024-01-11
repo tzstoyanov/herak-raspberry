@@ -182,7 +182,7 @@ struct {
 static bool get_mppt_config(void)
 {
 	bool ret = false;
-	char *usb_id;
+	char *usb_id = NULL;
 	char *rest;
 	char *tok;
 	int  id;
@@ -191,6 +191,8 @@ static bool get_mppt_config(void)
 		return false;
 
 	usb_id = param_get(MPPT_VOLTRON_USB);
+	if (!usb_id || strlen(usb_id) < 1)
+		goto out;
 	rest = usb_id;
 	tok = strtok_r(rest, ":", &rest);
 	if (!tok)

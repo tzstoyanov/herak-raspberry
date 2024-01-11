@@ -55,7 +55,7 @@ bool get_lcd_config(int *address, int *clock, int *sda, int *scl)
 	bool ret = false;
 	int i;
 
-	if (strlen(lcd_config) < 1)
+	if (!lcd_config || strlen(lcd_config) < 1)
 		goto out;
 	rest = lcd_config;
 	while (i < 4 && (tok = strtok_r(rest, ";", &rest)))

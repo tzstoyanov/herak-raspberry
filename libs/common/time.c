@@ -51,6 +51,9 @@ void get_ntp_servers(void)
 	char *tok;
 	int idx;
 
+	if (NTP_SERVERS_len < 1)
+		return;
+
 	idx = 0;
 	rest = param_get(NTP_SERVERS);
 	while ((tok = strtok_r(rest, ";", &rest)) && idx < SNTP_MAX_SERVERS)

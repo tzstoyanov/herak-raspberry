@@ -44,7 +44,7 @@ static bool get_sensor_config()
 	char *config = param_get(ONE_WIRE_DEVICES);
 	bool ret = false;
 
-	if (strlen(config) < 1)
+	if (!config || strlen(config) < 1)
 		goto out;
 
 	sensor_context.pin = (int)strtol(config, NULL, 10);

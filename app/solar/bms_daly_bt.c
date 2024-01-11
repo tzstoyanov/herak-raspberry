@@ -415,7 +415,7 @@ out:
 static bool get_bms_config(void)
 {
 	bool ret = false;
-	char *bt_id;
+	char *bt_id = NULL;
 	char *rest, *rest1;
 	char *tok;
 	int  i, id;
@@ -424,6 +424,8 @@ static bool get_bms_config(void)
 		return false;
 
 	bt_id = param_get(BMS_DALY_BT);
+	if (!bt_id || strlen(bt_id) < 1)
+		goto out;
 	rest = bt_id;
 	tok = strtok_r(rest, ";", &rest);
 	if (!tok)
