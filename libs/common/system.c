@@ -159,10 +159,9 @@ static bool base_init(void)
 
 bool system_common_init(void)
 {
-
 	// Initialize chosen serial port, default 38400 baud
 	stdio_init_all();
-	srand(to_ms_since_boot(get_absolute_time()));
+	srand(to_us_since_boot(get_absolute_time()));
 	busy_wait_ms(2000);
 
 	watchdog_enable(WATCHDOG_TIMEOUT_MS, true);
@@ -223,8 +222,21 @@ static void log_wd_boot(void)
 	one_time = true;
 }
 
+void system_reconect(void)
+{
+	hlog_info(COMMONSYSLOG, "Reconnecting ...");
+
+	if (sys_context.has_mqtt)
+		mqtt_reconnect();
+	if (sys_context.has_wh)
+		webhook_reconnect();
+	hlog_reconnect();
+}
+
 void system_common_run(void)
 {
+	bool reconnect = false;
+
 	sys_context.last_loop = to_ms_since_boot(get_absolute_time());
 	watchdog_update();
 	if (sys_context.has_lcd)
@@ -234,7 +246,7 @@ void system_common_run(void)
 		temperature_measure();
 	watchdog_update();
 	if (sys_context.has_wifi)
-		wifi_connect();
+		reconnect = wifi_connect();
 	if (sys_context.has_bt)
 		bt_run();
 	watchdog_update();
@@ -249,6 +261,8 @@ void system_common_run(void)
 	if (sys_context.has_wh)
 		webhook_run();
 	log_wd_boot();
+	if (reconnect)
+		system_reconect();
 	watchdog_update();
 
 #ifdef PERIODIC_LOG_MS

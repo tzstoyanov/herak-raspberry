@@ -203,7 +203,12 @@ void mqtt_connect(void)
 	uint32_t now;
 	int ret;
 
-	if (!wifi_is_connected() || mqtt_is_connected())
+	if (!wifi_is_connected()) {
+		if (mqtt_is_connected())
+			mqtt_reconnect();
+		return;
+	}
+	if (mqtt_is_connected())
 		return;
 
 	MQTT_CLIENT_LOCK;
@@ -218,12 +223,16 @@ void mqtt_connect(void)
 		if (mqtt_context.client) {
 			LWIP_LOCK_START;
 				mqtt_disconnect(mqtt_context.client);
+				mqtt_client_free(mqtt_context.client);
 			LWIP_LOCK_END;
+			mqtt_context.client = NULL;
 		}
 		MQTT_CLIENT_LOCK;
 			mqtt_context.state = MQTT_CLIENT_DISCONNECTED;
 			mqtt_context.sever_ip_state = IP_NOT_RESOLEVED;
 		MQTT_CLIENTL_UNLOCK;
+
+		hlog_info(MQTTLOG, "Connect to %s timeout", mqtt_context.server_url);
 	}
 
 	MQTT_CLIENT_LOCK;
@@ -336,6 +345,26 @@ static int mqtt_get_config(void)
 	}
 
 	return 0;
+}
+
+void mqtt_reconnect(void)
+{
+	MQTT_CLIENT_LOCK;
+		if (mqtt_context.state == MQTT_CLIENT_INIT) {
+			MQTT_CLIENTL_UNLOCK;
+			return;
+		}
+		if (mqtt_context.client) {
+			LWIP_LOCK_START;
+				mqtt_disconnect(mqtt_context.client);
+				mqtt_client_free(mqtt_context.client);
+			LWIP_LOCK_END;
+			mqtt_context.client = NULL;
+		}
+		mqtt_context.state = MQTT_CLIENT_DISCONNECTED;
+		mqtt_context.sever_ip_state = IP_NOT_RESOLEVED;
+		hlog_info(MQTTLOG, "Disconnected form %s", mqtt_context.server_url);
+	MQTT_CLIENTL_UNLOCK;
 }
 
 bool mqtt_init(void)

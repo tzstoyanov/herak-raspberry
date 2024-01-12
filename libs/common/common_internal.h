@@ -34,6 +34,8 @@ extern "C" {
 
 #define __weak	__attribute__((__weak__))
 
+void system_reconect(void);
+
 typedef enum {
 	IP_NOT_RESOLEVED = 0,
 	IP_RESOLVING,
@@ -41,7 +43,7 @@ typedef enum {
 } ip_resolve_state_t;
 
 bool wifi_init(void);
-void wifi_connect(void);
+bool wifi_connect(void);
 bool wifi_is_connected(void);
 void wifi_log_status(void);
 
@@ -49,6 +51,7 @@ bool mqtt_init(void);
 void mqtt_connect(void);
 bool mqtt_is_connected(void);
 void mqtt_log_status(void);
+void mqtt_reconnect(void);
 
 bool bt_init(void);
 void bt_run(void);
@@ -74,6 +77,7 @@ void main_log(void);
 void hlog_init(int level);
 void hlog_connect(void);
 void hlog_status(void);
+void hlog_reconnect(void);
 
 void system_log_status(void);
 char *get_uptime(void);
@@ -83,6 +87,7 @@ uint32_t get_total_heap(void);
 bool webhook_init(void);
 void webhook_run(void);
 void webhook_log_status(void);
+void webhook_reconnect(void);
 
 #ifdef __cplusplus
 }

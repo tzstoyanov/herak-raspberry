@@ -98,29 +98,40 @@ void wifi_log_status(void)
 {
 	int i;
 
-	if (wifi_context.net_id < 0 || wifi_context.net_id  > MAX_WIFI_NETS) {
+	if (wifi_context.net_id < 0 || wifi_context.net_id  > MAX_WIFI_NETS ||
+		(wifi_context.all_nets[wifi_context.net_id] &&
+		wifi_context.all_nets[wifi_context.net_id]->connected == false)) {
+
 		hlog_info(WIFILOG, "Not connected to a WiFi network, looking for:");
-		for (i = 0; i < MAX_WIFI_NETS; i++)
-			hlog_info(WIFILOG, "\t%s", wifi_context.all_nets[i]->ssid);
+		for (i = 0; i < MAX_WIFI_NETS; i++) {
+			if (wifi_context.all_nets[i])
+				hlog_info(WIFILOG, "\t%s", wifi_context.all_nets[i]->ssid);
+		}
 		return;
 	}
 
 	hlog_info(WIFILOG, "Connected to %s -> %s", wifi_context.all_nets[wifi_context.net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
 }
 
-void wifi_connect(void)
+bool wifi_connect(void)
 {
+	bool reconnect = false;
 	int err;
 
 	if (wifi_is_connected()) {
-		if (wifi_context.connect_in_progress)
+		if (wifi_context.connect_in_progress) {
 			hlog_info(WIFILOG, "Connected to %s -> got %s", wifi_context.all_nets[wifi_context.net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
+			reconnect = true;
+		}
 		wifi_context.connect_in_progress = false;
 		wifi_context.all_nets[wifi_context.net_id]->connected = true;
-		return;
+		return reconnect;
 	}
 
 	if (!wifi_context.connect_in_progress) {
+		if (wifi_context.net_id >= 0 && wifi_context.net_id < MAX_WIFI_NETS && wifi_context.all_nets[wifi_context.net_id])
+			wifi_context.all_nets[wifi_context.net_id]->connected = false;
+
 		wifi_context.net_id++;
 		if (wifi_context.net_id < 0 || wifi_context.net_id >= MAX_WIFI_NETS || !wifi_context.all_nets[wifi_context.net_id])
 			wifi_context.net_id = 0;
@@ -139,4 +150,6 @@ void wifi_connect(void)
 		hlog_info(WIFILOG, "TimeOut connecting to %s: %d",
 				wifi_context.all_nets[wifi_context.net_id]->ssid, cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA));
 	}
+
+	return reconnect;
 }

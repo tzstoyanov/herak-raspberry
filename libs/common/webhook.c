@@ -538,6 +538,14 @@ void webhook_log_status(void)
 	}
 }
 
+void webhook_reconnect(void)
+{
+	int i;
+
+	for (i = 0; i < wh_context.wh_count; i++)
+		webhook_disconnect(&(wh_context.whooks[i]));
+}
+
 bool webhook_init(void)
 {
 	memset(&wh_context, 0, sizeof(wh_context));
@@ -546,10 +554,17 @@ bool webhook_init(void)
 
 void webhook_run(void)
 {
+	static bool connected;
 	int i;
 
-	if (!wifi_is_connected())
+	if (!wifi_is_connected()) {
+		if (connected) {
+			webhook_reconnect();
+			connected = false;
+		}
 		return;
+	} else
+		connected = true;
 
 	webhook_resolve();
 	webhook_connect_all();

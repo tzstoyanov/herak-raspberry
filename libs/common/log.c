@@ -118,6 +118,13 @@ void hlog_status(void)
 	}
 }
 
+void hlog_reconnect(void)
+{
+	LOG_LOCK;
+		log_context.sever_ip_state = IP_NOT_RESOLEVED;
+	LOG_UNLOCK;
+}
+
 void hlog_connect(void)
 {
 	bool resolving = false;
