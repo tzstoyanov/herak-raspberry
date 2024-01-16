@@ -23,13 +23,13 @@
 #define SONAR_TXT_ROW	0
 #define SONAR_NUM_ROW	1
 
-struct {
+static struct {
 	int echo_pin;
 	int trigger_pin;
 	uint32_t send_time;
 	uint32_t last_distance;
 	uint32_t samples[SONAR_MEASURE_COUNT];
-} static sonar_context;
+} sonar_context;
 
 static uint32_t sonar_read(void)
 {
@@ -43,6 +43,7 @@ static uint32_t sonar_read(void)
 	gpio_put(sonar_context.trigger_pin, 0);
 
 	timeout = get_absolute_time();
+	start = get_absolute_time();
 	while (!gpio_get(sonar_context.echo_pin)) {
 		start = get_absolute_time();
 		if (absolute_time_diff_us(timeout, start) > MAX_TIME_USEC)
@@ -50,6 +51,7 @@ static uint32_t sonar_read(void)
 	}
 
 	timeout = get_absolute_time();
+	end = get_absolute_time();
 	while (gpio_get(sonar_context.echo_pin)) {
 		end = get_absolute_time();
 		if (absolute_time_diff_us(timeout, end) > MAX_TIME_USEC)
@@ -78,12 +80,6 @@ void sonar_measure(void)
 		lcd_set_double(1, SONAR_NUM_ROW, 1, (double)av/10);
 	}
 	mqtt_data_sonar((float)sonar_context.last_distance/10);
-
-	return;
-
-err:
-	lcd_set_text(1, SONAR_TXT_ROW, 3, "--");
-	mqtt_data_sonar(-1);
 }
 
 bool sonar_init(void)

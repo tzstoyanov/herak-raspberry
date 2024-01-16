@@ -21,10 +21,10 @@
 #define WHLOG	"notify"
 #define HTTP_OK	200
 
-struct {
+static struct {
 	int wh_idx;
 	uint32_t last_send;
-} static wh_notify_context;
+} wh_notify_context;
 
 static bool wh_notify_get_config(char **server, char **endpoint, int *port)
 {
@@ -90,6 +90,8 @@ void wh_notify_send(void)
 
 static void wh_callback(int idx, int http_code, void *context)
 {
+	UNUSED(idx);
+	UNUSED(context);
 	switch (http_code) {
 	case 0:
 		hlog_info(WHLOG, "http timeout");

@@ -19,11 +19,11 @@
 
 #define MQTT_MESSAGE	"{ \"time\": \"%s\", \"level\": %3.2f, \"in_temp\": %3.2f }"
 
-struct {
+static struct {
 	float sonar_distance;
 	float internal_temp;
 	char payload[MQTT_DATA_LEN + 1];
-} static mqtt_shaft_context;
+} mqtt_shaft_context;
 
 static void mqtt_data_send(bool force)
 {

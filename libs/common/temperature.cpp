@@ -135,8 +135,7 @@ void temperature_measure_internal()
 {
 	float result_tmp;
 	uint32_t av;
-	uint16_t sw;
-	int i, j;
+	int i;
 
 	/* read the samples */
 	for(i = 0; i<ADC_MEASURE_COUNT; i++)

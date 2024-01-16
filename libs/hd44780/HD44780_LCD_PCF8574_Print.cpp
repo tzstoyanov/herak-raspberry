@@ -27,6 +27,8 @@
 #include <math.h>
 #include "../include/hd44780/HD44780_LCD_PCF8574.hpp"
 
+#define NL_CHAR	"\n"
+
 // Public Methods 
 
 /* default implementation: may be overridden */
@@ -45,7 +47,11 @@ size_t Print::print(const std::string &s) {
 }
 
 size_t Print::println(const std::string &s) {
-    return println(s);
+	size_t n = 0;
+
+	n = write(s.c_str(), s.length());
+	n += write(NL_CHAR, strlen(NL_CHAR));
+	return n;
 }
 
 size_t Print::print(const char str[])

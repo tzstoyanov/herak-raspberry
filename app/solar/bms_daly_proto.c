@@ -66,10 +66,10 @@ static const struct bms_command_t Scommands[] = {
 		{DALY_S_20, 0x20, "Set the short-circuit shutdown threshold and the current sampling resolution"}
 };
 
-char *bms_get_qcommand(daly_qcmd_t idx, int *len)
+uint8_t *bms_get_qcommand(daly_qcmd_t idx, int *len)
 {
 	static int qcommads_count = ARRAY_SIZE(Qcommands);
-	static char cmd_buff[COMMAND_LEN];
+	static uint8_t cmd_buff[COMMAND_LEN];
 	int i;
 
 	for (i = 0; i < qcommads_count; i++) {
@@ -92,7 +92,7 @@ char *bms_get_qcommand(daly_qcmd_t idx, int *len)
 	return cmd_buff;
 }
 
-daly_qcmd_t bms_verify_response(char *buf, int len)
+daly_qcmd_t bms_verify_response(uint8_t *buf, int len)
 {
 	static int qcommads_count = ARRAY_SIZE(Qcommands);
 	uint8_t crc;
@@ -127,6 +127,7 @@ int bms_get_qcommand_desc(daly_qcmd_t idx, const char **cmd, const char **desc)
 	static char cmd_id[5];
 	int i;
 
+	UNUSED(Scommands);
 	for (i = 0; i < qcommads_count; i++) {
 		if (Qcommands[i].id == idx)
 			break;
@@ -138,7 +139,7 @@ int bms_get_qcommand_desc(daly_qcmd_t idx, const char **cmd, const char **desc)
 	if (desc)
 		*desc = Qcommands[i].desc;
 	if (cmd) {
-		snprintf(cmd_id, 5, "0x%0.2X", Qcommands[i].cmd);
+		snprintf(cmd_id, 5, "0x%.2X", Qcommands[i].cmd);
 		*cmd = cmd_id;
 	}
 

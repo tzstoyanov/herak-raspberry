@@ -18,7 +18,7 @@ char base46_map[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
 
 char* base64_encode(const char *plain, int len) {
 
-    char counts = 0;
+    unsigned char counts = 0;
     char buffer[3];
     char* cipher = malloc(len * 4 / 3 + 4);
     int i = 0, c = 0;
@@ -53,13 +53,13 @@ char* base64_encode(const char *plain, int len) {
 
 char* base64_decode(const char *cipher, int len) {
 
-    char counts = 0;
+    unsigned char counts = 0;
     char buffer[4];
     char* plain = malloc(len * 3 / 4);
     int i = 0, p = 0;
 
     for(i = 0; i < len; i++) {
-        char k;
+        unsigned char k;
         for(k = 0 ; k < 64 && base46_map[k] != cipher[i]; k++);
         buffer[counts++] = k;
         if(counts == 4) {

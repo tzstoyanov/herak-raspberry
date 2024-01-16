@@ -17,6 +17,8 @@
 //#define MPPT_DBUG
 //#define MPPT_TEST_CMD
 
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+
 #ifdef MPPT_DBUG
 #define DBG_LOG	hlog_info
 #else
@@ -163,7 +165,7 @@ struct voltron_data_t {
 	struct voltron_qpigs_data_t		qpigs_data;		// QPIGS
 };
 
-struct {
+static struct {
 	int vid; /* Vendor ID */
 	int pid; /* Product ID */
 	int usb_idx;
@@ -177,7 +179,7 @@ struct {
 	char cmd_buff[CMD_BUF_SIZE];
 	int cmd_buf_len;
 	struct voltron_data_t vdata;
-} static mppt_context;
+} mppt_context;
 
 static bool get_mppt_config(void)
 {
@@ -214,7 +216,7 @@ out:
 // (9283210100631
 int qid_cmd_process(void)
 {
-	strncpy(mppt_context.vdata.serial_number, mppt_context.cmd_buff+1, PARAM_FIXED_SIZE);
+	strncpy(mppt_context.vdata.serial_number, mppt_context.cmd_buff + 1, PARAM_FIXED_SIZE - 1);
 	DBG_LOG(MPPT, "QID reply: [%s]", mppt_context.vdata.serial_number);
 	return 0;
 }
@@ -225,7 +227,7 @@ int qvfw_cmd_process(void)
 	char *ver = strchr(mppt_context.cmd_buff, ':');
 
 	if (ver) {
-		strncpy(mppt_context.vdata.firmware_vesion, ver+1, PARAM_FIXED_SIZE);
+		strncpy(mppt_context.vdata.firmware_vesion, ver + 1, PARAM_FIXED_SIZE - 1);
 		DBG_LOG(MPPT, "QVFW reply: [%s]", mppt_context.vdata.firmware_vesion);
 		return 0;
 	}
@@ -397,8 +399,8 @@ int qmod_cmd_process(void)
 // (00106000
 int qet_cmd_process(void)
 {
-	uint32_t t;
 	int ret;
+	int t;
 
 	ret = sscanf(mppt_context.cmd_buff+1, "%d", &t);
 	if (ret == 1) {
@@ -492,7 +494,7 @@ int qvfw3_cmd_process(void)
 	char *ver = strchr(mppt_context.cmd_buff, ':');
 
 	if (ver) {
-		strncpy(mppt_context.vdata.firmware_vesion3, ver+1, PARAM_FIXED_SIZE);
+		strncpy(mppt_context.vdata.firmware_vesion3, ver + 1, PARAM_FIXED_SIZE - 1);
 		DBG_LOG(MPPT, "QVFW3 reply: [%s]", mppt_context.vdata.firmware_vesion3);
 		return 0;
 	}
@@ -552,13 +554,13 @@ int qpiws_cmd_process(void)
 // One Time / rearly: QID, QVFW, QFLAG, QDI
 // Useful: QPIRI QPIGS QMOD QPIWS
 typedef int (*cmd_handler_t) (void);
-struct {
+static struct {
 	voltron_qcmd_t id;
 	cmd_handler_t cb;
 	bool one_time;
 	bool send;
 	uint16_t min_reply_size;
-} static voltron_commnds_handler[] = {
+} voltron_commnds_handler[] = {
 		{MPPT_QID, qid_cmd_process, 1, 1, 15},
 		{MPPT_QVFW, qvfw_cmd_process, 1, 1, 15},
 		{MPPT_QFLAG, qflag_cmd_process, 1, 1, 12},
@@ -625,9 +627,7 @@ static int mppt_cmd_process_known(int len)
 static void mppt_cmd_process(void)
 {
 	const char *cmd;
-	int ret = -1;
 	int len;
-	int i;
 
 	DBG_LOG(MPPT, "Process command %d reply", mppt_context.cmd_idx);
 #ifdef MPTT_DBUG
@@ -656,9 +656,9 @@ static void reset_state(void)
 
 static void mppt_usb_callback(int idx, usb_event_t event, const void *data, int len, void *context)
 {
-	const char *cmd;
 	int i;
 
+	UNUSED(context);
 	switch (event) {
 	case HID_MOUNT:
 		reset_state();
@@ -691,7 +691,8 @@ static void mppt_usb_callback(int idx, usb_event_t event, const void *data, int 
 		} else {
 			hlog_info(MPPT, "Command buffer overflow %d / %d", CMD_BUF_SIZE, mppt_context.cmd_buf_len + len);
 		}
-
+		break;
+	default:
 		break;
 	}
 }
@@ -711,6 +712,7 @@ bool mppt_solar_init(void)
 	return true;
 }
 
+#ifdef MPPT_TEST_CMD
 static voltron_qcmd_t mppt_solar_cmd_test(void)
 {
 	static int idx;
@@ -729,14 +731,12 @@ static voltron_qcmd_t mppt_solar_cmd_test(void)
 		idx = 0;
 
 	return ids[idx++];
-
 }
+#endif
 
 static voltron_qcmd_t mppt_solar_cmd_next(void)
 {
 	static int idx;
-	int id;
-	int i;
 
 	if (idx >= mppt_context.cmd_count)
 		idx = 0;
@@ -749,7 +749,7 @@ static voltron_qcmd_t mppt_solar_cmd_next(void)
 	return voltron_commnds_handler[idx++].id;
 }
 
-#define PARAM_MAX_LEN	12
+#define PARAM_MAX_LEN	18
 static char *cmd_get(voltron_qcmd_t idx, int *len)
 {
 	char buf[PARAM_MAX_LEN];
@@ -782,6 +782,8 @@ static char *cmd_get(voltron_qcmd_t idx, int *len)
 			return NULL;
 		snprintf(buf, PARAM_MAX_LEN, "%4d%2d%2d", date->year, date->month, date->day);
 		param = buf;
+		break;
+	default:
 		break;
 	}
 

@@ -26,16 +26,15 @@ struct wifi_net_t {
 	bool connected;
 };
 
-struct {
+static struct {
 	absolute_time_t connect_time;
 	bool connect_in_progress;
 	int net_id;
 	struct wifi_net_t *all_nets[MAX_WIFI_NETS];
-} static wifi_context;
+} wifi_context;
 
 void get_wifi_networks(void)
 {
-	char *nets;
 	char *rest;
 	char *tok;
 	int idx;

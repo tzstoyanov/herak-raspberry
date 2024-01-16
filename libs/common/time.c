@@ -23,7 +23,7 @@
 #define TIME_LOCK	mutex_enter_blocking(&ntp_context.lock);
 #define TIME_UNLOCK	mutex_exit(&ntp_context.lock);
 
-struct {
+static struct {
 	char *ntp_servers[SNTP_MAX_SERVERS];
 	bool init;
 	bool in_progress;
@@ -33,7 +33,7 @@ struct {
 	datetime_t datetime;
 	bool time_synched;
 	mutex_t lock;
-} static ntp_context;
+} ntp_context;
 
 bool ntp_connected(void)
 {
@@ -141,22 +141,22 @@ char *get_uptime(void)
 	}
 
 	if (years)
-		snprintf(buf, UPTIME_STR_LEN, "%d years, %d days, %.2d:%.2d:%.2d.%.3d hours",
+		snprintf(buf, UPTIME_STR_LEN, "%ld years, %ld days, %.2ld:%.2ld:%.2ld.%.3ld hours",
 				years, days, hours, min, sec, msec);
 	else if (days)
-		snprintf(buf, UPTIME_STR_LEN, "%d days, %.2d:%.2d:%.2d.%.3d hours",
+		snprintf(buf, UPTIME_STR_LEN, "%ld days, %.2ld:%.2ld:%.2ld.%.3ld hours",
 				days, hours, min, sec, msec);
 	else if (hours)
-		snprintf(buf, UPTIME_STR_LEN, "%.2d:%.2d:%.2d.%.3d hours",
+		snprintf(buf, UPTIME_STR_LEN, "%.2ld:%.2ld:%.2ld.%.3ld hours",
 				hours, min, sec, msec);
 	else if (min)
-		snprintf(buf, UPTIME_STR_LEN, "%.2d:%.2d.%.3d minutes",
+		snprintf(buf, UPTIME_STR_LEN, "%.2ld:%.2ld.%.3ld minutes",
 				min, sec, msec);
 	else if (sec)
-		snprintf(buf, UPTIME_STR_LEN, "%.2d.%.3d sec",
+		snprintf(buf, UPTIME_STR_LEN, "%.2ld.%.3ld sec",
 				sec, msec);
 	else
-		snprintf(buf, UPTIME_STR_LEN, "%.3d msec", msec);
+		snprintf(buf, UPTIME_STR_LEN, "%.3ld msec", msec);
 
 	return buf;
 }
@@ -249,7 +249,7 @@ char *get_current_time_str(char *buf, int buflen)
 		snprintf(buf, buflen, "%s %.2d %.2d.%.2d.%.2d",
 					month, date.day, date.hour, date.min, date.sec);
 	} else {
-		snprintf(buf, buflen, "%s 0 %d", mnames[0], to_ms_since_boot(get_absolute_time()));
+		snprintf(buf, buflen, "%s 0 %ld", mnames[0], to_ms_since_boot(get_absolute_time()));
 	}
 
 	return buf;

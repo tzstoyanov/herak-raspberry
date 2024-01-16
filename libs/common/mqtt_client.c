@@ -49,13 +49,13 @@ enum mqtt_client_state_t {
 	MQTT_CLIENT_CONNECTED
 };
 
-struct {
+static struct {
 	char *server_url;
 	char *topic;
 	int server_port;
-	int mqtt_max_delay;
-	int mqtt_min_delay;
-	int max_payload_size;
+	uint32_t mqtt_max_delay;
+	uint32_t mqtt_min_delay;
+	uint32_t max_payload_size;
 	enum mqtt_client_state_t state;
 	ip_addr_t server_addr;
 	ip_resolve_state_t sever_ip_state;
@@ -66,10 +66,12 @@ struct {
 	uint32_t last_send;
 	mutex_t lock;
 	uint32_t connect_count;
-} static mqtt_context;
+} mqtt_context;
 
 static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
 {
+	UNUSED(client);
+	UNUSED(arg);
 	MQTT_CLIENT_LOCK;
 		mqtt_context.send_in_progerss = false;
 	MQTT_CLIENTL_UNLOCK;
@@ -107,6 +109,8 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 
 static void mqtt_server_found(const char *hostname, const ip_addr_t *ipaddr, void *arg)
 {
+	UNUSED(hostname);
+	UNUSED(arg);
 	MQTT_CLIENT_LOCK;
 		memcpy(&(mqtt_context.server_addr), ipaddr, sizeof(ip_addr_t));
 		mqtt_context.sever_ip_state = IP_RESOLVED;
@@ -140,6 +144,8 @@ void mqtt_log_status(void)
 
 static void mqtt_publish_cb(void *arg, err_t result)
 {
+	UNUSED(result);
+	UNUSED(arg);
 	MQTT_CLIENT_LOCK;
 		mqtt_context.send_in_progerss = false;
 	MQTT_CLIENTL_UNLOCK;

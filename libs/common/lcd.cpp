@@ -53,7 +53,7 @@ bool get_lcd_config(int *address, int *clock, int *sda, int *scl)
 	char *config_tokens[4];
 	char *rest, *tok;
 	bool ret = false;
-	int i;
+	int i = 0;
 
 	if (!lcd_config || strlen(lcd_config) < 1)
 		goto out;

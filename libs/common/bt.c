@@ -71,7 +71,7 @@ struct bt_device_t {
 	void *user_context;
 };
 
-struct {
+static struct {
 	btstack_packet_callback_registration_t hci_event_cb_reg;
 	struct bt_device_t devcies[BT_MAX_DEVICES];
 	int dev_count;
@@ -82,7 +82,7 @@ struct {
 	bool scanning;
 	bool verbose;
 	mutex_t lock;
-} static bt_context;
+} bt_context;
 
 static struct bt_device_t *bt_get_device_by_address(bd_addr_t btaddress)
 {
@@ -326,6 +326,9 @@ static void handle_gatt_client_read_value(uint8_t packet_type, uint16_t channel,
 	struct bt_device_t *dev;
 	bool notify = false;
 
+	UNUSED(packet_type);
+	UNUSED(channel);
+	UNUSED(size);
 	switch (hci_event_packet_get_type(packet)) {
 	case GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT:
 		val.len = gatt_event_characteristic_value_query_result_get_value_length(packet);
@@ -452,9 +455,11 @@ static void handle_gatt_client_event(uint8_t packet_type, uint16_t channel, uint
 {
 	gatt_client_characteristic_t characteristic;
 	gatt_client_service_t svc;
-	bd_addr_t btaddr;
 	struct bt_device_t *dev;
 
+	UNUSED(packet_type);
+	UNUSED(channel);
+	UNUSED(size);
 	BT_LOCAL_LOCK;
 		dev = bt_context.current_device;
 		if (!dev)
@@ -547,6 +552,8 @@ static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 	bd_addr_t btaddr;
 	struct bt_device_t *dev;
 
+	UNUSED(channel);
+	UNUSED(size);
 	if (packet_type != HCI_EVENT_PACKET)
 		return;
 
@@ -650,16 +657,14 @@ int bt_add_known_device(bt_addr_t addr, char *pin, bt_event_handler_t cb, void *
 	bt_context.devcies[i].user_cb = cb;
 	bt_context.devcies[i].user_context = context;
 	bt_context.devcies[i].id = (i+1)<<16;
-	snprintf(bt_context.devcies[i].name, BT_DEV_MAX_NAME, "%0.2X:%0.2X:%0.2X:%0.2X:%0.2X:%0.2X",
-			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5], addr[6]);
+	snprintf(bt_context.devcies[i].name, BT_DEV_MAX_NAME, "%.2X:%.2X:%.2X:%.2X:%.2X:%.2X",
+			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	bt_context.dev_count++;
 	return bt_context.devcies[i].id;
 }
 
 static int bt_discover_next_char(void)
 {
-	int i;
-
 	bt_context.current_device->svc_current++;
 	if (bt_context.current_device->svc_current >= bt_context.current_device->svc_count)
 		return 0;

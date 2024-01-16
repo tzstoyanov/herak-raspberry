@@ -41,7 +41,7 @@ struct usb_dev_t {
 	usb_event_handler_t user_cb;
 };
 
-struct {
+static struct {
 	struct usb_dev_t	devices[MAX_USB_DEVICES];
 	int			dev_count;
 	mutex_t		lock;
@@ -51,7 +51,7 @@ struct {
 	uint8_t buf_pool[BUF_COUNT][BUFF_SIZE];
 	uint8_t buf_owner[BUF_COUNT]; // device address that owns buffer
 	tusb_desc_device_t desc_device;
-} static usb_context;
+} usb_context;
 
 static struct usb_dev_t *get_usb_device_by_vidpid(uint16_t vid, uint16_t pid)
 {
@@ -67,7 +67,7 @@ static struct usb_dev_t *get_usb_device_by_vidpid(uint16_t vid, uint16_t pid)
 
 int usb_add_known_device(uint16_t vid, uint16_t pid, usb_event_handler_t cb, void *context)
 {
-	int i;
+	int i = 0;
 
 	USB_LOCK;
 		if (vid) {
@@ -565,7 +565,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 				  vid, pid, dev_addr, instance, len);
 		print_buff[0] = 0;
 		while (i < len) {
-			snprintf(buf, 4, "%0.2X ", report[i++]);
+			snprintf(buf, 4, "%.2X ", report[i++]);
 			strcat(print_buff, buf);
 			j += 4;
 			if (j >= 32 || i >= len) {

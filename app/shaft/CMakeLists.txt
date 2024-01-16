@@ -49,7 +49,7 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_LIST_DIR}/mqtt_shaft.c
   ${CMAKE_CURRENT_LIST_DIR}/main.c
 )
-
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${PROJECT_INLUDE_DIR}
 			   ${CMAKE_CURRENT_LIST_DIR})
@@ -72,6 +72,7 @@ target_sources(herak_common INTERFACE
   ${PROJECT_LIB_DIR}/common/temperature.cpp
 )
 target_include_directories(herak_common INTERFACE ${PROJECT_INLUDE_DIR})
+target_compile_options(herak_common INTERFACE -Wall -Wextra)
 
 add_library(one_wire INTERFACE)
 target_sources(one_wire INTERFACE

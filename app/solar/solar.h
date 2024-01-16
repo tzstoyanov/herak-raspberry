@@ -56,7 +56,7 @@ typedef enum {
 	MPPT_QPIRI,		/* Device Rating Information inquiry */
 	MPPT_QFLAG,		/* Device flag status inquiry */
 	MPPT_QPIGS,		/* Device general status parameters inquiry: (input, output voltages, currents, load, etc.) */
-	MPPT_QPIGS2,		/* Device general status parameters (48V model) */
+	MPPT_QPIGS2,	/* Device general status parameters (48V model) */
 	MPPT_QMOD,		/* Device Mode inquiry: (power-on, standby, line mode, battery mode, etc.) */
 	MPPT_QPIWS,		/* Device Warning Status inquiry */
 	MPPT_QDI,		/* The default setting value information */
@@ -153,9 +153,9 @@ typedef enum {
 	DALY_S_20,		/* Set the short-circuit shutdown threshold and the current sampling resolution */
 	DALY_S_MAX
 } daly_scmd_t;
-char *bms_get_qcommand(daly_qcmd_t idx, int *len);
+uint8_t *bms_get_qcommand(daly_qcmd_t idx, int *len);
+daly_qcmd_t bms_verify_response(uint8_t *buf, int len);
 int bms_get_qcommand_desc(daly_qcmd_t idx, const char **cmd, const char **desc);
-daly_qcmd_t bms_verify_response(char *buf, int len);
 
 void wh_notify_send(void);
 bool wh_notify_init(void);

@@ -184,9 +184,9 @@ public:
 private:
 	uint _data_pin;
 	uint _parasite_pin;
-	bool _parasite_power{};
-	bool _power_mosfet;
 	bool _power_polarity;
+	bool _power_mosfet;
+	bool _parasite_power{};
 	uint8_t _search_ROM[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 	uint8_t ram[9]{};
 

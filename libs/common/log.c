@@ -29,7 +29,7 @@
 
 #define IP_TIMEOUT_MS	10000
 
-struct {
+static struct {
 	char *server_url;
 	int server_port;
 	ip_addr_t server_addr;
@@ -40,10 +40,12 @@ struct {
 	char *hostname;
 	int log_level;
 	mutex_t lock;
-} static log_context;
+} log_context;
 
 static void log_server_found(const char *hostname, const ip_addr_t *ipaddr, void *arg)
 {
+	UNUSED(hostname);
+	UNUSED(arg);
 	LOG_LOCK;
 		memcpy(&(log_context.server_addr), ipaddr, sizeof(ip_addr_t));
 		log_context.sever_ip_state = IP_RESOLVED;
@@ -202,7 +204,6 @@ static void slog_send(char *log_buff)
 {
 	int len = strlen(log_buff)+1;
 	struct pbuf *p;
-	char *data;
 	err_t err;
 
 	LWIP_LOCK_START;

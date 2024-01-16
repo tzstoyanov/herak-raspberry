@@ -65,10 +65,10 @@ struct webhook_t {
 	mutex_t lock;
 };
 
-struct {
+static struct {
 	struct webhook_t whooks[MAX_HOOKS];
 	int wh_count;
-} static wh_context;
+} wh_context;
 
 int webhook_state(int idx, bool *connected, bool *sending)
 {
@@ -193,9 +193,9 @@ static void webhook_disconnect(struct webhook_t *wh)
 static int wh_parse_http_reply(struct pbuf *p)
 {
 	char reply_line[HTTP_REPLY_SIZE];
-	char *str, *rest, *tok;
 	struct pbuf *bp = p;
 	int http_code = -1;
+	char *rest, *tok;
 	int i, j = 0;
 	char *data;
 
@@ -233,17 +233,20 @@ static int wh_parse_http_reply(struct pbuf *p)
 
 static int wh_parse_incoming(struct webhook_t *wh, struct pbuf *p)
 {
-	struct pbuf *bp = p;
 	int hcode;
 
 	WH_LOCK(wh);
 		wh->recv_count++;
 	WH_UNLOCK(wh);
 #ifdef WH_DEBUG
-	hlog_info(WHLOG, "Received %d bytes from %s:", p->tot_len, wh->addr_str);
-	while (bp) {
-		dump_char_data(WHLOG, bp->payload, bp->len);
-		bp = bp->next;
+	{
+		struct pbuf *bp = p;
+
+		hlog_info(WHLOG, "Received %d bytes from %s:", p->tot_len, wh->addr_str);
+		while (bp) {
+			dump_char_data(WHLOG, bp->payload, bp->len);
+			bp = bp->next;
+		}
 	}
 #else
 	hcode = wh_parse_http_reply(p);
@@ -289,6 +292,7 @@ static err_t wh_tcp_sent_cb(void *arg, struct altcp_pcb *tpcb, u16_t len)
 {
 	struct webhook_t *wh = (struct webhook_t *)arg;
 
+	UNUSED(len);
 	wh_tcp_send(wh, tpcb);
 
 	return ERR_OK;
@@ -307,6 +311,7 @@ static void wh_tcp_err_cb(void *arg, err_t err)
 {
 	struct webhook_t *wh = (struct webhook_t *)arg;
 
+	UNUSED(err);
 	WH_LOCK(wh);
 		/* Set conn to null as pcb is already deallocated*/
 		wh->tcp_conn = NULL;
@@ -344,7 +349,6 @@ static void webhook_connect(struct webhook_t *wh)
 	uint32_t last, now;
 	int st_tcp, st_res;
 	err_t err;
-	int ret;
 
 	now = to_ms_since_boot(get_absolute_time());
 	WH_LOCK(wh);
@@ -412,7 +416,7 @@ int webhook_send(int idx, char *data, int datalen)
 		memcpy(wh->buff + wh->buff_len, data, datalen);
 		wh->buff_len += datalen;
 		wh->sending = true;
-		wh->last_send = to_ms_since_boot(get_absolute_time());
+		wh->last_send = now;
 		st = wh->tcp_state;
 	WH_UNLOCK(wh);
 
@@ -434,6 +438,7 @@ static void wh_server_found(const char *hostname, const ip_addr_t *ipaddr, void 
 {
 	struct webhook_t *wh = (struct webhook_t *)arg;
 
+	UNUSED(hostname);
 	if (!arg)
 		return;
 
@@ -555,7 +560,6 @@ bool webhook_init(void)
 void webhook_run(void)
 {
 	static bool connected;
-	int i;
 
 	if (!wifi_is_connected()) {
 		if (connected) {

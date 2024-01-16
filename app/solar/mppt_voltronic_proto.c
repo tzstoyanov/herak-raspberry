@@ -168,6 +168,7 @@ char *mppt_get_qcommand(voltron_qcmd_t idx, int *len, char *append)
 	uint16_t crc;
 	int cmd_len;
 
+	UNUSED(Scommands);
 	if (idx > qcommads_count) {
 		if (len)
 			*len = 0;

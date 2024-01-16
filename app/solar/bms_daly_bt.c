@@ -107,7 +107,7 @@ struct bt_terminal_t {
 	uint32_t send_time;
 };
 
-struct {
+static struct {
 	bt_addr_t address;
 	char *name;
 	char *pin;
@@ -119,7 +119,7 @@ struct {
 	uint32_t	read_chars[BT_MAX_SERVICES];
 	uint8_t		rchars_count;
 	int qcommand;
-} static bms_context;
+} bms_context;
 
 #define GET_U16(_dd_) ((((char *)(_dd_))[0] << 8) | (((char *)(_dd_))[1]))
 #define GET_U32(_dd_) ((((char *)(_dd_))[0] << 0x18) | (((char *)(_dd_))[1]) << 0x10 | (((char *)(_dd_))[2]) << 0x08 | ((char *)(_dd_))[3])
@@ -138,7 +138,7 @@ static void bms_send_mqtt_data(void)
 }
 
 /* Current V, A, % */
-static void d90_cmd_process(char *buf)
+static void d90_cmd_process(uint8_t *buf)
 {
 	bms_context.data.bat_v = GET_U16(buf) / 10;
 	bms_context.data.acquisition_v =  GET_U16(buf+2) / 10;
@@ -147,7 +147,7 @@ static void d90_cmd_process(char *buf)
 }
 
 /* Max / Min cell voltage */
-static void d91_cmd_process(char *buf)
+static void d91_cmd_process(uint8_t *buf)
 {
 	bms_context.data.bat_maxv = GET_U16(buf);
 	bms_context.data.bat_maxv_cell = buf[2];
@@ -156,7 +156,7 @@ static void d91_cmd_process(char *buf)
 }
 
 /* Max / Min cell temperature */
-static void d92_cmd_process(char *buf)
+static void d92_cmd_process(uint8_t *buf)
 {
 	bms_context.data.bat_maxt = buf[0] - 40;
 	bms_context.data.bat_maxt_cell = buf[1];
@@ -164,7 +164,7 @@ static void d92_cmd_process(char *buf)
 	bms_context.data.bat_mint_cell = buf[3];
 }
 /* Charge and Discharge*/
-static void d93_cmd_process(char *buf)
+static void d93_cmd_process(uint8_t *buf)
 {
 	bms_context.data.charge_state = buf[0];
 	bms_context.data.charge_mos = buf[1];
@@ -174,7 +174,7 @@ static void d93_cmd_process(char *buf)
 }
 
 /* Status 1 */
-static void d94_cmd_process(char *buf)
+static void d94_cmd_process(uint8_t *buf)
 {
 	bms_context.data.cells = buf[0];
 	bms_context.data.t_sensors = buf[1];
@@ -184,7 +184,7 @@ static void d94_cmd_process(char *buf)
 }
 
 /* Cell voltage 1~48 */
-static void d95_cmd_process(char *buf)
+static void d95_cmd_process(uint8_t *buf)
 {
 	int frame = buf[0];
 
@@ -197,7 +197,7 @@ static void d95_cmd_process(char *buf)
 }
 
 /* Cell temperature 1~16 */
-static void d96_cmd_process(char *buf)
+static void d96_cmd_process(uint8_t *buf)
 {
 	int frame = buf[0];
 	int i;
@@ -210,7 +210,7 @@ static void d96_cmd_process(char *buf)
 }
 
 /* Cell balance State 1~48 */
-static void d97_cmd_process(char *buf)
+static void d97_cmd_process(uint8_t *buf)
 {
 	int i;
 
@@ -219,7 +219,7 @@ static void d97_cmd_process(char *buf)
 }
 
 /* Battery failure status */
-static void d98_cmd_process(char *buf)
+static void d98_cmd_process(uint8_t *buf)
 {
 	int i;
 
@@ -228,11 +228,11 @@ static void d98_cmd_process(char *buf)
 	bms_context.data.fail_code = buf[7];
 }
 
-typedef void (*cmd_handler_t) (char *buf);
-struct {
+typedef void (*cmd_handler_t) (uint8_t *buf);
+static struct {
 	daly_qcmd_t id;
 	cmd_handler_t cb;
-} static daly_commnds_handler[] = {
+} daly_commnds_handler[] = {
 		{DALY_90, d90_cmd_process},
 		{DALY_91, d91_cmd_process},
 		{DALY_92, d92_cmd_process},
@@ -263,7 +263,7 @@ static void check_terminal(bt_characteristic_t *charc)
 		bms_context.terminal.writeId = charc->char_id;
 }
 
-static void process_response(daly_qcmd_t cmd, char *buf)
+static void process_response(daly_qcmd_t cmd, uint8_t *buf)
 {
 	static int qsize = ARRAY_SIZE(daly_commnds_handler);
 	int i;
@@ -279,7 +279,6 @@ static void process_response(daly_qcmd_t cmd, char *buf)
 
 static void daly_bt_process_data(bt_characteristicvalue_t *val)
 {
-	bt_uuid128_t svc128, char128;
 	const char *qcmd, *qdesc;
 	daly_qcmd_t cmd;
 
@@ -297,17 +296,21 @@ static void daly_bt_process_data(bt_characteristicvalue_t *val)
 			dump_hex_data(BMS, val->data, val->len);
 		}
 	} else {
-		hlog_info(BMS, "Got %d bytes %s data from characteristic ["UUID_128_FMT"], but terminal is not ready %d ",
-				  val->len, val->val_long?"long":"short", UUID_128_PARAM(char128), IS_TERMINAL_READY);
+		hlog_info(BMS, "Got %d bytes %s data, but terminal is not ready %d ",
+				  val->len, val->val_long?"long":"short", IS_TERMINAL_READY);
 #if BMS_DEBUG
-		if (!bt_service_get_uuid(val->charId, &svc128, NULL) && !bt_characteristic_get_uuid(val->charId, &char128, NULL)) {
-			hlog_info(BMS, "Got %d bytes %s data from svc ["UUID_128_FMT"], characteristic ["UUID_128_FMT"]:",
-					  val->len, val->val_long?"long":"short", UUID_128_PARAM(svc128), UUID_128_PARAM(char128));
-		} else {
-			hlog_info(BMS, "Got %d bytes %s data from uknown characteristic",
-					  val->len, val->val_long?"long":"short");
+		{
+			bt_uuid128_t svc128, char128;
+
+			if (!bt_service_get_uuid(val->charId, &svc128, NULL) && !bt_characteristic_get_uuid(val->charId, &char128, NULL)) {
+				hlog_info(BMS, "Got %d bytes %s data from svc ["UUID_128_FMT"], characteristic ["UUID_128_FMT"]:",
+						  val->len, val->val_long?"long":"short", UUID_128_PARAM(svc128), UUID_128_PARAM(char128));
+			} else {
+				hlog_info(BMS, "Got %d bytes %s data from uknown characteristic",
+						  val->len, val->val_long?"long":"short");
+			}
+			dump_hex_data(BMS, val->data, val->len);
 		}
-		dump_hex_data(BMS, val->data, val->len);
 #endif
 	}
 
@@ -320,6 +323,7 @@ static void daly_bt_event(int idx, bt_event_t event, const void *data, int data_
 	bt_service_t *svc;
 	uint16_t u16;
 
+	UNUSED(context);
 	BMS_LOCAL_LOCK;
 		if (idx != bms_context.bt_index)
 			goto out;
@@ -379,8 +383,8 @@ void bms_solar_query(void)
 	const char *qcmd, *qdesc;
 	static uint8_t rchar;
 	uint32_t now;
-	int len, ret;
-	char *cmd;
+	int len;
+	uint8_t *cmd;
 
 	now = to_ms_since_boot(get_absolute_time());
 	BMS_LOCAL_LOCK;
@@ -395,8 +399,8 @@ void bms_solar_query(void)
 				bms_context.terminal.send_time = now;
 				bms_context.terminal.wait_response = true;
 				bms_get_qcommand_desc(bms_context.qcommand, &qcmd, &qdesc);
-				hlog_info(BMS, "Sent to device %d bytes query %d: [%s] (%s); %d",
-						  len, bms_context.qcommand, qcmd, qdesc, ret);
+				hlog_info(BMS, "Sent to device %d bytes query %d: [%s] (%s)",
+						  len, bms_context.qcommand, qcmd, qdesc);
 				busy_wait_ms(20);
 				bt_characteristic_read(bms_context.terminal.readId);
 			} else {
@@ -420,7 +424,7 @@ static bool get_bms_config(void)
 	char *bt_id = NULL;
 	char *rest, *rest1;
 	char *tok;
-	int  i, id;
+	int  i;
 
 	if (BMS_DALY_BT_len < 1)
 		return false;

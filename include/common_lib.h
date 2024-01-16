@@ -12,7 +12,13 @@
 extern "C" {
 #endif
 
+#ifndef ARRAY_SIZE
 #define ARRAY_SIZE(_a) (sizeof(_a) / sizeof((_a)[0]))
+#endif
+
+#ifndef UNUSED
+#define UNUSED(x) (void)(x)
+#endif
 
 #define LED_ON	{cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);}
 #define LED_OFF {cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);}
@@ -25,8 +31,8 @@ uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count);
 char *get_current_time_str(char *buf, int buflen);
 bool tz_datetime_get(datetime_t *date);
 float temperature_internal_get();
-void dump_hex_data(char *topic, const char *data, int len);
-void dump_char_data(char *topic, const char *data, int len);
+void dump_hex_data(char *topic, const uint8_t *data, int len);
+void dump_char_data(char *topic, const uint8_t *data, int len);
 
 /* LCD API */
 int lcd_set_int(int idx, int row, int column, int num);

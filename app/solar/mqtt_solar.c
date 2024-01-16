@@ -24,16 +24,16 @@
 \"mppt_bat_capacity_p\": %d, \"mppt_sink_temp\": %d, \"mppt_pv_in_bat_a\": %3.2f,\
 \"mppt_pv_in_v\": %3.2f, \"mppt_bat_discharge_a\": %d,\
 \"bms_total_v\": %3.2f, \"bms_current_a\": %3.2f,\"bms_soc_p\": %3.2f,\
-\"bms_life\": %d, \"bms_remain_capacity_mah\": %d}"
+\"bms_life\": %d, \"bms_remain_capacity_mah\": %ld}"
 
-struct {
+static struct {
 	mqtt_mppt_data_t mppt;
 	mqtt_bms_data_t bms;
 	float internal_temp;
 	char payload[MQTT_DATA_LEN + 1];
-} static mqtt_solar_context;
+} mqtt_solar_context;
 
-static void mqtt_data_send(bool force)
+void mqtt_data_send(bool force)
 {
 	static char time_buff[32];
 

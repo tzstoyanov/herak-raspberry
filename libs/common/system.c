@@ -22,7 +22,7 @@ extern char __StackLimit, __bss_end__;
 
 //#define PERIODIC_LOG_MS	5000
 
-struct {
+static struct {
 	int sw_out_pin;
 	uint32_t last_loop;
 	uint8_t has_lcd:1;
@@ -34,7 +34,7 @@ struct {
 	uint8_t has_temp:1;
 	uint8_t has_usb:1;
 	uint8_t has_wh:1;
-} static sys_context;
+} sys_context;
 
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count)
 {
@@ -81,7 +81,7 @@ uint32_t get_free_heap(void)
 }
 
 #define PRINT_BUF_LEN	32
-static void dump_raw_data(char *topic, char *format, const char *data, int len)
+static void dump_raw_data(char *topic, char *format, const uint8_t *data, int len)
 {
 	char print_buff[PRINT_BUF_LEN], buf[4];
 	int i = 0, j = 0;
@@ -101,12 +101,12 @@ static void dump_raw_data(char *topic, char *format, const char *data, int len)
 		hlog_info(topic, "\t %s", print_buff);
 }
 
-void dump_hex_data(char *topic, const char *data, int len)
+void dump_hex_data(char *topic, const uint8_t *data, int len)
 {
 	dump_raw_data(topic, "%0.2X ", data, len);
 }
 
-void dump_char_data(char *topic, const char *data, int len)
+void dump_char_data(char *topic, const uint8_t *data, int len)
 {
 	dump_raw_data(topic, "%c", data, len);
 }
