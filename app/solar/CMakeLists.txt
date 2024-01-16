@@ -42,6 +42,7 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c" "${PROJEC
 
 # Creates a pico-sdk subdirectory in our project for the libraries
 pico_sdk_init()
+include(${PROJECT_TOP_DIR}/libs/pio-usb/CMakeLists.txt)
 
 if(${TEST_BUILD})
 	set(MPTT_TEST ${CMAKE_CURRENT_LIST_DIR}/mppt_voltronic_test.c)
@@ -70,6 +71,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${CMAKE_CURRENT_LIST_DIR}
 			   ${PROJECT_INLUDE_DIR}
 			   ${INLUDE_USB}
+			   ${PROJECT_LIB_DIR}/pio-usb/src
 )
 
 # Create map/bin/hex/uf2 files
@@ -109,7 +111,7 @@ target_include_directories(pico_hd44780 INTERFACE ${PROJECT_INLUDE_DIR})
 target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} pico_stdlib hardware_i2c pico_hd44780 one_wire
 		      hardware_rtc hardware_adc pico_btstack_base pico_btstack_ble pico_btstack_classic
 		      pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background
-		      pico_lwip_sntp pico_lwip_mqtt herak_common)
+		      pico_lwip_sntp pico_lwip_mqtt herak_common pico_pio_usb)
 
 # Enable usb output, disable uart output
 if(${TEST_BUILD})
