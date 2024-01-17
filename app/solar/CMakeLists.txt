@@ -9,7 +9,7 @@ project(herak-solar C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(PICO_BOARD pico_w)
-set(TEST_BUILD false)
+set(ADD_USB true)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
@@ -42,16 +42,18 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c" "${PROJEC
 
 # Creates a pico-sdk subdirectory in our project for the libraries
 pico_sdk_init()
-include(${PROJECT_TOP_DIR}/libs/pio-usb/CMakeLists.txt)
-include(${PROJECT_TOP_DIR}/libs/one-wire/CMakeLists.txt)
 
-if(${TEST_BUILD})
-	set(MPTT_TEST ${CMAKE_CURRENT_LIST_DIR}/mppt_voltronic_test.c)
-else()
+#build required libraries
+include(${PROJECT_LIB_DIR}/pio-usb/CMakeLists.txt)
+include(${PROJECT_LIB_DIR}/one-wire/CMakeLists.txt)
+include(${PROJECT_LIB_DIR}/common/CMakeLists.txt)
+
+if(${ADD_USB})
 	set(TINY_USB_HOST tinyusb_host)
 	set(TINY_USB_BOARD tinyusb_board)
-	set(COMMON_USB ${PROJECT_LIB_DIR}/common/usb.c)
-	set(INLUDE_USB ${PROJECT_INLUDE_DIR}/usb)
+	set(INLUDE_USB ${PROJECT_TOP_DIR}/libs/common/api/usb)
+else()
+	set(MPTT_TEST ${CMAKE_CURRENT_LIST_DIR}/mppt_voltronic_test.c)
 endif()
 
 # Tell CMake where to find the executable source file
@@ -74,28 +76,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${INLUDE_USB}
 			   ${PROJECT_LIB_DIR}/pio-usb/src
 			   ${PROJECT_LIB_DIR}/one-wire/api
+			   ${PROJECT_LIB_DIR}/common/api
 )
 
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
-
-add_library(herak_common INTERFACE)
-target_sources(herak_common INTERFACE
-  ${PROJECT_LIB_DIR}/common/base64.c
-  ${PROJECT_LIB_DIR}/common/system.c
-  ${PROJECT_LIB_DIR}/common/system_weak.c
-  ${PROJECT_LIB_DIR}/common/lcd.cpp
-  ${PROJECT_LIB_DIR}/common/wifi.c
-  ${PROJECT_LIB_DIR}/common/mqtt_client.c
-  ${PROJECT_LIB_DIR}/common/bt.c
-  ${PROJECT_LIB_DIR}/common/log.c
-  ${PROJECT_LIB_DIR}/common/time.c
-  ${PROJECT_LIB_DIR}/common/webhook.c
-  ${PROJECT_LIB_DIR}/common/temperature.cpp
-  ${COMMON_USB}
-)
-target_include_directories(herak_common INTERFACE ${PROJECT_INLUDE_DIR})
-target_compile_options(herak_common INTERFACE -Wall -Wextra)
 
 add_library(pico_hd44780 INTERFACE)
 target_sources(pico_hd44780 INTERFACE
@@ -104,16 +89,16 @@ target_sources(pico_hd44780 INTERFACE
 )
 target_include_directories(pico_hd44780 INTERFACE ${PROJECT_INLUDE_DIR})
 
-target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} pico_stdlib hardware_i2c pico_hd44780
+target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} pico_stdlib hardware_i2c
 		      hardware_rtc hardware_adc pico_btstack_base pico_btstack_ble pico_btstack_classic
-		      pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background
-		      pico_lwip_sntp pico_lwip_mqtt herak_common pico_pio_usb pico_one_wire)
+		      pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background pico_lwip_sntp
+		      pico_lwip_mqtt pico_hd44780 herak_common pico_pio_usb pico_one_wire)
 
 # Enable usb output, disable uart output
-if(${TEST_BUILD})
-	pico_enable_stdio_usb(${PROJECT_NAME} 1)
+if(${ADD_USB})
+	pico_enable_stdio_usb(${PROJECT_NAME} 0)
 	pico_enable_stdio_uart(${PROJECT_NAME} 0)
 else()
-	pico_enable_stdio_usb(${PROJECT_NAME} 0)
+	pico_enable_stdio_usb(${PROJECT_NAME} 1)
 	pico_enable_stdio_uart(${PROJECT_NAME} 0)
 endif()
