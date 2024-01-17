@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include "../include/hd44780/HD44780_LCD_PCF8574.hpp"
+#include "HD44780_LCD_PCF8574.hpp"
 
 #define NL_CHAR	"\n"
 

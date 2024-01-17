@@ -45,6 +45,7 @@ pico_sdk_init()
 #build required libraries
 include(${PROJECT_LIB_DIR}/pio-usb/CMakeLists.txt)
 include(${PROJECT_LIB_DIR}/one-wire/CMakeLists.txt)
+include(${PROJECT_LIB_DIR}/hd44780/CMakeLists.txt)
 include(${PROJECT_LIB_DIR}/common/CMakeLists.txt)
 
 
@@ -62,18 +63,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${PROJECT_INLUDE_DIR}
 			   ${PROJECT_LIB_DIR}/pio-usb/src
 			   ${PROJECT_LIB_DIR}/one-wire/api
+			   ${PROJECT_LIB_DIR}/hd44780/api
 			   ${PROJECT_LIB_DIR}/common/api
 )
 
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
-
-add_library(pico_hd44780 INTERFACE)
-target_sources(pico_hd44780 INTERFACE
-  ${PROJECT_LIB_DIR}/hd44780/HD44780_LCD_PCF8574.cpp
-  ${PROJECT_LIB_DIR}/hd44780/HD44780_LCD_PCF8574_Print.cpp
-)
-target_include_directories(pico_hd44780 INTERFACE ${PROJECT_INLUDE_DIR})
 
 target_link_libraries(${PROJECT_NAME} pico_stdlib hardware_i2c
 		      hardware_rtc hardware_adc pico_btstack_base pico_btstack_ble pico_btstack_classic

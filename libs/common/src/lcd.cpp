@@ -7,7 +7,7 @@
 
 #include "common_internal.h"
 #include "pico/stdlib.h"
-#include "hd44780/HD44780_LCD_PCF8574.hpp"
+#include "HD44780_LCD_PCF8574.hpp"
 
 #include "base64.h"
 #include "params.h"
