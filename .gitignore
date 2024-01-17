@@ -22,3 +22,5 @@ build/
 .cproject
 .project
 .settings/
+libs/one-wire/*
+libs/pio-usb/*
