@@ -24,3 +24,4 @@ build/
 .settings/
 libs/one-wire/*
 libs/pio-usb/*
+libs/pio-sdk/*

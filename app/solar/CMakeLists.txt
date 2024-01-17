@@ -2,6 +2,8 @@
 cmake_minimum_required(VERSION 3.12)
 
 # Include build functions from Pico SDK
+set(PROJECT_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../../libs)
+set(ENV{PICO_SDK_PATH} "${PROJECT_LIB_DIR}/pico-sdk")
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 # Set name of project (as PROJECT_NAME) and C/C++ standards
@@ -14,7 +16,6 @@ set(ADD_USB true)
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
 set(PROJECT_TOP_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-set(PROJECT_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../../libs)
 set(PROJECT_INLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../include)
 set(PARAMS_FILE params)
 set(PARAMS_TEMPLETE ${PROJECT_TOP_DIR}/app/params_example)

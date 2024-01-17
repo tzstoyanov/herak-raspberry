@@ -45,10 +45,14 @@ a remote MQTT server.
 ### Prerequisites
 - Raspberry Pico W.
 - Wiring, depending on the use case.
-- [Raspberry C SDK](https://github.com/raspberrypi/pico-sdk)
+
+### Get the code
+The project uses sub-modules, so clone the repo with all sub-modules:
+```
+git clone --recurse-submodules https://github.com/tzstoyanov/herak-raspberry
+```
 
 ### Build
-- Export PICO_SDK_PATH variable with the path to the Raspberry C SDK.
 - Copy [params-example.txt](app/params_example.txt) file as params.txt in the application directory
 and modify it with your configuration.
 - In the `build/<application>` directory, run `cmake ../../app/<applicattion>`
