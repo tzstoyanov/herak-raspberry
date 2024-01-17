@@ -1,3 +1,6 @@
 [submodule "libs/pio-usb"]
 	path = libs/pio-usb
 	url = https://github.com/sekigon-gonnoc/Pico-PIO-USB
+[submodule "libs/one-wire"]
+	path = libs/one-wire
+	url = https://github.com/adamboardman/pico-onewire

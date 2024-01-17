@@ -41,6 +41,7 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c" "${PROJEC
 
 # Creates a pico-sdk subdirectory in our project for the libraries
 pico_sdk_init()
+include(${PROJECT_TOP_DIR}/libs/one-wire/CMakeLists.txt)
 
 # Tell CMake where to find the executable source file
 add_executable(${PROJECT_NAME}
@@ -51,8 +52,10 @@ add_executable(${PROJECT_NAME}
 )
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 target_include_directories(${PROJECT_NAME} PRIVATE
+			   ${CMAKE_CURRENT_LIST_DIR}
 			   ${PROJECT_INLUDE_DIR}
-			   ${CMAKE_CURRENT_LIST_DIR})
+			   ${PROJECT_LIB_DIR}/one-wire/api
+)
 
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
@@ -74,12 +77,6 @@ target_sources(herak_common INTERFACE
 target_include_directories(herak_common INTERFACE ${PROJECT_INLUDE_DIR})
 target_compile_options(herak_common INTERFACE -Wall -Wextra)
 
-add_library(one_wire INTERFACE)
-target_sources(one_wire INTERFACE
-  ${PROJECT_LIB_DIR}/one-wire/one_wire.cpp
-)
-target_include_directories(one_wire INTERFACE ${PROJECT_INLUDE_DIR})
-
 add_library(pico_hd44780 INTERFACE)
 target_sources(pico_hd44780 INTERFACE
   ${PROJECT_LIB_DIR}/hd44780/HD44780_LCD_PCF8574.cpp
@@ -88,10 +85,10 @@ target_sources(pico_hd44780 INTERFACE
 target_include_directories(pico_hd44780 INTERFACE ${PROJECT_INLUDE_DIR})
 
 # Pull in pico libraries that we need
-target_link_libraries(${PROJECT_NAME} pico_stdlib hardware_i2c pico_hd44780 one_wire
+target_link_libraries(${PROJECT_NAME} pico_stdlib hardware_i2c pico_hd44780
 		      hardware_rtc hardware_adc pico_btstack_base pico_btstack_ble pico_btstack_classic
 		      pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background
-		      pico_lwip_sntp pico_lwip_mqtt herak_common)
+		      pico_lwip_sntp pico_lwip_mqtt herak_common pico_one_wire)
 
 # Enable usb output, disable uart output
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
