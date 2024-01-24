@@ -51,6 +51,10 @@ The project uses sub-modules, so clone the repo with all sub-modules:
 ```
 git clone --recurse-submodules https://github.com/tzstoyanov/herak-raspberry
 ```
+Apply all mandatory patches, which are not yet released upstream. Run in the top directory:
+```
+./scripts/apply_patches.sh 
+```
 
 ### Build
 - Copy [params-example.txt](app/params_example.txt) file as params.txt in the application directory
