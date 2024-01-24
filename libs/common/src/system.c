@@ -160,6 +160,7 @@ static bool base_init(void)
 bool system_common_init(void)
 {
 	// Initialize chosen serial port, default 38400 baud
+	set_sys_clock_khz(120000, true);
 	stdio_init_all();
 	srand(to_us_since_boot(get_absolute_time()));
 	busy_wait_ms(2000);
@@ -180,11 +181,11 @@ bool system_common_init(void)
 	else
 		hlog_info(COMMONSYSLOG, "no LCD attached");
 	sys_context.has_bt = bt_init();
+	sys_context.has_usb = usb_init();
 	sys_context.has_mqtt = mqtt_init();
 	sys_context.has_time = ntp_init();
 	sys_context.has_temp = temperature_init();
 	sys_context.has_swout = sw_out_init();
-	sys_context.has_usb = usb_init();
 	sys_context.has_wh = webhook_init();
 	LED_OFF;
 	watchdog_update();

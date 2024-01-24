@@ -55,6 +55,7 @@ if(${ADD_USB})
 	set(TINY_USB_HOST tinyusb_host)
 	set(TINY_USB_BOARD tinyusb_board)
 	set(INLUDE_USB ${PROJECT_TOP_DIR}/libs/common/api/usb)
+	set(PICO_PIO_USB pico_pio_usb)
 else()
 	set(MPTT_TEST ${CMAKE_CURRENT_LIST_DIR}/mppt_voltronic_test.c)
 endif()
@@ -92,10 +93,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
 
-target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} pico_stdlib hardware_i2c
-		      hardware_rtc hardware_adc pico_btstack_base pico_btstack_ble pico_btstack_classic
-		      pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background pico_lwip_sntp
-		      pico_lwip_mqtt pico_hd44780 herak_common pico_pio_usb pico_one_wire)
+target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} ${PICO_PIO_USB}
+		      pico_stdlib hardware_i2c hardware_rtc hardware_adc
+		      hardware_dma hardware_pio pico_btstack_base pico_btstack_ble
+		      pico_btstack_classic pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background
+		      pico_lwip_sntp pico_lwip_mqtt pico_hd44780 herak_common pico_one_wire)
 
 # Enable usb output, disable uart output
 if(${ADD_USB})

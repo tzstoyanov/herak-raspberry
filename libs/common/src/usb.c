@@ -9,14 +9,21 @@
 #include "pico/stdlib.h"
 #include "pico/mutex.h"
 #include "tusb.h"
+#include "host/hcd.h"
 #include "bsp/board.h"
+#include "pio_usb_configuration.h"
+#include "pio_usb.h"
 
 #include "common_lib.h"
 
+#include "base64.h"
+#include "params.h"
+
 #define USBLOG	"usb"
 
-//#define RAW_INTERFACE
+#define RAW_INTERFACE
 //#define CDC_INTERFACE
+//#define USB_DEBUG
 
 // English
 #define LANGUAGE_ID	0x0409
@@ -24,9 +31,15 @@
 #define BUFF_SIZE	64
 
 #define MAX_USB_DEVICES	2
+#define USB_RCV_REUQEST_PING_MS	200
 
 #define USB_LOCK	mutex_enter_blocking(&usb_context.lock)
 #define USB_UNLOCK	mutex_exit(&usb_context.lock)
+
+struct usb_port_t {
+	int pin_dp;
+	int pin_dm;
+};
 
 struct usb_dev_t {
 	int			index;
@@ -44,8 +57,9 @@ struct usb_dev_t {
 static struct {
 	struct usb_dev_t	devices[MAX_USB_DEVICES];
 	int			dev_count;
+	struct usb_port_t	ports[PIO_USB_DEVICE_CNT];
+	int			port_count;
 	mutex_t		lock;
-	bool		init;
 	bool		force_init;
 
 	uint8_t buf_pool[BUF_COUNT][BUFF_SIZE];
@@ -122,9 +136,12 @@ void usb_log_status(void)
 	bool mounted;
 	int i;
 
-	if (!usb_context.init)
-		return;
 	USB_LOCK;
+		hlog_info(USBLOG, "Initialized on %d, USB ports:", BOARD_TUH_RHPORT);
+		hlog_info(USBLOG, "Status 0: %d %d", hcd_port_connect_status(0), hcd_port_speed_get(0));
+		hlog_info(USBLOG, "Status 1: %d %d", hcd_port_connect_status(1), hcd_port_speed_get(1));
+		for (i = 0; i < usb_context.port_count; i++)
+			hlog_info(USBLOG, "\t%d,%d", usb_context.ports[i].pin_dp, usb_context.ports[i].pin_dm);
 		for (i = 0; i < usb_context.dev_count; i++) {
 			mounted = tuh_hid_mounted(usb_context.devices[i].dev_addr, usb_context.devices[i].instance);
 			if (usb_context.devices[i].hid_mount || usb_context.devices[i].cdc_mount)
@@ -140,43 +157,91 @@ void usb_log_status(void)
 	USB_UNLOCK;
 }
 
+static void usb_read_config(void)
+{
+	char *str, *rest, *tok, *tok1;
+	int i;
+
+	if (USB_PORTS_len < 1)
+		return;
+	str = param_get(USB_PORTS);
+	rest = str;
+	usb_context.port_count = 0;
+	while ((tok = strtok_r(rest, ";", &rest)) && usb_context.port_count < PIO_USB_DEVICE_CNT) {
+		i = 0;
+		while (i < 2 && (tok1 = strtok_r(tok, ",", &tok))) {
+			if (i == 0)
+				usb_context.ports[usb_context.port_count].pin_dp = atoi(tok1);
+			else if (i == 1)
+				usb_context.ports[usb_context.port_count].pin_dm = atoi(tok1);
+			i++;
+		}
+		usb_context.port_count++;
+	}
+	free(str);
+	if (!usb_context.port_count)
+		return;
+	for (i = 0; i < usb_context.port_count; i++)
+		hlog_info(USBLOG, "Got port %d,%d", usb_context.ports[i].pin_dp, usb_context.ports[i].pin_dm);
+}
+
+static bool usb_stack_init(void)
+{
+	static pio_usb_configuration_t config = PIO_USB_DEFAULT_CONFIG;
+	int i;
+
+	board_init();
+	if (usb_context.port_count)
+		config.pin_dp = usb_context.ports[0].pin_dp;
+	if (usb_context.ports[0].pin_dm > usb_context.ports[0].pin_dp)
+		config.pinout = PIO_USB_PINOUT_DPDM;
+	else
+		config.pinout = PIO_USB_PINOUT_DMDP;
+	if (!tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &config))
+		return false;
+	if (!tuh_init(BOARD_TUH_RHPORT))
+		return false;
+	for (i = 1; i < usb_context.port_count; i++) {
+		if (usb_context.ports[i].pin_dm > usb_context.ports[i].pin_dp)
+			pio_usb_host_add_port(usb_context.ports[i].pin_dp, PIO_USB_PINOUT_DPDM);
+		else
+			pio_usb_host_add_port(usb_context.ports[i].pin_dp, PIO_USB_PINOUT_DMDP);
+	}
+
+	hlog_info(USBLOG, "USB initialized, looking for %d known devices", usb_context.dev_count);
+	for (i = 0; i < usb_context.dev_count; i++)
+		hlog_info(USBLOG, "\t%0.4X:%0.4X", usb_context.devices[i].desc.vid, usb_context.devices[i].desc.pid);
+	return true;
+}
+
 bool usb_init(void)
 {
 	memset(&usb_context, 0, sizeof(usb_context));
 	mutex_init(&usb_context.lock);
-	return true;
-}
-
-static void usb_stack_init(void)
-{
-	int i;
-
-	board_init();
-	tuh_init(BOARD_TUH_RHPORT);
-	hlog_info(USBLOG, "USB initialized, looking for %d known devices", usb_context.dev_count);
-	for (i = 0; i < usb_context.dev_count; i++)
-		hlog_info(USBLOG, "\t%0.4X:%0.4X", usb_context.devices[i].desc.vid, usb_context.devices[i].desc.pid);
+	usb_read_config();
+	return usb_stack_init();
 }
 
 void usb_run(void)
 {
+	static uint32_t last = 0;
+	uint32_t now;
 	int i;
 
 	if (!usb_context.dev_count && !usb_context.force_init)
 		return;
 
-	if (!usb_context.init) {
-		usb_stack_init();
-		usb_context.init = true;
+	pio_usb_host_task();
+	now = to_ms_since_boot(get_absolute_time());
+	if ((now - last) >= USB_RCV_REUQEST_PING_MS) {
+		last = now;
+		USB_LOCK;
+			for (i = 0; i < usb_context.dev_count; i++) {
+				if (usb_context.devices[i].hid_mount)
+					tuh_hid_receive_report(usb_context.devices[i].dev_addr, usb_context.devices[i].instance);
+			}
+		USB_UNLOCK;
 	}
-
-	USB_LOCK;
-		for (i = 0; i < usb_context.dev_count; i++) {
-			if (usb_context.devices[i].hid_mount)
-				tuh_hid_receive_report(usb_context.devices[i].dev_addr, usb_context.devices[i].instance);
-		}
-	USB_UNLOCK;
-
 	tuh_task();
 }
 
@@ -488,6 +553,11 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 	tuh_vid_pid_get(dev_addr, &vid, &pid);
 	itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
+#ifdef USB_DEBUG
+	hlog_info(USBLOG, "hid_mount_cb HID device %0.4X:%0.4X is mounted: address = %X, instance = %d, proto %d",
+			  vid, pid, dev_addr, instance, itf_protocol);
+#endif
+
 	USB_LOCK;
 		dev = get_usb_device_by_vidpid(vid, pid);
 		if (dev) {
@@ -531,6 +601,12 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 	uint16_t vid, pid;
 
 	tuh_vid_pid_get(dev_addr, &vid, &pid);
+
+#ifdef USB_DEBUG
+	hlog_info(USBLOG, "hid_unmount_cb HID device %0.4X:%0.4X is mounted: address = %X, instance = %d",
+			  vid, pid, dev_addr, instance);
+#endif
+
 	USB_LOCK;
 		dev = get_usb_device_by_vidpid(vid, pid);
 		if (dev)
@@ -551,6 +627,12 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 	uint16_t vid, pid;
 
 	tuh_vid_pid_get(dev_addr, &vid, &pid);
+
+#ifdef USB_DEBUG
+	hlog_info(USBLOG, "hid_report_received_cb HID device %0.4X:%0.4X is mounted: address = %X, instance = %d",
+			  vid, pid, dev_addr, instance);
+#endif
+
 	USB_LOCK;
 		dev = get_usb_device_by_vidpid(vid, pid);
 		if (dev->user_cb)

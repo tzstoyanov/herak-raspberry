@@ -11,7 +11,7 @@
 #include "solar.h"
 
 #define MAINLOG	"main"
-#define BLINK_INERVAL	3
+#define BLINK_INERVAL	300
 
 static void internal_temp_query(void)
 {
@@ -52,6 +52,5 @@ int main(void)
 		if (has_wh)
 			wh_notify_send();
 		LED_OFF;
-		busy_wait_ms(500);
 	}
 }
