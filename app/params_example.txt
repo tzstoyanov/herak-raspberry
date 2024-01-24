@@ -16,7 +16,7 @@ WIFI_PASS		<wifi_pass1>;<wifi_pass2>...
 # MQTT client configuration
 MQTT_SERVER_ENDPOINT	<server_name_or_address>:<server_port>
 MQTT_TOPIC		<topic_srting>
-MQTT_USER		<user_name>:<user_password>
+MQTT_USER		<user_name>;<user_password>
 #filter the rate of MQTT updates - minimum and maximum packets per minute
 MQTT_RATE_PPM		min_ppm;max_ppm
 
@@ -28,6 +28,12 @@ NTP_SERVER		<server1_name_or_address>;<server2_name_or_address>...
 
 # Remote logging configuration
 SYSLOG_SERVER_ENDPOINT	<server_name_or_address>:<server_port>
+
+# Additional USB ports (up to 3 supported)
+# In format	DP1,DM1;DP2,DM2;...
+# where DP1 is the pin where D+ of port 1 is attached, DM2 is the D- of port 1.
+# DP and DM must be sequentially
+USB_PORTS	DP1,DM1;...
 
 ###### Config, specific to shaft application:
 #AJ-SR04M sonar sensor, in format ECHO_PIN;TRIGGER_PIN
