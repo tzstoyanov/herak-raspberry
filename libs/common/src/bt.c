@@ -18,6 +18,8 @@
 #define BTLOG	"bt"
 #define CONNECT_TIMEOUT_MS 10000
 
+//#define BT_DEBUG
+
 #define GET_INDEX_FROM_ID(_id_, _dev_, _svc_, _char_) {\
 			(_dev_) = (_id_) >> 16; (_dev_) &= 0xFF; (_dev_) -= 1;\
 			(_svc_) = (_id_) >> 8; (_svc_) &= 0xFF;	(_svc_) -= 1;\
@@ -872,6 +874,9 @@ bool bt_init(void)
 {
 	memset(&bt_context, 0, sizeof(bt_context));
 	mutex_init(&bt_context.lock);
+#ifdef BT_DEBUG
+	bt_context.verbose = true;
+#endif
 	return true;
 }
 
