@@ -11,6 +11,7 @@ project(herak-shaft C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(PICO_BOARD pico_w)
+set(DEBUG_BUILD false)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
@@ -49,7 +50,6 @@ include(${PROJECT_LIB_DIR}/one-wire/CMakeLists.txt)
 include(${PROJECT_LIB_DIR}/hd44780/CMakeLists.txt)
 include(${PROJECT_LIB_DIR}/common/CMakeLists.txt)
 
-
 # Tell CMake where to find the executable source file
 add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c
@@ -57,6 +57,10 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_LIST_DIR}/mqtt_shaft.c
   ${CMAKE_CURRENT_LIST_DIR}/main.c
 )
+if(${DEBUG_BUILD})
+	set(CMAKE_BUILD_TYPE "Debug")
+	target_compile_options(${PROJECT_NAME} PRIVATE -DPARAM_ASSERTIONS_ENABLE_ALL=1 -DPICO_CYW43_ARCH_DEBUG_ENABLED)
+endif()
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
