@@ -99,6 +99,8 @@ target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} ${PICO_
 		      pico_btstack_classic pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background
 		      pico_lwip_sntp pico_lwip_mqtt pico_hd44780 herak_common pico_one_wire)
 
+target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage)
+
 # Enable usb output, disable uart output
 if(${ADD_USB})
 	pico_enable_stdio_usb(${PROJECT_NAME} 0)
