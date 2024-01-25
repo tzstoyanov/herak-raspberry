@@ -154,7 +154,7 @@ index 7554c0d..7ff8770 100644
 +static bool init_host_programs(
 +    pio_port_t *pp, const pio_usb_configuration_t *c, root_port_t *port,
 +    uint *tx_inst_count, uint *rx_inst_count) {
-+  bool pio_rx_auto, pio_tx_auto;
++  bool pio_rx_auto = false, pio_tx_auto = false;
 +
 +  if (!pp->pio_usb_tx) {
 +    pio_tx_auto = true;
