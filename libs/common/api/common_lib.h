@@ -128,6 +128,19 @@ int webhook_send(int idx, char *data, int datalen);
 int webhook_add(char *addr, int port, char *content_type, char *endpoint, char *http_command,
 				bool keep_open, webhook_reply_t user_cb, void *user_data);
 
+enum http_response_id {
+	HTTP_RESP_OK = 0,
+	HTTP_RESP_BAD,
+	HTTP_RESP_NOT_FOUND,
+	HTTP_RESP_INTERNAL_ERROR,
+	HTTP_RESP_MAX
+};
+typedef enum http_response_id (*webserv_request_cb_t) (int client_idx, char *cmd, char *url, void *context);
+int webserv_add_handler(char *url, webserv_request_cb_t user_cb, void *user_data);
+int weberv_client_send(int client_idx, char *data, int datalen, enum http_response_id rep);
+int weberv_client_send_data(int client_idx, char *data, int datalen);
+int weberv_client_close(int client_idx);
+
 #ifdef __cplusplus
 }
 #endif

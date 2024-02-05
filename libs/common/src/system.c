@@ -35,6 +35,7 @@ static struct {
 	uint8_t has_temp:1;
 	uint8_t has_usb:1;
 	uint8_t has_wh:1;
+	uint8_t has_websrv:1;
 	uint8_t force_reboot:1;
 } sys_context;
 
@@ -191,6 +192,7 @@ bool system_common_init(void)
 	sys_context.has_temp = temperature_init();
 	sys_context.has_swout = sw_out_init();
 	sys_context.has_wh = webhook_init();
+	sys_context.has_websrv = webserv_init();
 	LED_OFF;
 	watchdog_update();
 
@@ -208,6 +210,7 @@ void system_log_status(void)
 	bt_log_status();
 	usb_log_status();
 	webhook_log_status();
+	webserv_log_status();
 	main_log();
 	hlog_info(COMMONSYSLOG, "----------- Status end--------");
 }
@@ -235,6 +238,8 @@ void system_reconect(void)
 		mqtt_reconnect();
 	if (sys_context.has_wh)
 		webhook_reconnect();
+	if (sys_context.has_websrv)
+		webserv_reconnect();
 	hlog_reconnect();
 }
 
@@ -283,6 +288,9 @@ void system_common_run(void)
 	wd_update();
 	if (sys_context.has_wh)
 		webhook_run();
+	log_wd_boot();
+	if (sys_context.has_websrv)
+		webserv_run();
 	log_wd_boot();
 	if (reconnect)
 		system_reconect();

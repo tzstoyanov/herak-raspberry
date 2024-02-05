@@ -43,6 +43,9 @@ SONAR_CONFIG		<sonar_echo_pin>;<sonar_trigger_pin>
 # Maxim MAX31820 and MAX31826. 
 ONE_WIRE_DEVICES	<sensor_pin>
 
+#HTTP server
+WEBSERVER_PORT	<tcp listen port>
+
 ###### Config, specific to solar application:
 # Daly BMS - Bluethooth <address>:<pin>
 BMS_DALY_BT		<XX:XX:XX:XX:XX:XX>;<XXXX>

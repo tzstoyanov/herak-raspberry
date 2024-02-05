@@ -100,6 +100,11 @@ void webhook_run(void);
 void webhook_log_status(void);
 void webhook_reconnect(void);
 
+bool webserv_init(void);
+void webserv_run(void);
+void webserv_log_status(void);
+void webserv_reconnect(void);
+
 #ifdef __cplusplus
 }
 #endif

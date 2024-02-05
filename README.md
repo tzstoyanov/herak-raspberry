@@ -11,7 +11,7 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 - NTP client for time synchronization.
 - Logging to a remote rsyslog server.
 - MQTT client.
-- HTTP Webhooks.
+- HTTP server.
 - Watchdog.
 - External HD44780 LCD display.
 
