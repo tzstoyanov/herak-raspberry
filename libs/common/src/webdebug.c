@@ -234,10 +234,9 @@ enum http_response_id webdebug_request(int client_idx, char *cmd, char *url, voi
 				break;
 			}
 		}
+		if (i < debug_requests_size)
+			return HTTP_RESP_OK;
 	}
-
-	if (i < debug_requests_size)
-		return HTTP_RESP_OK;
 
 	return HTTP_RESP_NOT_FOUND;
 
