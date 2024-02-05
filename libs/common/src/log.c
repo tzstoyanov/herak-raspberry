@@ -35,6 +35,7 @@ static struct {
 	char *server_url;
 	int server_port;
 	ip_addr_t server_addr;
+	bool	http_log;
 	uint32_t connect_count;
 	uint32_t last_send;
 	ip_resolve_state_t sever_ip_state;
@@ -67,12 +68,20 @@ bool hlog_remoute(void)
 	return res;
 }
 
+void hlog_web_enable(bool set)
+{
+	LOG_LOCK;
+	log_context.http_log = set;
+	LOG_UNLOCK;
+}
+
 void hlog_init(int level)
 {
 	char *str, *rest, *tok;
 
 	memset(&log_context, 0, sizeof(log_context));
 	mutex_init(&log_context.lock);
+	log_context.http_log = false;
 
 	if (SYSLOG_SERVER_ENDPOINT_len > 0) {
 		str = param_get(SYSLOG_SERVER_ENDPOINT);
@@ -127,6 +136,12 @@ void hlog_reconnect(void)
 {
 	LOG_LOCK;
 		log_context.sever_ip_state = IP_NOT_RESOLEVED;
+		if (log_context.log_pcb) {
+			LWIP_LOCK_START
+				udp_remove(log_context.log_pcb);
+			LWIP_LOCK_END
+			log_context.log_pcb = NULL;
+		}
 	LOG_UNLOCK;
 	if (IS_DEBUG)
 		hlog_info(LLOG, "Log server reconnect");
@@ -263,6 +278,11 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 		/* rsyslog server */
 		if (log_context.sever_ip_state == IP_RESOLVED)
 			slog_send(log_buff);
+		/* http */
+		if (log_context.http_log) {
+			if (webdebug_log_send(log_buff) < 0)
+				log_context.http_log = false;
+		}
 	LOG_UNLOCK;
 }
 

@@ -12,6 +12,7 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 - Logging to a remote rsyslog server.
 - MQTT client.
 - HTTP server.
+- HTTP webhook client.
 - Watchdog.
 - External HD44780 LCD display.
 

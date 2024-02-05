@@ -19,6 +19,7 @@ target_sources(${lib_name} INTERFACE
    ${dir}/time.c
    ${dir}/webhook.c
    ${dir}/webserv.c
+   ${dir}/webdebug.c
    ${dir}/temperature.cpp
    ${COMMON_USB}
 )

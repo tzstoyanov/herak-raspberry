@@ -193,6 +193,7 @@ bool system_common_init(void)
 	sys_context.has_swout = sw_out_init();
 	sys_context.has_wh = webhook_init();
 	sys_context.has_websrv = webserv_init();
+	webdebug_init();
 	LED_OFF;
 	watchdog_update();
 

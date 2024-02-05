@@ -45,6 +45,9 @@ ONE_WIRE_DEVICES	<sensor_pin>
 
 #HTTP server
 WEBSERVER_PORT	<tcp listen port>
+#HTTP debug:
+#for more information, run "curl http://<device ip>:<http server port>/debug?help
+WEBDEBUG	<hex_mask, enable or disable HTTP /debug API>
 
 ###### Config, specific to solar application:
 # Daly BMS - Bluethooth <address>:<pin>

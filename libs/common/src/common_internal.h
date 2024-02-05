@@ -88,6 +88,7 @@ void hlog_init(int level);
 void hlog_connect(void);
 void hlog_status(void);
 void hlog_reconnect(void);
+void hlog_web_enable(bool set);
 void log_debug_set(uint32_t lvl);
 
 void system_log_status(void);
@@ -104,6 +105,9 @@ bool webserv_init(void);
 void webserv_run(void);
 void webserv_log_status(void);
 void webserv_reconnect(void);
+
+bool webdebug_init(void);
+int webdebug_log_send(char *logbuff);
 
 #ifdef __cplusplus
 }
