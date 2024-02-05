@@ -88,6 +88,7 @@ void hlog_init(int level);
 void hlog_connect(void);
 void hlog_status(void);
 void hlog_reconnect(void);
+void log_debug_set(uint32_t lvl);
 
 void system_log_status(void);
 char *get_uptime(void);

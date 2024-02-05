@@ -20,6 +20,8 @@
 #define MAX_LOG_SIZE	512
 #define LLOG	"log"
 
+#define IS_DEBUG	(log_context.debug != 0)
+
 #define RLOG_DEFULT_PORT	514
 
 #define FACILITY 1
@@ -40,6 +42,7 @@ static struct {
 	char *hostname;
 	int log_level;
 	mutex_t lock;
+	uint32_t debug;
 } log_context;
 
 static void log_server_found(const char *hostname, const ip_addr_t *ipaddr, void *arg)
@@ -125,6 +128,8 @@ void hlog_reconnect(void)
 	LOG_LOCK;
 		log_context.sever_ip_state = IP_NOT_RESOLEVED;
 	LOG_UNLOCK;
+	if (IS_DEBUG)
+		hlog_info(LLOG, "Log server reconnect");
 }
 
 void hlog_connect(void)
@@ -140,6 +145,9 @@ void hlog_connect(void)
 	LOG_LOCK;
 		if (log_context.sever_ip_state == IP_RESOLVED)
 			goto out;
+
+		if (IS_DEBUG)
+			hlog_info(LLOG, "Log server connect");
 
 		now = to_ms_since_boot(get_absolute_time());
 		if (!log_context.log_pcb) {
@@ -165,14 +173,19 @@ void hlog_connect(void)
 				log_context.sever_ip_state = IP_RESOLVED;
 				log_context.connect_count++;
 				connected = true;
+				if (IS_DEBUG)
+					hlog_info(LLOG, "Resolved %s", log_context.server_url);
 			}
 			break;
 		case IP_RESOLVED:
 			connected = true;
 			break;
 		case IP_RESOLVING:
-			if ((now - log_context.last_send) > IP_TIMEOUT_MS)
+			if ((now - log_context.last_send) > IP_TIMEOUT_MS) {
 				log_context.sever_ip_state = IP_NOT_RESOLEVED;
+				if (IS_DEBUG)
+					hlog_info(LLOG, "Resolving %s timeout", log_context.server_url);
+			}
 			break;
 		default:
 			break;
@@ -251,4 +264,9 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 		if (log_context.sever_ip_state == IP_RESOLVED)
 			slog_send(log_buff);
 	LOG_UNLOCK;
+}
+
+void log_debug_set(uint32_t lvl)
+{
+	log_context.debug = lvl;
 }
