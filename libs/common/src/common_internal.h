@@ -59,6 +59,7 @@ void mqtt_connect(void);
 bool mqtt_is_connected(void);
 void mqtt_log_status(void);
 void mqtt_reconnect(void);
+void mqtt_debug_set(uint32_t lvl);
 
 bool bt_init(void);
 void bt_run(void);

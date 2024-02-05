@@ -24,6 +24,8 @@
 
 #define MSEC_INSEC	60000
 
+#define IS_DEBUG	(mqtt_context.debug != 0)
+
 /* Send a packet each 60s at least, even if the data is the same */
 #define MQTT_SEND_MAX_TIME_MSEC	60000	/* 60s */
 /* Limit the rate of the packets to*/
@@ -66,6 +68,7 @@ static struct {
 	uint32_t last_send;
 	mutex_t lock;
 	uint32_t connect_count;
+	uint32_t debug;
 } mqtt_context;
 
 static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
@@ -81,6 +84,8 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 		if (mqtt_context.state != MQTT_CLIENT_CONNECTED) {
 			system_log_status();
 			mqtt_context.connect_count++;
+			if (IS_DEBUG)
+				hlog_info(MQTTLOG, "Connected accepted");
 		}
 		mqtt_context.state = MQTT_CLIENT_CONNECTED;
 		break;
@@ -169,8 +174,11 @@ void mqtt_msg_publish(char *message, bool force)
 		in_progress = mqtt_context.send_in_progerss;
 	MQTT_CLIENTL_UNLOCK;
 
-	if (!mqtt_is_connected() || in_progress)
+	if (!mqtt_is_connected() || in_progress) {
+		if (IS_DEBUG)
+			hlog_info(MQTTLOG, "Cannot publish: connected %d, send in progress %d", mqtt_is_connected(), in_progress);
 		return;
+	}
 	mqtt_context.data_send = force;
 
 	/* Rate limit the packets between mqtt_min_delay and mqtt_max_delay */
@@ -192,6 +200,8 @@ void mqtt_msg_publish(char *message, bool force)
 			mqtt_context.send_in_progerss = true;
 			mqtt_context.data_send = false;
 		MQTT_CLIENTL_UNLOCK;
+		if (IS_DEBUG)
+			hlog_info(MQTTLOG, "Published %d bytes", strlen(message));
 	} else {
 		hlog_info(MQTTLOG, "Failed to publish the message: %d", err);
 	}
@@ -210,8 +220,11 @@ void mqtt_connect(void)
 	int ret;
 
 	if (!wifi_is_connected()) {
-		if (mqtt_is_connected())
+		if (mqtt_is_connected()) {
+			if (IS_DEBUG)
+				hlog_info(MQTTLOG, "No WiFi, force reconnection");
 			mqtt_reconnect();
+		}
 		return;
 	}
 	if (mqtt_is_connected())
@@ -258,6 +271,8 @@ void mqtt_connect(void)
 			MQTT_CLIENTL_UNLOCK;
 			return;
 		} else if (ret == ERR_OK) {
+			if (IS_DEBUG)
+				hlog_info(MQTTLOG, "MQTT server resolved");
 			MQTT_CLIENT_LOCK;
 				mqtt_context.sever_ip_state = IP_RESOLVED;
 			MQTT_CLIENTL_UNLOCK;
@@ -269,6 +284,8 @@ void mqtt_connect(void)
 		break;
 	case IP_RESOLVING:
 		if ((now - last_send) > IP_TIMEOUT_MS) {
+			if (IS_DEBUG)
+				hlog_info(MQTTLOG, "Server resolving timeout");
 			MQTT_CLIENT_LOCK;
 				mqtt_context.sever_ip_state = IP_NOT_RESOLEVED;
 			MQTT_CLIENTL_UNLOCK;
@@ -303,6 +320,8 @@ void mqtt_connect(void)
 	MQTT_CLIENT_LOCK;
 		if (!ret) {
 			mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
+			if (IS_DEBUG)
+				hlog_info(MQTTLOG, "Connected to server %s", mqtt_context.server_url);
 		} else {
 			mqtt_context.state = MQTT_CLIENT_DISCONNECTED;
 			hlog_info(MQTTLOG, "Connecting to MQTT server %s (%s) failed: %d",
@@ -392,4 +411,9 @@ bool mqtt_init(void)
 	mqtt_context.max_payload_size = MQTT_OUTPUT_RINGBUF_SIZE - (strlen(mqtt_context.topic) + 2);
 
 	return true;
+}
+
+void mqtt_debug_set(uint32_t lvl)
+{
+	mqtt_context.debug = lvl;
 }
