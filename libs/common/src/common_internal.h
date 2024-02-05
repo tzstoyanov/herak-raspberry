@@ -77,6 +77,7 @@ bool sw_out_init(void);
 void sw_out_set(bool state);
 
 void usb_log_status(void);
+void usb_debug_set(uint32_t lvl);
 
 bool lcd_init(void);
 void lcd_refresh(void);

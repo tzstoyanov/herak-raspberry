@@ -41,3 +41,8 @@ __weak int usb_add_known_device(uint16_t vid, uint16_t pid, usb_event_handler_t 
 
 	return 0;
 }
+
+__weak  void usb_debug_set(uint32_t lvl)
+{
+	UNUSED(lvl);
+}
