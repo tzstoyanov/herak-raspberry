@@ -16,6 +16,7 @@
 extern "C" {
 #endif
 
+#define HTTP_USER_AGENT		"PicoW"
 #define LWIP_LOCK_START { \
 		SYS_ARCH_DECL_PROTECT(__lev__); \
 		SYS_ARCH_PROTECT(__lev__); \

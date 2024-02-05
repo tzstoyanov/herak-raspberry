@@ -22,7 +22,6 @@
 
 //#define WH_DEBUG
 
-#define HTTP_USER_AGENT		"PicoW"
 #define WH_HTTP_HEAD		"%s %s HTTP/1.1\r\nHost: %s:%d\r\nContent-Length: %d\r\n%sUser-Agent: %s\r\nContent-Type: %s\r\n\r\n"
 #define MAX_HOOKS			3
 #define PACKET_BUFF_SIZE	512
