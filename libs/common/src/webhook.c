@@ -545,8 +545,9 @@ void webhook_run(void)
 			connected = false;
 		}
 		return;
-	} else
+	} else {
 		connected = true;
+	}
 
 	webhook_resolve();
 	webhook_connect_all();
