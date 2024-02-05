@@ -27,11 +27,11 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 
 ## Applications:
 Applications are built on top of common library, which provides basic functionality:
-Internet over WiFi, Bluetooth, remote logging, time synchronization, MQTT client, Webhook client,
-watchdog, encrypted key-value store.
+Internet over WiFi, Bluetooth, remote logging, time synchronization, MQTT client, HTTP client
+and server, watchdog, USB in host mode, encrypted key-value store.
 All user specific parameters are defined in params.txt file which must be available at
 build time in the application directory. The [params-example.txt](app/params_example.txt) file can
-be used as template.
+be used as a template.
 
 ### Shaft
 Monitor water level in an underground tank using AJ-SR04M sonar sensor and send the data to
@@ -58,7 +58,7 @@ Apply all mandatory patches, which are not yet released upstream. Run in the top
 ```
 
 ### Build
-- Copy [params-example.txt](app/params_example.txt) file as params.txt in the application directory
+- Copy [params-example.txt](app/params_example.txt) file as `params.txt` in the application directory
 and modify it with your configuration.
 - In the `build/<application>` directory, run `cmake ../../app/<applicattion>`
 - In the `build/<application>` directory, run `make`
