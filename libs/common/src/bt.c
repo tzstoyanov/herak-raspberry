@@ -84,6 +84,7 @@ static struct {
 	bool scanning;
 	bool verbose;
 	mutex_t lock;
+	uint32_t debug;
 } bt_context;
 
 static struct bt_device_t *bt_get_device_by_address(bd_addr_t btaddress)
@@ -998,4 +999,9 @@ int bt_characteristic_write(uint32_t char_id, uint8_t *data, uint16_t data_len)
 	BT_LOCAL_UNLOCK;
 
 	return ret;
+}
+
+void bt_debug_set(uint32_t lvl)
+{
+	bt_context.debug = lvl;
 }

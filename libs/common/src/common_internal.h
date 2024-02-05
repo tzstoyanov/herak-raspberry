@@ -64,6 +64,7 @@ void mqtt_debug_set(uint32_t lvl);
 bool bt_init(void);
 void bt_run(void);
 void bt_log_status(void);
+void bt_debug_set(uint32_t lvl);
 
 bool ntp_init(void);
 void ntp_connect(void);
