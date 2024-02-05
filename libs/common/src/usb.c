@@ -264,6 +264,8 @@ void usb_run(void)
 
 static void _convert_utf16le_to_utf8(const uint16_t *utf16, size_t utf16_len, uint8_t *utf8, size_t utf8_len)
 {
+
+	UNUSED(utf8_len);
 	// Get the UTF-16 length out of the data itself.
 	for (size_t i = 0; i < utf16_len; i++) {
 		uint16_t chr = utf16[i];
