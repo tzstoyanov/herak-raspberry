@@ -287,25 +287,6 @@ static err_t wh_tcp_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *p, er
 	return ERR_OK;
 }
 
-static err_t wh_tcp_sent_cb(void *arg, struct altcp_pcb *tpcb, u16_t len)
-{
-	struct webhook_t *wh = (struct webhook_t *)arg;
-
-	UNUSED(len);
-	wh_tcp_send(wh, tpcb);
-
-	return ERR_OK;
-}
-
-static err_t wh_tcp_poll_cb(void *arg, struct altcp_pcb *tpcb)
-{
-	struct webhook_t *wh = (struct webhook_t *)arg;
-
-	wh_tcp_send(wh, tpcb);
-
-	return ERR_OK;
-}
-
 static void wh_tcp_err_cb(void *arg, err_t err)
 {
 	struct webhook_t *wh = (struct webhook_t *)arg;
@@ -328,8 +309,6 @@ static err_t wh_tcp_connect_cb(void *arg, struct altcp_pcb *tpcb, err_t err)
 	/* Setup TCP callbacks */
 	LWIP_LOCK_START;
 		altcp_recv(tpcb, wh_tcp_recv_cb);
-		altcp_sent(tpcb, wh_tcp_sent_cb);
-		altcp_poll(tpcb, wh_tcp_poll_cb, 2);
 	LWIP_LOCK_END;
 
 	WH_LOCK(wh);
