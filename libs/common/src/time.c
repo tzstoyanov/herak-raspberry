@@ -246,8 +246,8 @@ char *get_current_time_str(char *buf, int buflen)
 			month = mnames[date.month];
 		else
 			month = mnames[0];
-		snprintf(buf, buflen, "%s %.2d %.2d.%.2d.%.2d",
-					month, date.day, date.hour, date.min, date.sec);
+		snprintf(buf, buflen, "%.2d %s %d %.2d:%.2d:%.2d",
+					date.day, month, date.year, date.hour, date.min, date.sec);
 	} else {
 		snprintf(buf, buflen, "%s 0 %ld", mnames[0], to_ms_since_boot(get_absolute_time()));
 	}
