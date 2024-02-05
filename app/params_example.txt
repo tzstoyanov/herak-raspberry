@@ -49,6 +49,11 @@ WEBSERVER_PORT	<tcp listen port>
 #for more information, run "curl http://<device ip>:<http server port>/debug?help
 WEBDEBUG	<hex_mask, enable or disable HTTP /debug API>
 
+#HTTP webhook client
+WEBHOOK_SERVER
+WEBHOOK_PORT
+WEBHOOK_ENDPINT
+
 ###### Config, specific to solar application:
 # Daly BMS - Bluethooth <address>:<pin>
 BMS_DALY_BT		<XX:XX:XX:XX:XX:XX>;<XXXX>
