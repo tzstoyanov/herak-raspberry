@@ -26,6 +26,7 @@ extern "C" {
 
 bool system_common_init(void);
 void system_common_run(void);
+void system_force_reboot(int delay_ms);
 void mqtt_msg_publish(char *message, bool force);
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count);
 char *get_current_time_str(char *buf, int buflen);

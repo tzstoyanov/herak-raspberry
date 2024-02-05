@@ -34,6 +34,7 @@ static struct {
 	uint8_t has_temp:1;
 	uint8_t has_usb:1;
 	uint8_t has_wh:1;
+	uint8_t force_reboot:1;
 } sys_context;
 
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count)
@@ -234,37 +235,50 @@ void system_reconect(void)
 	hlog_reconnect();
 }
 
+void system_force_reboot(int delay_ms)
+{
+	hlog_info(COMMONSYSLOG, "System is rebooting in %dms ...", delay_ms);
+	watchdog_enable(delay_ms, true);
+	sys_context.force_reboot = true;
+}
+
+static void wd_update(void)
+{
+	if (!sys_context.force_reboot)
+		watchdog_update();
+}
+
 void system_common_run(void)
 {
 	bool reconnect = false;
 
 	sys_context.last_loop = to_ms_since_boot(get_absolute_time());
-	watchdog_update();
+	wd_update();
 	if (sys_context.has_lcd)
 		lcd_refresh();
 	hlog_connect();
 	if (sys_context.has_temp)
 		temperature_measure();
-	watchdog_update();
+	wd_update();
 	if (sys_context.has_wifi)
 		reconnect = wifi_connect();
 	if (sys_context.has_bt)
 		bt_run();
-	watchdog_update();
+	wd_update();
 	if (sys_context.has_mqtt)
 		mqtt_connect();
 	if (sys_context.has_time)
 		ntp_connect();
-	watchdog_update();
+	wd_update();
 	if (sys_context.has_usb)
 		usb_run();
-	watchdog_update();
+	wd_update();
 	if (sys_context.has_wh)
 		webhook_run();
 	log_wd_boot();
 	if (reconnect)
 		system_reconect();
-	watchdog_update();
+	wd_update();
 
 #ifdef PERIODIC_LOG_MS
 	{
