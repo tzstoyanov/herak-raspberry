@@ -42,7 +42,7 @@ int main(void)
 	bool has_sonar;
 
 	if (!system_common_init()) {
-		printf("\n\rFailed to initialize the system\n\r");
+		printf("\r\nFailed to initialize the system\r\n");
 		exit(1);
 	}
 	internal_temp_init();

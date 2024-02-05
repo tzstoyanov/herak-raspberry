@@ -86,7 +86,7 @@ void hlog_init(int level)
 	log_context.hostname = param_get(DEV_HOSTNAME);
 	log_context.log_level = level;
 
-	printf("\n\n\r");
+	printf("\r\n\r\n");
 }
 
 void hlog_status(void)
@@ -243,9 +243,11 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 		va_start(ap, fmt);
 		LBUFF_VPRINT(fmt, ap);
 		va_end(ap);
+		LBUFF_PRINT("\r\n");
 
-		printf("%s\n\r", log_buff);
-
+		/* Console */
+		printf("%s", log_buff);
+		/* rsyslog server */
 		if (log_context.sever_ip_state == IP_RESOLVED)
 			slog_send(log_buff);
 	LOG_UNLOCK;
