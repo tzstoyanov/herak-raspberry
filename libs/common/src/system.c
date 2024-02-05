@@ -20,10 +20,11 @@ extern char __StackLimit, __bss_end__;
 #define COMMONSYSLOG	"system"
 #define WATCHDOG_TIMEOUT_MS	30000 /* Reboot on 30s inactivity */
 
-//#define PERIODIC_LOG_MS	5000
+#define PERIODIC_LOG_MS	0
 
 static struct {
 	int sw_out_pin;
+	uint32_t periodic_log_ms;
 	uint32_t last_loop;
 	uint8_t has_lcd:1;
 	uint8_t has_wifi:1;
@@ -175,6 +176,8 @@ bool system_common_init(void)
 	if (!base_init())
 		return false;
 	LED_ON;
+	sys_context.force_reboot = false;
+	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
 	sys_context.has_wifi = wifi_init();
 	sys_context.has_lcd = lcd_init();
 	if (sys_context.has_lcd)
@@ -242,6 +245,11 @@ void system_force_reboot(int delay_ms)
 	sys_context.force_reboot = true;
 }
 
+void system_set_periodic_log_ms(uint32_t ms)
+{
+	sys_context.periodic_log_ms = ms;
+}
+
 static void wd_update(void)
 {
 	if (!sys_context.force_reboot)
@@ -280,15 +288,12 @@ void system_common_run(void)
 		system_reconect();
 	wd_update();
 
-#ifdef PERIODIC_LOG_MS
-	{
+	if (sys_context.periodic_log_ms > 0) {
 		static uint32_t llog;
 
-		if ((sys_context.last_loop - llog) > PERIODIC_LOG_MS) {
+		if ((sys_context.last_loop - llog) > sys_context.periodic_log_ms) {
 			llog = sys_context.last_loop;
 			system_log_status();
 		}
 	}
-#endif
-
 }

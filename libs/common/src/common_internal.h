@@ -41,6 +41,7 @@ extern "C" {
 #define __weak	__attribute__((__weak__))
 
 void system_reconect(void);
+void system_set_periodic_log_ms(uint32_t ms);
 
 typedef enum {
 	IP_NOT_RESOLEVED = 0,
