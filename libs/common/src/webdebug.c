@@ -15,6 +15,7 @@
 
 #define WEBDEBUG_URL	"/debug"
 #define WDBLOG			"webdbg"
+#define WEBDEBUG_DESC	"Debug and extended logs commands"
 #define WD_REBOOT_DELAY_MS	3000
 
 #define DEBUG_USB	0x01
@@ -39,9 +40,11 @@ static void debug_log_forward(int client_idx)
 }
 
 #define REBOOT_STR "\tRebooting ...\r\n"
-static void debug_reboot(int client_idx, char *params)
+static void debug_reboot(int client_idx, char *params, void *user_data)
 {
 	int delay = WD_REBOOT_DELAY_MS;
+
+	UNUSED(user_data);
 
 	weberv_client_send(client_idx, REBOOT_STR, strlen(REBOOT_STR), HTTP_RESP_OK);
 	weberv_client_close(client_idx);
@@ -52,11 +55,12 @@ static void debug_reboot(int client_idx, char *params)
 
 #define VERBOSE_STR "\tSetting verbose debug ...\r\n"
 #define VERBOSE_ERR_STR "\tValid verbose level and module must be specified  ...\r\n"
-static void debug_verbose(int client_idx, char *params)
+static void debug_verbose(int client_idx, char *params, void *user_data)
 {
 	char *rest, *tok;
 	uint32_t lvl, what = 0;
 
+	UNUSED(user_data);
 
 	if (!params || params[0] != ':' || strlen(params) < 2)
 		goto out_err;
@@ -102,10 +106,10 @@ out_err:
 }
 
 #define STATUS_STR "\tGoing to send status ...\r\n"
-static void debug_status(int client_idx, char *params)
+static void debug_status(int client_idx, char *params, void *user_data)
 {
 	UNUSED(params);
-
+	UNUSED(user_data);
 	weberv_client_send(client_idx, STATUS_STR, strlen(STATUS_STR), HTTP_RESP_OK);
 	debug_log_forward(client_idx);
 	system_log_status();
@@ -114,17 +118,21 @@ static void debug_status(int client_idx, char *params)
 }
 
 #define LOGON_STR	"\tSending device logs ...\r\n"
-static void debug_log_on(int client_idx, char *params)
+static void debug_log_on(int client_idx, char *params, void *user_data)
 {
 	UNUSED(params);
+	UNUSED(user_data);
+
 	weberv_client_send(client_idx, LOGON_STR, strlen(LOGON_STR), HTTP_RESP_OK);
 	debug_log_forward(client_idx);
 }
 
 #define LOGOFF_STR	"\tStop sending device logs ...\r\n"
-static void debug_log_off(int client_idx, char *params)
+static void debug_log_off(int client_idx, char *params, void *user_data)
 {
 	UNUSED(params);
+	UNUSED(user_data);
+
 	weberv_client_send(client_idx, LOGOFF_STR, strlen(LOGOFF_STR), HTTP_RESP_OK);
 	weberv_client_close(client_idx);
 	if (webdebug_context.client_log != client_idx)
@@ -133,9 +141,11 @@ static void debug_log_off(int client_idx, char *params)
 }
 
 #define RESET_STR	"\tGoing to reset debug state ...\r\n"
-static void debug_reset(int client_idx, char *params)
+static void debug_reset(int client_idx, char *params, void *user_data)
 {
 	UNUSED(params);
+	UNUSED(user_data);
+
 	weberv_client_send(client_idx, RESET_STR, strlen(RESET_STR), HTTP_RESP_OK);
 	weberv_client_close(client_idx);
 	system_set_periodic_log_ms(0);
@@ -146,9 +156,11 @@ static void debug_reset(int client_idx, char *params)
 }
 
 #define PERIODIC_STR "\tSetting periodic status log interval...\r\n"
-static void debug_periodic_log(int client_idx, char *params)
+static void debug_periodic_log(int client_idx, char *params, void *user_data)
 {
 	int delay = -1;
+
+	UNUSED(user_data);
 
 	weberv_client_send(client_idx, PERIODIC_STR, strlen(PERIODIC_STR), HTTP_RESP_OK);
 	weberv_client_close(client_idx);
@@ -159,14 +171,7 @@ static void debug_periodic_log(int client_idx, char *params)
 	system_set_periodic_log_ms((uint32_t)delay);
 }
 
-static void debug_help(int client_idx, char *params);
-
-typedef void (*debug_cmd_cb_t) (int client_idx, char *params);
-static struct {
-	char *command;
-	char *help;
-	debug_cmd_cb_t cb;
-} debug_requests[] = {
+static web_requests_t debug_requests[] = {
 		{"reboot", ":<delay_ms>",	debug_reboot},
 		{"status", NULL,			debug_status},
 		{"periodic_log", ":<delay_ms>",	debug_periodic_log},
@@ -174,25 +179,7 @@ static struct {
 		{"log_off", NULL,		debug_log_off},
 		{"reset", NULL,			debug_reset},
 		{"verbose", ":<level_hex>:all|log|mqtt|usb|bt", debug_verbose},
-		{"help", NULL,			debug_help},
 };
-static int debug_requests_size = ARRAY_SIZE(debug_requests);
-
-#define HELP_SIZE	256
-static void debug_help(int client_idx, char *params)
-{
-	char help[HELP_SIZE];
-	int count, i;
-
-	UNUSED(params);
-	count = snprintf(help, HELP_SIZE, "Supported commands:\r\n");
-	for (i = 0; i < debug_requests_size; i++) {
-		count += snprintf(help + count, HELP_SIZE - count, "\t/debug?%s%s\r\n",
-				debug_requests[i].command, debug_requests[i].help ? debug_requests[i].help : "");
-	}
-	weberv_client_send(client_idx, help, strlen(help), HTTP_RESP_OK);
-	weberv_client_close(client_idx);
-}
 
 int webdebug_log_send(char *logbuff)
 {
@@ -209,40 +196,7 @@ int webdebug_log_send(char *logbuff)
 	return 0;
 }
 
-enum http_response_id webdebug_request(int client_idx, char *cmd, char *url, void *context)
-{
-	char *request, *params;
-	size_t len;
-	int i;
-
-	UNUSED(cmd);
-	UNUSED(context);
-
-	request = strchr(url, '?');
-	if (!request)
-		request = strchr(url + 1, '/');
-	if (request) {
-		len = strlen(request);
-		for (i = 0; i < debug_requests_size; i++) {
-			if (len < strlen(debug_requests[i].command))
-				continue;
-			if (!strncmp(request + 1, debug_requests[i].command, strlen(debug_requests[i].command))) {
-				params = NULL;
-				if (len > (strlen(debug_requests[i].command) + 1))
-					params = request + 1 + strlen(debug_requests[i].command);
-				debug_requests[i].cb(client_idx, params);
-				break;
-			}
-		}
-		if (i < debug_requests_size)
-			return HTTP_RESP_OK;
-	}
-
-	return HTTP_RESP_NOT_FOUND;
-
-}
-
-static bool webserv_read_config(void)
+static bool webdebug_read_config(void)
 {
 	char *str;
 
@@ -258,10 +212,10 @@ bool webdebug_init(void)
 {
 	int idx;
 
-	if (!webserv_read_config())
+	if (!webdebug_read_config())
 		return false;
 
-	idx = webserv_add_handler(WEBDEBUG_URL, webdebug_request, NULL);
+	idx = webserv_add_commands(WEBDEBUG_URL, debug_requests, ARRAY_SIZE(debug_requests), WEBDEBUG_DESC, NULL);
 	if (idx < 0)
 		return false;
 
