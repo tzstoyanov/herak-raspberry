@@ -2,6 +2,7 @@
 #define _LWIPOPTS_COMMONH_H
 
 #include <stdio.h>
+#include <stdint.h>
 
 #define NO_SYS						1
 #define LWIP_SOCKET					0
