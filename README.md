@@ -20,10 +20,12 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 - Build-in temperature sensor.
 - Sonar AJ-SR04M.
 - One-wire temperature sensors (Dallas DS18S20).
+- [Soil moisture sensor](docs/Soil_moisture_sensor_module_EN.pdf) with analog and digital inputs.
 
 ### Devices:
 - Voltronic VM III inverter, over USB using [MAX communication protocol](docs/MAX-Communication-Protocol.pdf).
 - [DALY BMS](docs/Daly-Communications-Protocol-V1.2.pdf), over Bluetooth and [HLK-B40 serial interface](docs/HLK-B40.pdf).
+- [Solid State Relays](docs/SSR_8Channel_EN.pdf).
 
 ## Applications:
 Applications are built on top of common library, which provides basic functionality:
@@ -34,12 +36,16 @@ build time in the application directory. The [params-example.txt](app/params_exa
 be used as a template.
 
 ### Shaft
-Monitor water level in an underground tank using AJ-SR04M sonar sensor and send the data to
-a remote MQTT server.
+Monitors water level in an underground tank using AJ-SR04M sonar sensor and
+sends the data to a remote MQTT server.
 
 ### Solar
-Monitor Voltronic VM III inverter over USB and DALY BMS over Bluetooth and send the data to
-a remote MQTT server.
+Monitors Voltronic VM III inverter over USB and DALY BMS over Bluetooth and
+sends the data to a remote MQTT server.
+
+### Irrigation
+Reads soil moisture sensor and controls set of SSRs using web commands and
+sends the data to a remote MQTT server.
 
 ## Try it out
 
