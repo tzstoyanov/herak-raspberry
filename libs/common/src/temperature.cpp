@@ -63,8 +63,8 @@ bool temperature_init()
 	memset(&sensor_context, 0, sizeof(sensor_context));
 
 	adc_init();
+	adc_set_round_robin(0);
 	adc_set_temp_sensor_enabled(true);
-	adc_select_input(ADC_INTERNAL_TEMP);
 
 	if (get_sensor_config()) {
 		sensor_context.tempSensor = new One_wire(sensor_context.pin);
@@ -137,6 +137,7 @@ void temperature_measure_internal()
 	uint32_t av;
 	int i;
 
+	adc_select_input(ADC_INTERNAL_TEMP);
 	/* read the samples */
 	for(i = 0; i<ADC_MEASURE_COUNT; i++)
 		sensor_context.samples[i] = adc_read();
