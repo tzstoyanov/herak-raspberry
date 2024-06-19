@@ -59,3 +59,16 @@ WEBHOOK_ENDPINT
 BMS_DALY_BT		<XX:XX:XX:XX:XX:XX>;<XXXX>
 # Voltron inverter - USB address, <venodr-id>:<device-id>
 MPPT_VOLTRON_USB	<XXXX:XXXX>
+
+# Solid State Relays, in format <relay_id>:<gpio_id>;<relay_id>:<gpio_id>...
+# Relay IDs should be consistent, starts from 0
+SSR	<id1>:<gpio1>;<id2>:<gpio2>...
+# SSR trigger state 0 or 1, the state which turns on the relay
+SSR_TRIGGER <int>
+
+# Soil moisture sensor. Sensor IDs should be consistent, starts from 0.
+# sensor digital input, in format <sensor_id>:<gpio_id>
+SOIL_D		<sensor_id>:<gpio_id>
+# sensor analog input, in format <sensor_id>:<gpio_id>
+# The gpio pin must be one of the ADC inputs
+SOIL_A		<sensor_id>:<gpio_id>
