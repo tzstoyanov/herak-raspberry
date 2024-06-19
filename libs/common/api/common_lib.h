@@ -122,12 +122,14 @@ int bt_characteristic_read(uint32_t char_id);
 int bt_characteristic_write(uint32_t char_id, uint8_t *data, uint16_t data_len);
 int bt_characteristic_notify(uint32_t char_id, bool enable);
 
+/* WebHook API */
 typedef void (*webhook_reply_t) (int idx, int http_code, void *context);
 int webhook_state(int idx, bool *connected, bool *sending);
 int webhook_send(int idx, char *data, int datalen);
 int webhook_add(char *addr, int port, char *content_type, char *endpoint, char *http_command,
 				bool keep_open, webhook_reply_t user_cb, void *user_data);
 
+/* WebServer API */
 enum http_response_id {
 	HTTP_RESP_OK = 0,
 	HTTP_RESP_BAD,
@@ -140,6 +142,15 @@ int webserv_add_handler(char *url, webserv_request_cb_t user_cb, void *user_data
 int weberv_client_send(int client_idx, char *data, int datalen, enum http_response_id rep);
 int weberv_client_send_data(int client_idx, char *data, int datalen);
 int weberv_client_close(int client_idx);
+
+/* Web commands API */
+typedef void (*web_cmd_cb_t) (int client_idx, char *params, void *user_data);
+typedef struct {
+	char *command;
+	char *help;
+	web_cmd_cb_t cb;
+} web_requests_t;
+int webserv_add_commands(char *url, web_requests_t *commands, int commands_cont, char *description, void *user_data);
 
 #ifdef __cplusplus
 }

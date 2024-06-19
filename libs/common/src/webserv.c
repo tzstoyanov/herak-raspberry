@@ -17,8 +17,10 @@
 
 #pragma GCC diagnostic ignored "-Wstringop-truncation"
 
-#define WSLOG	"webserv"
-
+#define WSLOG		"webserv"
+#define HELP_CMD	"help"
+#define HELP_URL	"/help"
+#define HELP_DONE	"done"
 //#define WS_DEBUG
 
 #define HTTP_RESPONCE_HEAD	"HTTP/1.1 %d %s\r\nDate: %s\r\nUser-Agent: %s\r\nContent-Type: text/plain; charset=UTF-8\r\nConnection: keep-alive\r\n\r\n"
@@ -49,6 +51,14 @@ struct http_responses_t {
 		{500, "Internal Server Error"},	// HTTP_RESP_INTERNAL_ERROR
 };
 
+struct webcmd_t {
+	int count;
+	int web_handler;
+	char *description;
+	void *user_data;
+	web_requests_t *commands;
+};
+
 struct webhandler_t {
 	char url[HTTP_URL_LEN];
 	webserv_request_cb_t user_cb;
@@ -70,6 +80,8 @@ struct webclient_t {
 };
 
 static struct {
+	struct webcmd_t commands[MAX_HANDLERS];
+	int wcmd_count;
 	struct webhandler_t handle[MAX_HANDLERS];
 	int wh_count;
 	struct webclient_t client[MAX_CLIENTS];
@@ -107,6 +119,83 @@ int webserv_add_handler(char *url, webserv_request_cb_t user_cb, void *user_data
 
 	hlog_info(WSLOG, "New Web Handler added [%s]", url);
 	return i;
+}
+
+#define HELP_SIZE	128
+static void commands_help(int client_idx, struct webcmd_t *handlers)
+{
+	char help[HELP_SIZE];
+	int i;
+
+	if (handlers->web_handler >= werbserv_context.wh_count)
+		return;
+
+	for (i = 0; i < handlers->count; i++) {
+		snprintf(help, HELP_SIZE, "\t%s?%s%s\r\n",
+				werbserv_context.handle[handlers->web_handler].url,
+				handlers->commands[i].command, handlers->commands[i].help ? handlers->commands[i].help : "");
+		weberv_client_send_data(client_idx, help, strlen(help));
+	}
+}
+
+static enum http_response_id commands_handler(int client_idx, char *cmd, char *url, void *context)
+{
+	struct webcmd_t *handlers = (struct webcmd_t *)context;
+	char *request, *params;
+	size_t len;
+	int i;
+
+	if (!cmd)
+		return HTTP_RESP_INTERNAL_ERROR;
+
+	request = strchr(url, '?');
+	if (!request)
+		request = strchr(url + 1, '/');
+	if (request) {
+		len = strlen(request);
+		if (len >= strlen(HELP_CMD) && !strncmp(request + 1, HELP_CMD, strlen(HELP_CMD))) {
+			weberv_client_send(client_idx, handlers->description, strlen(handlers->description), HTTP_RESP_OK);
+			weberv_client_send_data(client_idx, ":\n\r", strlen(":\n\r"));
+			commands_help(client_idx, handlers);
+			weberv_client_send(client_idx, HELP_DONE, strlen(HELP_DONE), HTTP_RESP_OK);
+			weberv_client_close(client_idx);
+			return HTTP_RESP_OK;
+		}
+		for (i = 0; i < handlers->count; i++) {
+			if (len < strlen(handlers->commands[i].command))
+				continue;
+			if (!strncmp(request + 1, handlers->commands[i].command, strlen(handlers->commands[i].command))) {
+				params = NULL;
+				if (len > strlen(handlers->commands[i].command + 1))
+					params = request + 1 + strlen(handlers->commands[i].command);
+				handlers->commands[i].cb(client_idx, params, handlers->user_data);
+				break;
+			}
+		}
+		if (i < handlers->count)
+			return HTTP_RESP_OK;
+	}
+
+	return HTTP_RESP_NOT_FOUND;
+}
+
+int webserv_add_commands(char *url, web_requests_t *commands, int commands_cont, char *description, void *user_data)
+{
+	struct webcmd_t *cmd;
+
+	if (werbserv_context.wcmd_count >= MAX_HANDLERS)
+		return -1;
+	cmd = &(werbserv_context.commands[werbserv_context.wcmd_count]);
+	cmd->web_handler = webserv_add_handler(url, commands_handler, cmd);
+	if (cmd->web_handler < 0)
+		return -1;
+	cmd->commands = commands;
+	cmd->count = commands_cont;
+	cmd->user_data = user_data;
+	cmd->description = description;
+
+	werbserv_context.wcmd_count++;
+	return werbserv_context.wcmd_count-1;
 }
 
 static void ws_tcp_send(struct webclient_t *client, struct altcp_pcb *tpcb)
@@ -209,14 +298,13 @@ static enum http_response_id client_parse_incoming(struct webclient_t *client, s
 	{
 		struct pbuf *bp = p;
 
-		hlog_info(WSLOG, "Received %d bytes from %s:", p->tot_len, wh->addr_str);
+		hlog_info(WSLOG, "Received %d bytes from %d:", p->tot_len, client->idx);
 		while (bp) {
-			dump_char_data(WHLOG, bp->payload, bp->len);
+			dump_char_data(WSLOG, bp->payload, bp->len);
 			bp = bp->next;
 		}
-		resp = HTTP_RESP_OK;
 	}
-#else
+#endif
 	if (parse_http_request(p, cmd, HTTP_CMD_LEN, url, HTTP_URL_LEN)) {
 		cmd[HTTP_CMD_LEN - 1] = 0;
 		url[HTTP_URL_LEN - 1] = 0;
@@ -234,17 +322,22 @@ static enum http_response_id client_parse_incoming(struct webclient_t *client, s
 	} else {
 		resp = HTTP_RESP_BAD;
 	}
-#endif
 
 	if (resp != HTTP_RESP_OK)
 		weberv_client_send(client->idx, NULL, 0, resp);
 	return resp;
 }
 
-static void webclient_disconnect(struct webclient_t *client)
+static void webclient_disconnect(struct webclient_t *client, char *reason)
 {
 	if (!client || !client->init)
 		return;
+
+#ifdef WS_DEBUG
+	hlog_info(WSLOG, "Closed connection to client %d: [%s]", client->idx, reason);
+#else
+	UNUSED(reason);
+#endif
 
 	WC_LOCK(client);
 		if (client->tcp_client) {
@@ -253,12 +346,15 @@ static void webclient_disconnect(struct webclient_t *client)
 				altcp_err(client->tcp_client,  NULL);
 				if (altcp_close(client->tcp_client) != ERR_OK)
 					altcp_abort(client->tcp_client);
+				client->tcp_client = NULL;
 			LWIP_LOCK_END;
 		}
 
 		client->buff_p = 0;
 		client->buff_len = 0;
 		client->close = false;
+		client->init = false;
+		client->sending = false;
 	WC_UNLOCK(client);
 }
 
@@ -269,7 +365,7 @@ static err_t ws_tcp_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *p, er
 
 	if (p == NULL) {
 		/* remote has closed connection */
-		webclient_disconnect(client);
+		webclient_disconnect(client, "Remote closed");
 		return ERR_OK;
 	}
 
@@ -299,7 +395,7 @@ static void ws_tcp_err_cb(void *arg, err_t err)
 		/* Set conn to null as pcb is already deallocated*/
 		client->tcp_client = NULL;
 	WC_UNLOCK(client);
-	webclient_disconnect(client);
+	webclient_disconnect(client, "tcp error");
 }
 
 int weberv_client_close(int client_idx)
@@ -345,6 +441,7 @@ int weberv_client_send(int client_idx, char *data, int datalen, enum http_respon
 	WC_UNLOCK(client);
 	ws_tcp_send(client, client->tcp_client);
 	return client->buff_len;
+
 out_err:
 	WC_UNLOCK(client);
 	return -1;
@@ -398,7 +495,7 @@ static void webclient_close_check(void)
 			}
 		WC_UNLOCK(&(werbserv_context.client[i]));
 		if (close)
-			webclient_disconnect(&(werbserv_context.client[i]));
+			webclient_disconnect(&(werbserv_context.client[i]), "normal timeout");
 	}
 }
 
@@ -433,7 +530,7 @@ void webserv_reconnect(void)
 
 	WS_LOCK(&werbserv_context);
 		for (i = 0; i < MAX_CLIENTS; i++)
-			webclient_disconnect(&(werbserv_context.client[i]));
+			webclient_disconnect(&(werbserv_context.client[i]), "reconnect");
 	WS_UNLOCK(&werbserv_context);
 }
 
@@ -463,6 +560,9 @@ static err_t webserv_accept(void *arg, struct altcp_pcb *pcb, err_t err)
 	for (i = 0; i < MAX_CLIENTS; i++)
 		if (!werbserv_context.client[i].tcp_client)
 			break;
+#ifdef WS_DEBUG
+	hlog_info(WSLOG, "Accepted new client %d / %d", i, MAX_CLIENTS);
+#endif
 	if (i >= MAX_CLIENTS)
 		return ERR_MEM;
 	if (!werbserv_context.client[i].init) {
@@ -481,11 +581,45 @@ static err_t webserv_accept(void *arg, struct altcp_pcb *pcb, err_t err)
 	return ERR_OK;
 }
 
+static enum http_response_id webserv_help_cb(int client_idx, char *cmd, char *url, void *context)
+{
+	struct webcmd_t *web_cmd;
+	char help[HELP_SIZE];
+	int i;
+
+	UNUSED(client_idx);
+	UNUSED(context);
+	UNUSED(cmd);
+	UNUSED(url);
+
+	weberv_client_send(client_idx, "\n\r", strlen("\n\r"), HTTP_RESP_OK);
+	for (i = 0; i < werbserv_context.wcmd_count; i++) {
+		web_cmd = &werbserv_context.commands[i];
+		if (web_cmd->web_handler >= werbserv_context.wh_count)
+			continue;
+		snprintf(help, HELP_SIZE, "  %s ... %s\n\r",
+				 werbserv_context.handle[web_cmd->web_handler].url,  web_cmd->description);
+		weberv_client_send_data(client_idx, help, strlen(help));
+		commands_help(client_idx, web_cmd);
+	}
+
+	weberv_client_send(client_idx, HELP_DONE, strlen(HELP_DONE), HTTP_RESP_OK);
+	weberv_client_close(client_idx);
+
+	return HTTP_RESP_OK;
+}
+
 bool webserv_init(void)
 {
+	bool ret;
+
 	memset(&werbserv_context, 0, sizeof(werbserv_context));
 	mutex_init(&werbserv_context.slock);
-	return webserv_read_config();
+	ret = webserv_read_config();
+	if (ret)
+		webserv_add_handler(HELP_URL, webserv_help_cb, NULL);
+
+	return ret;
 }
 
 static bool webserv_open(void)
