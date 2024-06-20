@@ -64,7 +64,7 @@ static int wh_notify(int id, int trigger, int data)
 {
 	char notify_buff[WH_PAYLOAD_MAX_SIZE];
 
-	snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE, id, trigger?"wet":"dry", data);
+	snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE, id, trigger?"dry":"wet", data);
 	return webhook_send(soil_context.wh_idx, notify_buff, strlen(notify_buff));
 }
 
