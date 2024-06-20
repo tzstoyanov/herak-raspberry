@@ -18,11 +18,6 @@ static void internal_temp_query(void)
 	mqtt_data_internal_temp(temperature_internal_get());
 }
 
-void main_log(void)
-{
-	mppt_volt_log();
-}
-
 int main(void)
 {
 	int blinik_count = 0;

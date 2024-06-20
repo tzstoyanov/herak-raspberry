@@ -136,8 +136,11 @@ bool mqtt_is_connected(void)
 	return ret;
 }
 
-void mqtt_log_status(void)
+static void mqtt_log_status(void *context)
 {
+
+	UNUSED(context);
+
 	if (!mqtt_is_connected())
 		hlog_info(MQTTLOG, "Not connected to a server, looking for %s ... connect count %d ",
 				  mqtt_context.server_url, mqtt_context.connect_count);
@@ -409,6 +412,8 @@ bool mqtt_init(void)
 	mqtt_context.client_info.will_retain = 1;
 	mqtt_context.send_in_progerss = false;
 	mqtt_context.max_payload_size = MQTT_OUTPUT_RINGBUF_SIZE - (strlen(mqtt_context.topic) + 2);
+
+	add_status_callback(mqtt_log_status, NULL);
 
 	return true;
 }

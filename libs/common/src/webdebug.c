@@ -26,7 +26,7 @@
 static struct {
 	int hindex;
 	int client_log;
-	bool disable_log_forward;
+	bool status_log;
 	uint32_t what;
 } webdebug_context;
 
@@ -106,15 +106,21 @@ out_err:
 }
 
 #define STATUS_STR "\tGoing to send status ...\r\n"
+#define STATUS_TOO_MANY_STR "\tA client is already receiving logs ...\r\n"
 static void debug_status(int client_idx, char *params, void *user_data)
 {
 	UNUSED(params);
 	UNUSED(user_data);
+
+	if (webdebug_context.client_log >= 0) {
+		weberv_client_send(client_idx, STATUS_TOO_MANY_STR, strlen(STATUS_TOO_MANY_STR), HTTP_RESP_TOO_MANY_ERROR);
+		return;
+	}
+
 	weberv_client_send(client_idx, STATUS_STR, strlen(STATUS_STR), HTTP_RESP_OK);
 	debug_log_forward(client_idx);
+	webdebug_context.status_log = true;
 	system_log_status();
-	debug_log_forward(-1);
-	weberv_client_close(client_idx);
 }
 
 #define LOGON_STR	"\tSending device logs ...\r\n"
@@ -122,6 +128,11 @@ static void debug_log_on(int client_idx, char *params, void *user_data)
 {
 	UNUSED(params);
 	UNUSED(user_data);
+
+	if (webdebug_context.client_log >= 0) {
+		weberv_client_send(client_idx, STATUS_TOO_MANY_STR, strlen(STATUS_TOO_MANY_STR), HTTP_RESP_TOO_MANY_ERROR);
+		return;
+	}
 
 	weberv_client_send(client_idx, LOGON_STR, strlen(LOGON_STR), HTTP_RESP_OK);
 	debug_log_forward(client_idx);
@@ -196,6 +207,16 @@ int webdebug_log_send(char *logbuff)
 	return 0;
 }
 
+void webdebug_run(void)
+{
+	if (webdebug_context.status_log && !system_log_in_progress()) {
+		webdebug_context.status_log = false;
+		if (webdebug_context.client_log >= 0)
+			weberv_client_close(webdebug_context.client_log);
+		debug_log_forward(-1);
+	}
+}
+
 static bool webdebug_read_config(void)
 {
 	char *str;
@@ -220,5 +241,8 @@ bool webdebug_init(void)
 		return false;
 
 	webdebug_context.hindex = idx;
+	webdebug_context.client_log = -1;
+	webdebug_context.status_log = false;
+
 	return true;
 }

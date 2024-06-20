@@ -108,7 +108,6 @@ typedef enum {
 char *mppt_get_qcommand(voltron_qcmd_t idx, int *len, char *append);
 int mppt_get_qcommand_desc(voltron_qcmd_t idx, const char **cmd, const char **desc);
 int mppt_verify_reply(char *reply, int len);
-void mppt_volt_log(void);
 
 /* BMS Daly */
 bool bms_solar_init(void);

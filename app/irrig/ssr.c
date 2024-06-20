@@ -156,6 +156,25 @@ void ssr_run(void)
 		mqtt_data_ssr_state(state);
 }
 
+static void ssr_log(void *context)
+{
+	uint32_t now, delta;
+	int i;
+
+	UNUSED(context);
+
+	now = to_ms_since_boot(get_absolute_time());
+	for (i = 0; i < ssr_context.count; i++) {
+		if (ssr_context.relays[i].time_ms > 0) {
+			delta = now - ssr_context.relays[i].last_switch;
+			delta = (ssr_context.relays[i].time_ms - delta)/1000;
+		}
+		hlog_info(SSRLOG, "Relay %d: gpio %d [%s], time %lu sec, remains: %lu sec", i, ssr_context.relays[i].gpio_pin,
+				  (ssr_context.state & (1 << i))?"ON":"OFF", ssr_context.relays[i].time_ms/1000,
+				   ssr_context.relays[i].time_ms > 0 ? delta : 0);
+	}
+}
+
 int ssr_init(void)
 {
 	char *config = param_get(SSR);
@@ -168,6 +187,8 @@ int ssr_init(void)
 	memset(&ssr_context, 0, sizeof(ssr_context));
 	if ((!config || strlen(config) < 1))
 		goto out_error;
+
+	add_status_callback(ssr_log, NULL);
 
 	for (i = 0 ; i < MAX_SSR_COUNT; i++)
 		ssr_context.relays[i].gpio_pin = -1;
@@ -221,21 +242,4 @@ uint32_t ssr_get_time(int id)
 	if (id >= ssr_context.count)
 		return 0;
 	return ssr_context.relays[id].time_ms;
-}
-
-void ssr_log(void)
-{
-	uint32_t now, delta;
-	int i;
-
-	now = to_ms_since_boot(get_absolute_time());
-	for (i = 0; i < ssr_context.count; i++) {
-		if (ssr_context.relays[i].time_ms > 0) {
-			delta = now - ssr_context.relays[i].last_switch;
-			delta = (ssr_context.relays[i].time_ms - delta)/1000;
-		}
-		hlog_info(SSRLOG, "Relay %d: gpio %d [%s], time %lu sec, remains: %lu sec", i, ssr_context.relays[i].gpio_pin,
-				  (ssr_context.state & (1 << i))?"ON":"OFF", ssr_context.relays[i].time_ms/1000,
-				   ssr_context.relays[i].time_ms > 0 ? delta : 0);
-	}
 }

@@ -21,12 +21,6 @@ static void internal_temp_query(void)
 	mqtt_data_internal_temp(temp);
 }
 
-void main_log(void)
-{
-	soil_log();
-	ssr_log();
-}
-
 int main(void)
 {
 	int blinik_count = 0;

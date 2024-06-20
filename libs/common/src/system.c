@@ -20,7 +20,14 @@ extern char __StackLimit, __bss_end__;
 #define COMMONSYSLOG	"system"
 #define WATCHDOG_TIMEOUT_MS	30000 /* Reboot on 30s inactivity */
 
+#define LOG_STATUS_HOOKS_COUNT	16
+
 #define PERIODIC_LOG_MS	0
+
+typedef struct {
+	log_status_cb_t hook;
+	void *user_context;
+}log_status_hook_t;
 
 static struct {
 	int sw_out_pin;
@@ -37,6 +44,10 @@ static struct {
 	uint8_t has_wh:1;
 	uint8_t has_websrv:1;
 	uint8_t force_reboot:1;
+
+	log_status_hook_t log_status[LOG_STATUS_HOOKS_COUNT];
+	uint8_t log_status_count;
+	int log_status_progress;
 } sys_context;
 
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count)
@@ -177,6 +188,9 @@ bool system_common_init(void)
 	if (!base_init())
 		return false;
 	LED_ON;
+	sys_context.log_status_count = 0;
+	sys_context.log_status_progress = -1;
+
 	sys_context.force_reboot = false;
 	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
 	sys_context.has_wifi = wifi_init();
@@ -200,20 +214,55 @@ bool system_common_init(void)
 	return true;
 }
 
+bool system_log_in_progress(void)
+{
+	if (sys_context.log_status_progress >= 0 &&
+		sys_context.log_status_progress < sys_context.log_status_count)
+		return true;
+
+	return false;
+}
+
 void system_log_status(void)
 {
+	if (system_log_in_progress())
+		return;
+
 	hlog_info(COMMONSYSLOG, "----------- Status -----------");
 	hlog_info(COMMONSYSLOG, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
 			  get_uptime(), get_free_heap(), temperature_internal_get());
-	hlog_status();
-	wifi_log_status();
-	mqtt_log_status();
-	bt_log_status();
-	usb_log_status();
-	webhook_log_status();
-	webserv_log_status();
-	main_log();
-	hlog_info(COMMONSYSLOG, "----------- Status end--------");
+	sys_context.log_status_progress = 0;
+}
+
+static void system_log_run(void)
+{
+	int idx = sys_context.log_status_progress;
+
+	if (idx < 0 || idx >= sys_context.log_status_count)
+		return;
+
+	if (sys_context.log_status[idx].hook)
+		sys_context.log_status[idx].hook(sys_context.log_status[idx].user_context);
+
+	sys_context.log_status_progress++;
+	if (sys_context.log_status_progress >= sys_context.log_status_count) {
+		hlog_info(COMMONSYSLOG, "----------- Status end--------");
+		sys_context.log_status_progress = -1;
+	}
+}
+
+int add_status_callback(log_status_cb_t cb, void *user_context)
+{
+	int idx = sys_context.log_status_count;
+
+	if (sys_context.log_status_count >= LOG_STATUS_HOOKS_COUNT)
+		return -1;
+
+	sys_context.log_status[idx].hook = cb;
+	sys_context.log_status[idx].user_context = user_context;
+	sys_context.log_status_count++;
+
+	return idx;
 }
 
 static void log_wd_boot(void)
@@ -295,6 +344,9 @@ void system_common_run(void)
 	log_wd_boot();
 	if (reconnect)
 		system_reconect();
+	wd_update();
+	webdebug_run();
+	system_log_run();
 	wd_update();
 
 	if (sys_context.periodic_log_ms > 0) {

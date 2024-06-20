@@ -75,37 +75,13 @@ void hlog_web_enable(bool set)
 	LOG_UNLOCK;
 }
 
-void hlog_init(int level)
-{
-	char *str, *rest, *tok;
-
-	memset(&log_context, 0, sizeof(log_context));
-	mutex_init(&log_context.lock);
-	log_context.http_log = false;
-
-	if (SYSLOG_SERVER_ENDPOINT_len > 0) {
-		str = param_get(SYSLOG_SERVER_ENDPOINT);
-		rest = str;
-		tok = strtok_r(rest, ":", &rest);
-		log_context.server_url = strdup(tok);
-		if (rest)
-			log_context.server_port = atoi(rest);
-		else
-			log_context.server_port = RLOG_DEFULT_PORT;
-		free(str);
-	}
-
-	log_context.hostname = param_get(DEV_HOSTNAME);
-	log_context.log_level = level;
-
-	printf("\r\n\r\n");
-}
-
-void hlog_status(void)
+static void hlog_status(void *context)
 {
 	ip_resolve_state_t sever_ip_state;
 	ip_addr_t server_addr;
 	int dcount;
+
+	UNUSED(context);
 
 	if (!log_context.server_url) {
 		hlog_info(LLOG, "Logs are not forwarded to an external server");
@@ -130,6 +106,34 @@ void hlog_status(void)
 				  log_context.server_url, inet_ntoa(server_addr), dcount);
 		break;
 	}
+}
+
+void hlog_init(int level)
+{
+	char *str, *rest, *tok;
+
+	memset(&log_context, 0, sizeof(log_context));
+	mutex_init(&log_context.lock);
+	log_context.http_log = false;
+
+	if (SYSLOG_SERVER_ENDPOINT_len > 0) {
+		str = param_get(SYSLOG_SERVER_ENDPOINT);
+		rest = str;
+		tok = strtok_r(rest, ":", &rest);
+		log_context.server_url = strdup(tok);
+		if (rest)
+			log_context.server_port = atoi(rest);
+		else
+			log_context.server_port = RLOG_DEFULT_PORT;
+		free(str);
+	}
+
+	add_status_callback(hlog_status, NULL);
+
+	log_context.hostname = param_get(DEV_HOSTNAME);
+	log_context.log_level = level;
+
+	printf("\r\n\r\n");
 }
 
 void hlog_reconnect(void)

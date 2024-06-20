@@ -49,6 +49,7 @@ struct http_responses_t {
 		{400, "Bad Request"},			// HTTP_RESP_BAD
 		{404, "Not Found"},				// HTTP_RESP_NOT_FOUND
 		{500, "Internal Server Error"},	// HTTP_RESP_INTERNAL_ERROR
+		{429, "Too Many Requests"},		// HTTP_RESP_TOO_MANY_ERROR
 };
 
 struct webcmd_t {
@@ -499,9 +500,11 @@ static void webclient_close_check(void)
 	}
 }
 
-void webserv_log_status(void)
+static void webserv_log_status(void *context)
 {
 	int i, cnt;
+
+	UNUSED(context);
 
 	if (!werbserv_context.wh_count)
 		return;
@@ -618,6 +621,8 @@ bool webserv_init(void)
 	ret = webserv_read_config();
 	if (ret)
 		webserv_add_handler(HELP_URL, webserv_help_cb, NULL);
+
+	add_status_callback(webserv_log_status, NULL);
 
 	return ret;
 }

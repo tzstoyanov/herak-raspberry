@@ -61,6 +61,28 @@ void get_wifi_networks(void)
 		wifi_context.all_nets[idx++]->pass = tok;
 }
 
+static void wifi_log_status(void *context)
+{
+	int i;
+
+	UNUSED(context);
+
+	if (wifi_context.net_id < 0 || wifi_context.net_id  > MAX_WIFI_NETS ||
+		(wifi_context.all_nets[wifi_context.net_id] &&
+		wifi_context.all_nets[wifi_context.net_id]->connected == false)) {
+
+		hlog_info(WIFILOG, "Not connected to a WiFi network, looking for:");
+		for (i = 0; i < MAX_WIFI_NETS; i++) {
+			if (wifi_context.all_nets[i])
+				hlog_info(WIFILOG, "\t%s", wifi_context.all_nets[i]->ssid);
+		}
+		return;
+	}
+
+	hlog_info(WIFILOG, "Connected to %s -> %s", wifi_context.all_nets[wifi_context.net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
+}
+
+
 bool wifi_init(void)
 {
 	int i = 0;
@@ -78,6 +100,8 @@ bool wifi_init(void)
 	wifi_context.connect_in_progress = false;
 	wifi_context.net_id = -1;
 
+	add_status_callback(wifi_log_status, NULL);
+
 	return true;
 }
 
@@ -91,25 +115,6 @@ bool wifi_is_connected(void)
 		bret = (cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP);
 	LWIP_LOCK_END;
 	return bret;
-}
-
-void wifi_log_status(void)
-{
-	int i;
-
-	if (wifi_context.net_id < 0 || wifi_context.net_id  > MAX_WIFI_NETS ||
-		(wifi_context.all_nets[wifi_context.net_id] &&
-		wifi_context.all_nets[wifi_context.net_id]->connected == false)) {
-
-		hlog_info(WIFILOG, "Not connected to a WiFi network, looking for:");
-		for (i = 0; i < MAX_WIFI_NETS; i++) {
-			if (wifi_context.all_nets[i])
-				hlog_info(WIFILOG, "\t%s", wifi_context.all_nets[i]->ssid);
-		}
-		return;
-	}
-
-	hlog_info(WIFILOG, "Connected to %s -> %s", wifi_context.all_nets[wifi_context.net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
 }
 
 bool wifi_connect(void)

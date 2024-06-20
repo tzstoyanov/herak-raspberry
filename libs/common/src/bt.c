@@ -851,9 +851,11 @@ void bt_run(void)
 		bt_context.current_device = dev;
 }
 
-void bt_log_status(void)
+static void bt_log_status(void *context)
 {
 	int i;
+
+	UNUSED(context);
 
 	if (!bt_context.started)
 		return;
@@ -875,6 +877,8 @@ bool bt_init(void)
 {
 	memset(&bt_context, 0, sizeof(bt_context));
 	mutex_init(&bt_context.lock);
+	add_status_callback(bt_log_status, NULL);
+
 #ifdef BT_DEBUG
 	bt_context.verbose = true;
 #endif

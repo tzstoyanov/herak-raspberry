@@ -697,6 +697,26 @@ static void mppt_usb_callback(int idx, usb_event_t event, const void *data, int 
 	}
 }
 
+static void mppt_volt_log(void *context)
+{
+
+	UNUSED(context);
+
+	if (mppt_context.usb_connected) {
+		hlog_info(MPPT, "Connected to Voltronic, connection %s (%d)",
+				  mppt_context.timeout_state?"timeout":"is active", mppt_context.timeout_count);
+		hlog_info(MPPT, "   Model [%s], generic name [%s], firmware [%s], S/N [%s]",
+				  mppt_context.vdata.model_name, mppt_context.vdata.gen_model_name,
+				  mppt_context.vdata.firmware_vesion, mppt_context.vdata.serial_number);
+		hlog_info(MPPT, "   Mode [%c], Device date [%.2d.%.2d.%.4d %.2dh], Total PV [%d] Wh",
+				  mppt_context.vdata.mode?mppt_context.vdata.mode:'?',
+				  mppt_context.vdata.date.day, mppt_context.vdata.date.month,
+				  mppt_context.vdata.date.year, mppt_context.vdata.date.hour, mppt_context.vdata.pv_total_wh);
+	} else {
+		hlog_info(MPPT, "Not connected to Voltronic");
+	}
+}
+
 bool mppt_solar_init(void)
 {
 	memset(&mppt_context, 0, sizeof(mppt_context));
@@ -705,6 +725,9 @@ bool mppt_solar_init(void)
 	mppt_context.cmd_count = ARRAY_SIZE(voltron_commnds_handler);
 	if (!get_mppt_config())
 		return false;
+
+	add_status_callback(mppt_volt_log, NULL);
+
 	mppt_context.usb_idx = usb_add_known_device(mppt_context.vid, mppt_context.pid, mppt_usb_callback, NULL);
 	if (mppt_context.usb_idx < 0)
 		return false;
@@ -830,22 +853,5 @@ void mppt_solar_query(void)
 				hlog_info(MPPT, "Failed to prepare command %d", mppt_context.cmd_idx);
 			}
 		}
-	}
-}
-
-void mppt_volt_log(void)
-{
-	if (mppt_context.usb_connected) {
-		hlog_info(MPPT, "Connected to Voltronic, connection %s (%d)",
-				  mppt_context.timeout_state?"timeout":"is active", mppt_context.timeout_count);
-		hlog_info(MPPT, "   Model [%s], generic name [%s], firmware [%s], S/N [%s]",
-				  mppt_context.vdata.model_name, mppt_context.vdata.gen_model_name,
-				  mppt_context.vdata.firmware_vesion, mppt_context.vdata.serial_number);
-		hlog_info(MPPT, "   Mode [%c], Device date [%.2d.%.2d.%.4d %.2dh], Total PV [%d] Wh",
-				  mppt_context.vdata.mode?mppt_context.vdata.mode:'?',
-				  mppt_context.vdata.date.day, mppt_context.vdata.date.month,
-				  mppt_context.vdata.date.year, mppt_context.vdata.date.hour, mppt_context.vdata.pv_total_wh);
-	} else {
-		hlog_info(MPPT, "Not connected to Voltronic");
 	}
 }

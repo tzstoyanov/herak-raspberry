@@ -138,10 +138,12 @@ int usb_send_to_device(int idx, char *buf, int len)
 	return -1;
 }
 
-void usb_log_status(void)
+static void usb_log_status(void *context)
 {
 	bool mounted;
 	int i;
+
+	UNUSED(context);
 
 	USB_LOCK;
 		hlog_info(USBLOG, "Initialized on %d, USB ports:", BOARD_TUH_RHPORT);
@@ -231,6 +233,7 @@ bool usb_init(void)
 	memset(&usb_context, 0, sizeof(usb_context));
 	mutex_init(&usb_context.lock);
 	usb_read_config();
+	add_status_callback(usb_log_status, NULL);
 	return usb_stack_init();
 }
 

@@ -5,17 +5,7 @@
 
 #include "common_internal.h"
 
-/* Log app status every hour */
-__weak void main_log(void)
-{
-
-}
-
 /* USB dymmy APIs */
-__weak void usb_log_status(void)
-{
-
-}
 __weak bool usb_init(void)
 {
 	return false;

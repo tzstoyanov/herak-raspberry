@@ -78,6 +78,10 @@ bool hlog_remoute(void);
 #define hlog_dbg(topic, args...) hlog_any(HLOG_DEBUG, topic, args)
 #define hlog_null(topic, args...)
 
+typedef void (*log_status_cb_t) (void *context);
+int add_status_callback(log_status_cb_t cb, void *user_context);
+
+
 /* Bluetooth API */
 #define BT_MAX_DEVICES	2
 #define BT_MAX_SERVICES	40
@@ -135,6 +139,7 @@ enum http_response_id {
 	HTTP_RESP_BAD,
 	HTTP_RESP_NOT_FOUND,
 	HTTP_RESP_INTERNAL_ERROR,
+	HTTP_RESP_TOO_MANY_ERROR,
 	HTTP_RESP_MAX
 };
 typedef enum http_response_id (*webserv_request_cb_t) (int client_idx, char *cmd, char *url, void *context);

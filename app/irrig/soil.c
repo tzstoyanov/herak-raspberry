@@ -229,6 +229,22 @@ out_err:
 	return false;
 }
 
+static void soil_log(void *context)
+{
+	int s, i;
+
+	UNUSED(context);
+
+	for (i = 0; i < soil_context.sensors_count; i++) {
+		if (soil_context.sensors[i].analog)
+			s = soil_context.sensors[i].analog->last_analog;
+		else
+			s = -1;
+		hlog_info(SOILOG, "Sensor %d: digital %d, analog %d",
+				  i, soil_context.sensors[i].last_digital, s);
+	}
+}
+
 int soil_init(void)
 {
 	char *digital = param_get(SOIL_D);
@@ -252,6 +268,8 @@ int soil_init(void)
 	cnt += soil_read_pin_cfg(analog, false);
 	if (cnt < 1)
 		goto out_error;
+
+	add_status_callback(soil_log, NULL);
 
 	for (i = 0 ; i < MAX_SOIL_SENSORS_COUNT; i++) {
 		if (soil_context.sensors[i].digital_pin > 0)
@@ -306,20 +324,3 @@ out_error:
 	hlog_info(SOILOG, "No valid configuration for soil sensors");
 	return 0;
 }
-
-void soil_log(void)
-{
-	int s, i;
-
-	for (i = 0; i < soil_context.sensors_count; i++) {
-		if (soil_context.sensors[i].analog)
-			s = soil_context.sensors[i].analog->last_analog;
-		else
-			s = -1;
-		hlog_info(SOILOG, "Sensor %d: digital %d, analog %d",
-				  i, soil_context.sensors[i].last_digital, s);
-	}
-}
-
-
-

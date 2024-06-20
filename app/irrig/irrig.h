@@ -25,10 +25,8 @@ void mqtt_data_ssr_state(unsigned int state);
 void mqtt_data_internal_temp(float temp);
 int soil_init(void);
 void soil_measure(void);
-void soil_log(void);
 int ssr_init(void);
 void ssr_run(void);
-void ssr_log(void);
 uint32_t ssr_get_time(int id);
 
 #endif /* _MAIN_SHAFT_H_ */

@@ -502,10 +502,12 @@ void webhook_timeot_check(void)
 	}
 }
 
-void webhook_log_status(void)
+static void webhook_log_status(void *context)
 {
 	struct webhook_t *wh;
 	int i;
+
+	UNUSED(context);
 
 	for (i = 0; i < wh_context.wh_count; i++) {
 		wh = &(wh_context.whooks[i]);
@@ -533,6 +535,8 @@ void webhook_reconnect(void)
 bool webhook_init(void)
 {
 	memset(&wh_context, 0, sizeof(wh_context));
+	add_status_callback(webhook_log_status, NULL);
+
 	return true;
 }
 

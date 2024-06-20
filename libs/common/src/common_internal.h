@@ -52,18 +52,15 @@ typedef enum {
 bool wifi_init(void);
 bool wifi_connect(void);
 bool wifi_is_connected(void);
-void wifi_log_status(void);
 
 bool mqtt_init(void);
 void mqtt_connect(void);
 bool mqtt_is_connected(void);
-void mqtt_log_status(void);
 void mqtt_reconnect(void);
 void mqtt_debug_set(uint32_t lvl);
 
 bool bt_init(void);
 void bt_run(void);
-void bt_log_status(void);
 void bt_debug_set(uint32_t lvl);
 
 bool ntp_init(void);
@@ -76,7 +73,6 @@ void temperature_measure(void);
 bool sw_out_init(void);
 void sw_out_set(bool state);
 
-void usb_log_status(void);
 void usb_debug_set(uint32_t lvl);
 
 bool lcd_init(void);
@@ -86,27 +82,27 @@ void main_log(void);
 
 void hlog_init(int level);
 void hlog_connect(void);
-void hlog_status(void);
 void hlog_reconnect(void);
 void hlog_web_enable(bool set);
 void log_debug_set(uint32_t lvl);
 
 void system_log_status(void);
+bool system_log_in_progress(void);
+
 char *get_uptime(void);
 uint32_t get_free_heap(void);
 uint32_t get_total_heap(void);
 
 bool webhook_init(void);
 void webhook_run(void);
-void webhook_log_status(void);
 void webhook_reconnect(void);
 
 bool webserv_init(void);
 void webserv_run(void);
-void webserv_log_status(void);
 void webserv_reconnect(void);
 
 bool webdebug_init(void);
+void webdebug_run(void);
 int webdebug_log_send(char *logbuff);
 
 #ifdef __cplusplus
