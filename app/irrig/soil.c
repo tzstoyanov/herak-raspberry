@@ -85,13 +85,15 @@ static void wh_notify_send(int id)
 	}
 }
 
+
+// 1 - dry; 0 - wet
 static void measure_digital(int id)
 {
 	uint8_t digital;
 
 	digital = gpio_get(soil_context.sensors[id].digital_pin);
 	if (digital != soil_context.sensors[id].last_digital) {
-		soil_context.sensors[id].last_digital = gpio_get(soil_context.sensors[id].digital_pin);
+		soil_context.sensors[id].last_digital = digital;
 		soil_context.sensors[id].wh_send = true;
 	}
 }

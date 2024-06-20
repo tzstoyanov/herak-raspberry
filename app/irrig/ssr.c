@@ -15,7 +15,7 @@
 #define SSR_URL	"/ssr"
 #define SSR_DESC	"Solid State Relay controls"
 #define WEB_DATA_LEN	64
-#define SSR_STATE_DONE "done"
+#define SSR_STATE_DONE "done\n\r"
 
 struct ssr_t {
 	int gpio_pin;
