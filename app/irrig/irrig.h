@@ -20,7 +20,7 @@ extern "C" {
 void mqtt_irrig_init(int soil_count, int ssr_count);
 void mqtt_irrig_send(void);
 void mqtt_data_soil(int id, uint32_t analog, uint8_t digital);
-void mqtt_data_ssr_data(int id, uint32_t time);
+void mqtt_data_ssr_data(int id, uint32_t time, uint32_t delay);
 void mqtt_data_ssr_state(unsigned int state);
 void mqtt_data_internal_temp(float temp);
 int soil_init(void);

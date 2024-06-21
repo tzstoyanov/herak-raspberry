@@ -14,7 +14,7 @@
 #include "irrig.h"
 
 #define MQTTLOG	"mqtt"
-#define MQTT_DATA_LEN	384
+#define MQTT_DATA_LEN	512
 
 struct soil_data {
 	uint32_t analog;
@@ -23,6 +23,7 @@ struct soil_data {
 
 struct ssr_data {
 	uint32_t time;
+	uint32_t delay;
 };
 
 static struct {
@@ -36,9 +37,9 @@ static struct {
 	bool force;
 } mqtt_irrig_context = {};
 
-#define ADD_MQTT_MSG(_S_) { if ((len - count) < 0) { printf("%s: Buffer full", __func__); return; } \
+#define ADD_MQTT_MSG(_S_) { if ((len - count) < 0) { printf("%s: Buffer full\n\r", __func__); return; } \
 							count += snprintf(mqtt_irrig_context.payload + count, len - count, _S_); }
-#define ADD_MQTT_MSG_VAR(_S_, ...) { if ((len - count) < 0) { printf("%s: Buffer full", __func__); return; } \
+#define ADD_MQTT_MSG_VAR(_S_, ...) { if ((len - count) < 0) { printf("%s: Buffer full\n\r", __func__); return; } \
 				     count += snprintf(mqtt_irrig_context.payload + count, len - count, _S_, __VA_ARGS__); }
 static void mqtt_data_send(bool force)
 {
@@ -52,9 +53,11 @@ static void mqtt_data_send(bool force)
 		count += snprintf(mqtt_irrig_context.payload + count, len - count, ", \"ssr_state\": %lu", mqtt_irrig_context.ssr_state);
 		for (i = 0; i < mqtt_irrig_context.ssr_count; i++) {
 			if (i == 0)
-				ADD_MQTT_MSG_VAR(", \"ssr\":[ {\"id\":%d, \"time\": %lu }", i, mqtt_irrig_context.ssr[i].time)
+				ADD_MQTT_MSG_VAR(", \"ssr\":[ {\"id\":%d, \"time\": %lu, \"delay\": %lu }",
+								 i, mqtt_irrig_context.ssr[i].time, mqtt_irrig_context.ssr[i].delay)
 			else
-				ADD_MQTT_MSG_VAR(", {\"id\":%d, \"time\": %lu }", i, mqtt_irrig_context.ssr[i].time)
+				ADD_MQTT_MSG_VAR(", {\"id\":%d, \"time\": %lu, \"delay\": %lu }",
+								 i, mqtt_irrig_context.ssr[i].time, mqtt_irrig_context.ssr[i].delay)
 		}
 		ADD_MQTT_MSG("]")
 	}
@@ -98,12 +101,16 @@ void mqtt_data_ssr_state(unsigned int state)
 	}
 }
 
-void mqtt_data_ssr_data(int id, uint32_t time)
+void mqtt_data_ssr_data(int id, uint32_t time, uint32_t delay)
 {
 	if (id >= mqtt_irrig_context.ssr_count)
 		return;
 	if (mqtt_irrig_context.ssr[id].time != time) {
 		mqtt_irrig_context.ssr[id].time = time;
+		mqtt_irrig_context.force = true;
+	}
+	if (mqtt_irrig_context.ssr[id].delay != delay) {
+		mqtt_irrig_context.ssr[id].delay = delay;
 		mqtt_irrig_context.force = true;
 	}
 }

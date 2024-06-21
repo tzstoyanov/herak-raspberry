@@ -15,13 +15,14 @@
 #define SSR_URL	"/ssr"
 #define SSR_DESC	"Solid State Relay controls"
 #define WEB_DATA_LEN	64
-#define SSR_STATE_DONE "done\n\r"
+#define SSR_STATE_DONE "\r\n"
 
 struct ssr_t {
 	int gpio_pin;
 	bool state;
 	uint32_t last_switch;
 	uint32_t time_ms;
+	uint32_t delay_ms;
 };
 
 static struct {
@@ -32,42 +33,53 @@ static struct {
 	struct ssr_t relays[MAX_SSR_COUNT];
 } ssr_context;
 
-static void ssr_state_set(uint8_t id, bool value, uint32_t time)
+static void ssr_state_set(uint8_t id, bool value, uint32_t time, uint32_t delay)
 {
 	if (id < ssr_context.count) {
-		gpio_put(ssr_context.relays[id].gpio_pin, value);
+		if (!delay)
+			gpio_put(ssr_context.relays[id].gpio_pin, value);
 		ssr_context.relays[id].state = value;
 		ssr_context.relays[id].time_ms = time;
+		ssr_context.relays[id].delay_ms = delay;
 		ssr_context.relays[id].last_switch = to_ms_since_boot(get_absolute_time());
+	}
+}
+
+static void ssr_log(void *context)
+{
+	uint32_t now, delta_t, delta_d;
+	int i;
+
+	UNUSED(context);
+
+	now = to_ms_since_boot(get_absolute_time());
+	for (i = 0; i < ssr_context.count; i++) {
+		delta_d = ssr_context.relays[i].delay_ms;
+		delta_t = ssr_context.relays[i].time_ms;
+		if (ssr_context.relays[i].delay_ms > 0) {
+			delta_d = now - ssr_context.relays[i].last_switch;
+			delta_d = (ssr_context.relays[i].delay_ms - delta_d);
+		} else if (ssr_context.relays[i].time_ms > 0) {
+			delta_t = now - ssr_context.relays[i].last_switch;
+			delta_t = (ssr_context.relays[i].time_ms - delta_t);
+		}
+		hlog_info(SSRLOG, "Relay %d: gpio %d [%s]; delay: %lu/%lu sec, time %lu/%lu sec",
+				  i, ssr_context.relays[i].gpio_pin, (ssr_context.state & (1 << i))?"ON":"OFF",
+				  delta_d/1000, ssr_context.relays[i].delay_ms/1000,
+				  delta_t/1000, ssr_context.relays[i].time_ms/1000);
 	}
 }
 
 #define STATUS_STR "\tSSR status: \r\n"
 static void ssr_status(int client_idx, char *params, void *user_data)
 {
-	char buff[WEB_DATA_LEN + 1];
-
 	UNUSED(params);
 	UNUSED(user_data);
-	int count, i;
-	uint32_t now, delta;
 
-	now = to_ms_since_boot(get_absolute_time());
-	snprintf(buff, WEB_DATA_LEN, "%s", STATUS_STR);
-	weberv_client_send(client_idx, buff, strlen(buff), HTTP_RESP_OK);
-	for (i = 0; i < ssr_context.count; i++) {
-		count = snprintf(buff, WEB_DATA_LEN, "\t\tssr %d: %s;",
-				i, ssr_context.state & (1 << i)?"On":"Off");
-		if (ssr_context.relays[i].time_ms > 0) {
-			delta = now - ssr_context.relays[i].last_switch;
-			delta = (ssr_context.relays[i].time_ms - delta)/1000;
-			count += snprintf(buff + count, WEB_DATA_LEN - count, " remaining time %lu sec\n", delta);
-		} else {
-			count += snprintf(buff + count, WEB_DATA_LEN - count, " unlimited\n");
-		}
-		buff[WEB_DATA_LEN] = 0;
-		weberv_client_send_data(client_idx, buff, strlen(buff));
-	}
+	weberv_client_send(client_idx, STATUS_STR, strlen(STATUS_STR), HTTP_RESP_OK);
+	debug_log_forward(client_idx);
+	ssr_log(NULL);
+	debug_log_forward(-1);
 	weberv_client_send(client_idx, SSR_STATE_DONE, strlen(SSR_STATE_DONE), HTTP_RESP_OK);
 	weberv_client_close(client_idx);
 }
@@ -76,7 +88,7 @@ static void ssr_status(int client_idx, char *params, void *user_data)
 #define SET_ERR_STR "\tInvalid parameters.\r\n"
 static void ssr_set(int client_idx, char *params, void *user_data)
 {
-	int id, state, time;
+	int id, state, time, delay;
 	char *rest, *tok;
 
 	UNUSED(user_data);
@@ -97,18 +109,29 @@ static void ssr_set(int client_idx, char *params, void *user_data)
 		goto out_err;
 	state = (int)strtol(tok, NULL, 10);
 
+	/* Get state time */
+	time = 0;
+	delay = 0;
 	tok = strtok_r(rest, ":", &rest);
-	if (!tok) {
-		time = 0;
-	} else {
+	if (tok) {
 		time = (int)strtol(tok, NULL, 10);
 		if (time < 0)
 			time = 0;
 		/* sec -> ms */
 		time *= 1000;
+
+		/* Get delay */
+		tok = strtok_r(rest, ":", &rest);
+		if (tok) {
+			delay = (int)strtol(tok, NULL, 10);
+			if (delay < 0)
+				delay = 0;
+			/* sec -> ms */
+			delay *= 1000;
+		}
 	}
 
-	ssr_state_set(id, state ? ssr_context.on_state : !ssr_context.on_state, time);
+	ssr_state_set(id, state ? ssr_context.on_state : !ssr_context.on_state, time, delay);
 
 	weberv_client_send(client_idx, SET_OK_STR, strlen(SET_OK_STR), HTTP_RESP_OK);
 	weberv_client_close(client_idx);
@@ -120,15 +143,16 @@ out_err:
 }
 
 static web_requests_t ssr_requests[] = {
-		{"set", ":<ssr_id>:<state_0_1>:<time_sec>", ssr_set},
+		{"set", ":<ssr_id>:<state_0_1>:<state_time_sec>:<delay_sec>", ssr_set},
 		{"status", NULL, ssr_status},
 };
 
 void ssr_run(void)
 {
-	uint32_t state = 0;
+	int delta_t, delta_d;
 	bool notify = false;
-	uint32_t now, delta;
+	uint32_t state = 0;
+	uint32_t now;
 	int i;
 
 	now = to_ms_since_boot(get_absolute_time());
@@ -137,15 +161,22 @@ void ssr_run(void)
 			state |= (1 << i);
 		else
 			state &= ~(1 << i);
-		delta = 0;
-		if (ssr_context.relays[i].time_ms > 0) {
+		delta_t = ssr_context.relays[i].time_ms;
+		delta_d = ssr_context.relays[i].delay_ms;
+		if (ssr_context.relays[i].delay_ms > 0) {
 			notify = true;
-			delta = now - ssr_context.relays[i].last_switch;
-			delta = ssr_context.relays[i].time_ms - delta;
-			if (delta > ssr_context.relays[i].time_ms)
-				ssr_state_set(i, !ssr_context.relays[i].state, 0);
+			delta_d = now - ssr_context.relays[i].last_switch;
+			delta_d = ssr_context.relays[i].delay_ms - delta_d;
+			if (delta_d <= 0)
+				ssr_state_set(i, ssr_context.relays[i].state, ssr_context.relays[i].time_ms, 0);
+		} else if (ssr_context.relays[i].time_ms > 0) {
+			notify = true;
+			delta_t = now - ssr_context.relays[i].last_switch;
+			delta_t = ssr_context.relays[i].time_ms - delta_t;
+			if (delta_t <= 0)
+				ssr_state_set(i, !ssr_context.relays[i].state, 0, 0);
 		}
-		mqtt_data_ssr_data(i, delta/1000);
+		mqtt_data_ssr_data(i, delta_t/1000, delta_d/1000);
 	}
 	if (state != ssr_context.state) {
 		ssr_context.state = state;
@@ -154,25 +185,6 @@ void ssr_run(void)
 
 	if (notify)
 		mqtt_data_ssr_state(state);
-}
-
-static void ssr_log(void *context)
-{
-	uint32_t now, delta;
-	int i;
-
-	UNUSED(context);
-
-	now = to_ms_since_boot(get_absolute_time());
-	for (i = 0; i < ssr_context.count; i++) {
-		if (ssr_context.relays[i].time_ms > 0) {
-			delta = now - ssr_context.relays[i].last_switch;
-			delta = (ssr_context.relays[i].time_ms - delta)/1000;
-		}
-		hlog_info(SSRLOG, "Relay %d: gpio %d [%s], time %lu sec, remains: %lu sec", i, ssr_context.relays[i].gpio_pin,
-				  (ssr_context.state & (1 << i))?"ON":"OFF", ssr_context.relays[i].time_ms/1000,
-				   ssr_context.relays[i].time_ms > 0 ? delta : 0);
-	}
 }
 
 int ssr_init(void)
