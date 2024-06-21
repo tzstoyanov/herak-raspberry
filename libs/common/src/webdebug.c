@@ -30,7 +30,7 @@ static struct {
 	uint32_t what;
 } webdebug_context;
 
-static void debug_log_forward(int client_idx)
+void debug_log_forward(int client_idx)
 {
 	webdebug_context.client_log = client_idx;
 	if (client_idx < 0)

@@ -80,7 +80,7 @@ bool hlog_remoute(void);
 
 typedef void (*log_status_cb_t) (void *context);
 int add_status_callback(log_status_cb_t cb, void *user_context);
-
+void debug_log_forward(int client_idx);
 
 /* Bluetooth API */
 #define BT_MAX_DEVICES	2
