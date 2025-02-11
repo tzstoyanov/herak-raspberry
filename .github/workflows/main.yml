@@ -34,3 +34,9 @@ jobs:
         cmake ../../app/shaft
         make
         ls -al ${{runner.workspace}}/herak-raspberry/build/shaft-ci/herak-shaft.uf2
+        cp -f ${{runner.workspace}}/herak-raspberry/scripts/params_all.txt /${{runner.workspace}}/herak-raspberry/app/irrig/params.txt
+        mkdir ${{runner.workspace}}/herak-raspberry/build/irrig-ci
+        cd ${{runner.workspace}}/herak-raspberry/build/irrig-ci
+        cmake ../../app/irrig
+        make
+        ls -al ${{runner.workspace}}/herak-raspberry/build/irrig-ci/herak-gogo-irrig.uf2
