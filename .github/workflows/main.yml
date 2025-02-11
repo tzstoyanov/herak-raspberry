@@ -22,13 +22,13 @@ jobs:
         cd ${{runner.workspace}}/herak-raspberry/
         git submodule update --init --recursive
         ./scripts/apply_patches.sh
-        cp -f ${{runner.workspace}}/herak-raspberry/scripts/params_ci.txt /${{runner.workspace}}/herak-raspberry/app/solar/params.txt
+        cp -f ${{runner.workspace}}/herak-raspberry/scripts/params_all.txt /${{runner.workspace}}/herak-raspberry/app/solar/params.txt
         mkdir ${{runner.workspace}}/herak-raspberry/build/solar-ci
         cd ${{runner.workspace}}/herak-raspberry/build/solar-ci
         cmake ../../app/solar
         make
         ls -al ${{runner.workspace}}/herak-raspberry/build/solar-ci/herak-solar.uf2
-        cp -f ${{runner.workspace}}/herak-raspberry/scripts/params_ci.txt /${{runner.workspace}}/herak-raspberry/app/shaft/params.txt
+        cp -f ${{runner.workspace}}/herak-raspberry/scripts/params_all.txt /${{runner.workspace}}/herak-raspberry/app/shaft/params.txt
         mkdir ${{runner.workspace}}/herak-raspberry/build/shaft-ci
         cd ${{runner.workspace}}/herak-raspberry/build/shaft-ci
         cmake ../../app/shaft
