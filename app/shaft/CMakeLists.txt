@@ -36,7 +36,7 @@ add_custom_target( clear-params
 )
 
 add_custom_command(OUTPUT "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c" "${PROJECT_INLUDE_DIR}/${PARAMS_FILE}.h"
-    COMMAND "${PROJECT_TOP_DIR}/scripts/params_crypt.sh" "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}"
+    COMMAND "${PROJECT_TOP_DIR}/scripts/params_crypt.sh" "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}" "${PROJECT_TOP_DIR}/scripts/params_all.txt"
     COMMAND mv ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.h ${PROJECT_INLUDE_DIR}/${PARAMS_FILE}.h
     COMMENT "Generating ${PARAMS_FILE} code ..."
     DEPENDS check-params clear-params)

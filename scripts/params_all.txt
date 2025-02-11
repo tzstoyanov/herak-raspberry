@@ -1,4 +1,4 @@
-# dummy config, used in tests
+# empty config with all params
 
 DEV_HOSTNAME
 LCD_CONFIG
