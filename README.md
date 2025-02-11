@@ -70,8 +70,17 @@ and modify it with your configuration.
 - In the `build/<application>` directory, run `make`
 
 ### Installation
+#### Manually
 - Attach to your Pico W over USB and start it in the bootloader mode (hold down the BOOTSEL button).
 - Copy the generated image `build/<application>/<app-name>.uf2` to your Pico W.
+#### Using the helper script
+The `flash_pico.sh` script uses [picotool](https://github.com/raspberrypi/picotool) to copy image to the device.
+If that tool is available on your system, the script can be used to copy the generated image. Attach the device
+and run the script:
+```
+./scripts/flash_pico.sh build/<application>/<app_name>.uf2
+```
+It automatically reboots the device in bootloader mode and copies the new image.
 
 ## Documentation
 - [MAX communication protocol](docs/MAX-Communication-Protocol.pdf).
