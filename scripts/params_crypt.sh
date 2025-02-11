@@ -3,6 +3,7 @@
 # Copyright (C) 2023, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
 
 fname=$1
+fname_all=$2
 
 # $1 - bool, if to expose the param
 # $2 - param name
@@ -54,28 +55,35 @@ truncate --size 0 $fname.h
 
 write_header $fname.c
 write_header $fname.h
-
 echo "#ifndef _PARAMS_H_" >> $fname.h
 echo "#define _PARAMS_H_" >> $fname.h
 echo "" >> $fname.h
 
 write_param false "params" $RANDOM
-
+params=()
 while read -r line || [ -n "$line" ]; do
     if [ -z "$line" ] || [ "${line:0:1}" = "#" ]; then
        continue
     fi
     tokens=( $line )
+    params+=("${tokens[0]}")
     write_param true ${tokens[0]} ${tokens[1]}
-done < "$fname.txt"
-
-while read -r line || [ -n "$line" ]; do
-    if [ -z "$line" ] || [ "${line:0:1}" = "#" ]; then
-       continue
-    fi
-    tokens=( $line )
     write_param_len ${tokens[0]}
 done < "$fname.txt"
+
+if [ -n "$fname_all" ] && [ -f $fname_all ]; then
+   echo "// Empty params" >> $fname.c
+   while read -r line || [ -n "$line" ]; do
+      if [ -z "$line" ] || [ "${line:0:1}" = "#" ]; then
+         continue
+      fi
+      tokens=( $line )
+      if [ $(echo ${params[@]} | grep -ow "${tokens[0]}" | wc -w) -eq 0 ]; then
+            write_param true ${tokens[0]} ${tokens[1]}
+            write_param_len ${tokens[0]}
+      fi
+   done < "$fname_all"
+fi
 
 echo "" >> $fname.h
 echo "#endif // _PARAMS_H_" >> $fname.h
