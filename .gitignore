@@ -24,3 +24,4 @@ build/
 libs/one-wire/*
 libs/pio-usb/*
 libs/pio-sdk/*
+*workspace
