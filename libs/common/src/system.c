@@ -305,7 +305,7 @@ void system_set_periodic_log_ms(uint32_t ms)
 	sys_context.periodic_log_ms = ms;
 }
 
-static void wd_update(void)
+void wd_update(void)
 {
 	if (!sys_context.force_reboot)
 		watchdog_update();
@@ -355,6 +355,7 @@ void system_common_run(void)
 		if ((sys_context.last_loop - llog) > sys_context.periodic_log_ms) {
 			llog = sys_context.last_loop;
 			system_log_status();
+			wd_update();
 		}
 	}
 }
