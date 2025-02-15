@@ -21,7 +21,7 @@
 #define MQTTLOG	"mqtt"
 #define MQTT_KEEPALIVE_S	100
 #define IP_TIMEOUT_MS	20000
-#define DISCOVERY_INTERVAL_MSEC  	3600000 // send every hour; 60*60*1000
+#define DISCOVERY_INTERVAL_MSEC		3600000 // send every hour; 60*60*1000
 #define DISCOVERY_TOPIC_TEMPLATE	"homeassistant/device/%s/config"
 
 #define MSEC_INSEC	60000

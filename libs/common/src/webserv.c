@@ -698,10 +698,9 @@ void webserv_run(void)
 			connected = false;
 		}
 		return;
-	} else {
-		connected = true;
 	}
 
+	connected = true;
 	webclient_close_check();
 	webclient_send_poll();
 }

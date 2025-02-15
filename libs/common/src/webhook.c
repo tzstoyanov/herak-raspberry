@@ -401,11 +401,11 @@ int webhook_send(int idx, char *data, int datalen)
 	if (st != TCP_CONNECTED) {
 		webhook_connect(wh);
 		return -1;
-	} else {
-		LWIP_LOCK_START;
-			wh_tcp_send(wh, wh->tcp_conn);
-		LWIP_LOCK_END;
 	}
+
+	LWIP_LOCK_START;
+		wh_tcp_send(wh, wh->tcp_conn);
+	LWIP_LOCK_END;
 
 	return 0;
 out_err:
@@ -550,10 +550,9 @@ void webhook_run(void)
 			connected = false;
 		}
 		return;
-	} else {
-		connected = true;
 	}
 
+	connected = true;
 	webhook_resolve();
 	webhook_connect_all();
 	webhook_timeot_check();
