@@ -149,6 +149,7 @@ int weberv_client_send(int client_idx, char *data, int datalen, enum http_respon
 int weberv_client_send_data(int client_idx, char *data, int datalen);
 int weberv_client_close(int client_idx);
 
+#define WEB_CMD_NR   "\r\n"
 /* Web commands API */
 typedef void (*web_cmd_cb_t) (int client_idx, char *params, void *user_data);
 typedef struct {
