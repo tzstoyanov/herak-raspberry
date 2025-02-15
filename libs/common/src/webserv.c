@@ -705,3 +705,8 @@ void webserv_run(void)
 	webclient_close_check();
 	webclient_send_poll();
 }
+
+int webserv_port(void)
+{
+	return werbserv_context.port;
+}

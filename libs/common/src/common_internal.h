@@ -99,6 +99,7 @@ void webhook_reconnect(void);
 
 bool webserv_init(void);
 void webserv_run(void);
+int webserv_port(void);
 void webserv_reconnect(void);
 
 bool webdebug_init(void);
