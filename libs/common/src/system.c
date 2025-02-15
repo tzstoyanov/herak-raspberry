@@ -27,7 +27,7 @@ extern char __StackLimit, __bss_end__;
 typedef struct {
 	log_status_cb_t hook;
 	void *user_context;
-}log_status_hook_t;
+} log_status_hook_t;
 
 static struct {
 	int sw_out_pin;
