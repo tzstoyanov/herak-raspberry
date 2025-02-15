@@ -34,6 +34,7 @@ bool tz_datetime_get(datetime_t *date);
 float temperature_internal_get(void);
 void dump_hex_data(char *topic, const uint8_t *data, int len);
 void dump_char_data(char *topic, const uint8_t *data, int len);
+void wd_update(void);
 
 /* LCD API */
 int lcd_set_int(int idx, int row, int column, int num);
