@@ -21,6 +21,8 @@
 #define MQTTLOG	"mqtt"
 #define MQTT_KEEPALIVE_S	100
 #define IP_TIMEOUT_MS	20000
+#define DISCOVERY_INTERVAL_MSEC  	3600000 // send every hour; 60*60*1000
+#define DISCOVERY_TOPIC_TEMPLATE	"homeassistant/device/%s/config"
 
 #define MSEC_INSEC	60000
 
@@ -53,7 +55,11 @@ enum mqtt_client_state_t {
 
 static struct {
 	char *server_url;
-	char *topic;
+	char *state_topic;
+	char *discovery_topic;
+	uint32_t discovery_last_send;
+	bool discovery_send;
+	char discovery_msg[MQTT_OUTPUT_RINGBUF_SIZE];
 	int server_port;
 	uint32_t mqtt_max_delay;
 	uint32_t mqtt_min_delay;
@@ -83,7 +89,10 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 	case MQTT_CONNECT_ACCEPTED:
 		if (mqtt_context.state != MQTT_CLIENT_CONNECTED) {
 			system_log_status();
-			mqtt_context.connect_count++;
+			MQTT_CLIENT_LOCK;
+				mqtt_context.connect_count++;
+				mqtt_context.discovery_last_send = 0;
+			MQTT_CLIENTL_UNLOCK;
 			if (IS_DEBUG)
 				hlog_info(MQTTLOG, "Connected accepted");
 		}
@@ -159,31 +168,53 @@ static void mqtt_publish_cb(void *arg, err_t result)
 	MQTT_CLIENTL_UNLOCK;
 }
 
-void mqtt_msg_publish(char *message, bool force)
+static int mqtt_msg_send(char *topic, char *message)
 {
 	bool in_progress;
-	uint32_t now;
 	err_t err;
 
 	if (!mqtt_is_connected())
-		return;
+		return -1;
+
+	MQTT_CLIENT_LOCK;
+		in_progress = mqtt_context.send_in_progerss;
+	MQTT_CLIENTL_UNLOCK;
+
+	if (in_progress) {
+		if (IS_DEBUG)
+			hlog_info(MQTTLOG, "Cannot publish: connected %d, send in progress %d", mqtt_is_connected(), in_progress);
+		return -1;
+	}
+
+	LWIP_LOCK_START;
+		err = mqtt_publish(mqtt_context.client, topic, message,
+						   strlen(message), MQTT_QOS, MQTT_RETAIN, mqtt_publish_cb, NULL);
+	LWIP_LOCK_END;
+
+	if (err == ERR_OK) {
+		MQTT_CLIENT_LOCK;
+			mqtt_context.send_in_progerss = true;
+		MQTT_CLIENTL_UNLOCK;
+		if (IS_DEBUG)
+			hlog_info(MQTTLOG, "Published %d bytes", strlen(message));
+	} else {
+		hlog_info(MQTTLOG, "Failed to publish the message: %d", err);
+		return -1;
+	}
+
+	return 0;
+}
+
+void mqtt_msg_publish(char *message, bool force)
+{
+	uint32_t now;
 
 	if (strlen(message) > mqtt_context.max_payload_size) {
 		hlog_info(MQTTLOG, "Message too big: %d, max payload is %d", strlen(message), mqtt_context.max_payload_size);
 		return;
 	}
 
-	MQTT_CLIENT_LOCK;
-		in_progress = mqtt_context.send_in_progerss;
-	MQTT_CLIENTL_UNLOCK;
-
-	if (!mqtt_is_connected() || in_progress) {
-		if (IS_DEBUG)
-			hlog_info(MQTTLOG, "Cannot publish: connected %d, send in progress %d", mqtt_is_connected(), in_progress);
-		return;
-	}
 	mqtt_context.data_send = force;
-
 	/* Rate limit the packets between mqtt_min_delay and mqtt_max_delay */
 	now = to_ms_since_boot(get_absolute_time());
 	if ((now - mqtt_context.last_send) > mqtt_context.mqtt_max_delay)
@@ -193,28 +224,41 @@ void mqtt_msg_publish(char *message, bool force)
 	if (!mqtt_context.data_send && mqtt_context.last_send)
 		return;
 
-	LWIP_LOCK_START;
-		err = mqtt_publish(mqtt_context.client, mqtt_context.topic, message,
-						   strlen(message), MQTT_QOS, MQTT_RETAIN, mqtt_publish_cb, NULL);
-	LWIP_LOCK_END;
-
-	if (err == ERR_OK) {
+	if (!mqtt_msg_send(mqtt_context.state_topic, message)) {
+		mqtt_context.data_send = false;
 		MQTT_CLIENT_LOCK;
-			mqtt_context.send_in_progerss = true;
-			mqtt_context.data_send = false;
+			mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
 		MQTT_CLIENTL_UNLOCK;
-		if (IS_DEBUG)
-			hlog_info(MQTTLOG, "Published %d bytes", strlen(message));
-	} else {
-		hlog_info(MQTTLOG, "Failed to publish the message: %d", err);
 	}
-
-	MQTT_CLIENT_LOCK;
-		mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
-	MQTT_CLIENTL_UNLOCK;
 }
 
-void mqtt_connect(void)
+int mqtt_msg_discovery_send(void)
+{
+	bool send = false;
+	uint32_t now;
+	int ret;
+
+	if (!mqtt_context.discovery_send)
+		return -1;
+
+	now = to_ms_since_boot(get_absolute_time());
+	MQTT_CLIENT_LOCK;
+		if ((now - mqtt_context.discovery_last_send) > DISCOVERY_INTERVAL_MSEC)
+			send = true;
+	MQTT_CLIENTL_UNLOCK;
+	if (!send)
+		return 0;
+
+	ret = mqtt_msg_send(mqtt_context.discovery_topic, mqtt_context.discovery_msg);
+	if (!ret) {
+		MQTT_CLIENT_LOCK;
+			mqtt_context.discovery_last_send = now;
+		MQTT_CLIENTL_UNLOCK;
+	}
+	return ret;
+}
+
+static void mqtt_connect(void)
 {
 	enum mqtt_client_state_t st;
 	ip_resolve_state_t res;
@@ -333,6 +377,14 @@ void mqtt_connect(void)
 	MQTT_CLIENTL_UNLOCK;
 }
 
+void mqtt_run(void)
+{
+	mqtt_connect();
+	if (mqtt_context.state != MQTT_CLIENT_CONNECTED)
+		return;
+	mqtt_msg_discovery_send();
+}
+
 static int mqtt_get_config(void)
 {
 	char *str, *tok, *rest;
@@ -341,7 +393,7 @@ static int mqtt_get_config(void)
 	if (MQTT_SERVER_ENDPOINT_len < 1 || MQTT_TOPIC_len < 1 || MQTT_USER_len < 1)
 		return -1;
 
-	mqtt_context.topic = param_get(MQTT_TOPIC);
+	mqtt_context.state_topic = param_get(MQTT_TOPIC);
 
 	str = param_get(MQTT_SERVER_ENDPOINT);
 	rest = str;
@@ -411,7 +463,8 @@ bool mqtt_init(void)
 	mqtt_context.client_info.will_qos = 1;
 	mqtt_context.client_info.will_retain = 1;
 	mqtt_context.send_in_progerss = false;
-	mqtt_context.max_payload_size = MQTT_OUTPUT_RINGBUF_SIZE - (strlen(mqtt_context.topic) + 2);
+	mqtt_context.discovery_send = false;
+	mqtt_context.max_payload_size = MQTT_OUTPUT_RINGBUF_SIZE - (strlen(mqtt_context.state_topic) + 2);
 
 	add_status_callback(mqtt_log_status, NULL);
 
@@ -421,4 +474,115 @@ bool mqtt_init(void)
 void mqtt_debug_set(uint32_t lvl)
 {
 	mqtt_context.debug = lvl;
+}
+
+static int discovery_init(void)
+{
+	int size, ret;
+
+	if (!mqtt_context.state_topic)
+		return -1;
+	size = strlen(mqtt_context.state_topic) + strlen(DISCOVERY_TOPIC_TEMPLATE) + 1;
+	mqtt_context.discovery_topic = malloc(size);
+	if (!mqtt_context.discovery_topic)
+		return -1;
+	ret = snprintf(mqtt_context.discovery_topic, size, DISCOVERY_TOPIC_TEMPLATE, mqtt_context.state_topic);
+	if (ret <= 0) {
+		free(mqtt_context.discovery_topic);
+		mqtt_context.discovery_topic = NULL;
+		return -1;
+	}
+	return 0;
+}
+
+#define ADD_STR(F, ...) {\
+	int ret = snprintf(mqtt_context.discovery_msg + count, size, F, __VA_ARGS__);\
+	if (ret <= 0)\
+		return -1; \
+	count += ret; size -= ret;\
+	}
+// https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
+int mqtt_msg_discovery_register(mqtt_discovery_t *discovery)
+{
+	int count = 0;
+	int ccount;
+	int size;
+	int i;
+
+	if (!wifi_is_connected())
+		return -1;
+
+	if (!mqtt_context.discovery_topic) {
+		if (discovery_init())
+			return -1;
+	}
+
+	size = MQTT_OUTPUT_RINGBUF_SIZE - (strlen(mqtt_context.discovery_topic) + 2);
+	MQTT_CLIENT_LOCK;
+		mqtt_context.discovery_send = false;
+	MQTT_CLIENTL_UNLOCK;
+
+	mqtt_context.discovery_msg[0] = 0;
+	/* Device section */
+	ADD_STR("%s", "{\"dev\":{");
+	ADD_STR("\"ids\": \"%s\"", mqtt_context.client_info.client_id);
+	if (discovery->dev_name)
+		ADD_STR(",\"name\": \"%s\"", discovery->dev_name);
+	if (discovery->dev_manufacture)
+		ADD_STR(",\"mf\": \"%s\"", discovery->dev_manufacture);
+	if (discovery->dev_model)
+		ADD_STR(",\"mdl\": \"%s\"", discovery->dev_model);
+	if (discovery->dev_sw_ver)
+		ADD_STR(",\"sw\": \"%s\"", discovery->dev_sw_ver);
+	if (discovery->dev_hw_ver)
+		ADD_STR(",\"hw\": \"%s\"", discovery->dev_hw_ver);
+	if (discovery->dev_sn)
+		ADD_STR(",\"sn\": \"%s\"", discovery->dev_sn);
+
+	/* Origin section */
+	ADD_STR("%s", "},\"o\":{");
+	if (!discovery->origin_name)
+		return -1;
+	ADD_STR("\"name\": \"%s\"", discovery->origin_name);
+	if (discovery->origin_sw_ver)
+		ADD_STR(",\"sw\": \"%s\"", discovery->origin_sw_ver);
+	if (webserv_port())
+		ADD_STR(",\"url\": \"http://%s:%d/help\"",
+				inet_ntoa(cyw43_state.netif[0].ip_addr), webserv_port());
+	ADD_STR("%s", "},");
+
+	/* Components */
+	ccount = 0;
+	ADD_STR("%s", "\"cmps\":{");
+	for (i = 0; i < discovery->comp_count; i++) {
+		if (!discovery->components[i].name ||
+			!discovery->components[i].platform ||
+			!discovery->components[i].id)
+			continue;
+		if (ccount)
+			ADD_STR("%s", ",");
+		ADD_STR("\"%s\":{", discovery->components[i].name);
+		ADD_STR("\"p\": \"%s\"", discovery->components[i].platform);
+		ADD_STR(",\"unique_id\": \"%s\"", discovery->components[i].id);
+		if (discovery->components[i].dev_class)
+			ADD_STR(",\"device_class\": \"%s\"", discovery->components[i].dev_class);
+		if (discovery->components[i].unit)
+			ADD_STR(",\"unit_of_measurement\": \"%s\"", discovery->components[i].unit);
+		if (discovery->components[i].value_template)
+			ADD_STR(",\"value_template\": \"%s\"", discovery->components[i].value_template);
+		ADD_STR("%s", "}");
+		ccount++;
+	}
+	ADD_STR("%s", "}");
+
+	ADD_STR(",\"state_topic\": \"%s\"", mqtt_context.state_topic);
+	ADD_STR(",\"qos\": \"%d\"", discovery->qos);
+	ADD_STR("%s", "}");
+
+	MQTT_CLIENT_LOCK;
+		mqtt_context.discovery_send = true;
+		mqtt_context.discovery_last_send = 0;
+	MQTT_CLIENTL_UNLOCK;
+
+	return 0;
 }

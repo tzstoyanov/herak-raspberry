@@ -54,7 +54,7 @@ bool wifi_connect(void);
 bool wifi_is_connected(void);
 
 bool mqtt_init(void);
-void mqtt_connect(void);
+void mqtt_run(void);
 bool mqtt_is_connected(void);
 void mqtt_reconnect(void);
 void mqtt_debug_set(uint32_t lvl);

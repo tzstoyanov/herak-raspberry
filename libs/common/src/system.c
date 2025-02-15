@@ -329,7 +329,7 @@ void system_common_run(void)
 		bt_run();
 	wd_update();
 	if (sys_context.has_mqtt)
-		mqtt_connect();
+		mqtt_run();
 	if (sys_context.has_time)
 		ntp_connect();
 	wd_update();

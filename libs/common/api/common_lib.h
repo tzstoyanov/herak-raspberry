@@ -27,7 +27,7 @@ extern "C" {
 bool system_common_init(void);
 void system_common_run(void);
 void system_force_reboot(int delay_ms);
-void mqtt_msg_publish(char *message, bool force);
+
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count);
 char *get_current_time_str(char *buf, int buflen);
 bool tz_datetime_get(datetime_t *date);
@@ -35,6 +35,33 @@ float temperature_internal_get(void);
 void dump_hex_data(char *topic, const uint8_t *data, int len);
 void dump_char_data(char *topic, const uint8_t *data, int len);
 void wd_update(void);
+
+// https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
+typedef struct {
+	char *name;			// mandatory
+	char *id;			// mandatory
+	char *platform;		// mandatory
+	char *dev_class;
+	char *unit;
+	char *value_template;
+} mqtt_discovery_comp_t;
+typedef struct {
+	char *dev_name;
+	char *dev_manufacture;
+	char *dev_model;
+	char *dev_sn;
+	char *dev_sw_ver;
+	char *dev_hw_ver;
+	char *origin_name;		// mandatory
+	char *origin_sw_ver;
+	int qos;
+	int comp_count;
+	mqtt_discovery_comp_t *components; // Array of size comp_count
+} mqtt_discovery_t;
+
+/* MQTT */
+void mqtt_msg_publish(char *message, bool force);
+int mqtt_msg_discovery_register(mqtt_discovery_t *discovery);
 
 /* LCD API */
 int lcd_set_int(int idx, int row, int column, int num);
