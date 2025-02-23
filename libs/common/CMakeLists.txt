@@ -21,6 +21,7 @@ target_sources(${lib_name} INTERFACE
    ${dir}/webserv.c
    ${dir}/webdebug.c
    ${dir}/temperature.cpp
+   ${dir}/manchester_code.c
    ${COMMON_USB}
 )
 
