@@ -106,6 +106,10 @@ bool hlog_remoute(void);
 #define hlog_dbg(topic, args...) hlog_any(HLOG_DEBUG, topic, args)
 #define hlog_null(topic, args...)
 
+/* manchester code  */
+uint64_t manchester_encode(uint32_t frame, bool invert);
+int manchester_decode(uint64_t mframe, bool invert, uint32_t *value);
+
 typedef void (*log_status_cb_t) (void *context);
 int add_status_callback(log_status_cb_t cb, void *user_context);
 void debug_log_forward(int client_idx);
