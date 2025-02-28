@@ -167,8 +167,11 @@ static enum http_response_id commands_handler(int client_idx, char *cmd, char *u
 				continue;
 			if (!strncmp(request + 1, handlers->commands[i].command, strlen(handlers->commands[i].command))) {
 				params = NULL;
-				if (len > strlen(handlers->commands[i].command + 1))
+				if (strlen(request + 1) > strlen(handlers->commands[i].command)) {
 					params = request + 1 + strlen(handlers->commands[i].command);
+					if (*params != ':')
+						continue;
+				}
 				handlers->commands[i].cb(client_idx, params, handlers->user_data);
 				break;
 			}
