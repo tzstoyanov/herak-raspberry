@@ -497,9 +497,9 @@ static int discovery_init(void)
 
 #define ADD_STR(F, ...) {\
 	int ret = snprintf(mqtt_context.discovery_msg + count, size, F, __VA_ARGS__);\
-	if (ret <= 0)\
-		return -1; \
 	count += ret; size -= ret;\
+	if (size < 0  )	\
+		return size; \
 	}
 // https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
 int mqtt_msg_discovery_register(mqtt_discovery_t *discovery)
@@ -526,8 +526,11 @@ int mqtt_msg_discovery_register(mqtt_discovery_t *discovery)
 	/* Device section */
 	ADD_STR("%s", "{\"dev\":{");
 	ADD_STR("\"ids\": \"%s\"", mqtt_context.client_info.client_id);
-	if (discovery->dev_name)
+	if (discovery->dev_name) {
 		ADD_STR(",\"name\": \"%s\"", discovery->dev_name);
+	} else {
+		ADD_STR(",\"name\": \"%s\"", mqtt_context.client_info.client_id);
+	}
 	if (discovery->dev_manufacture)
 		ADD_STR(",\"mf\": \"%s\"", discovery->dev_manufacture);
 	if (discovery->dev_model)
@@ -584,5 +587,5 @@ int mqtt_msg_discovery_register(mqtt_discovery_t *discovery)
 		mqtt_context.discovery_last_send = 0;
 	MQTT_CLIENTL_UNLOCK;
 
-	return 0;
+	return size;
 }
