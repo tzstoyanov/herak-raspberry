@@ -290,7 +290,12 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 	LOG_UNLOCK;
 }
 
-void log_debug_set(uint32_t lvl)
+void log_debug_set(uint32_t dbg)
 {
-	log_context.debug = lvl;
+	log_context.debug = dbg;
+}
+
+void log_level_set(uint32_t level)
+{
+	log_context.log_level = level;
 }
