@@ -105,6 +105,49 @@ out_err:
 	weberv_client_close(client_idx);
 }
 
+#define LEVEL_STR "\tSetting log level ...\r\n"
+#define LEVEL_ERR_STR "\tUknown log level  ...\r\n"
+static void log_level(int client_idx, char *params, void *user_data)
+{
+	char *tok;
+	uint32_t lvl;
+
+	UNUSED(user_data);
+
+	if (!params || params[0] != ':' || strlen(params) < 2)
+		goto out_err;
+	tok = params + 1;
+
+	if (!strcmp(tok, "emerg"))
+		lvl = HLOG_EMERG;
+	else if (!strcmp(tok, "alert"))
+		lvl = HLOG_ALERT;
+	else if (!strcmp(tok, "crit"))
+		lvl = HLOG_CRIT;
+	else if (!strcmp(tok, "err"))
+		lvl = HLOG_ERR;
+	else if (!strcmp(tok, "warn"))
+		lvl = HLOG_WARN;
+	else if (!strcmp(tok, "notice"))
+		lvl = HLOG_NOTICE;
+	else if (!strcmp(tok, "info"))
+		lvl = HLOG_INFO;
+	else if (!strcmp(tok, "debug"))
+		lvl = HLOG_DEBUG;
+	else
+		goto out_err;
+
+	log_level_set(lvl);
+
+	weberv_client_send(client_idx, LEVEL_STR, strlen(LEVEL_STR), HTTP_RESP_OK);
+	weberv_client_close(client_idx);
+	return;
+
+out_err:
+	weberv_client_send(client_idx, LEVEL_ERR_STR, strlen(LEVEL_ERR_STR), HTTP_RESP_BAD);
+	weberv_client_close(client_idx);
+}
+
 #define STATUS_STR "\tGoing to send status ...\r\n"
 #define STATUS_TOO_MANY_STR "\tA client is already receiving logs ...\r\n"
 static void debug_status(int client_idx, char *params, void *user_data)
@@ -160,6 +203,7 @@ static void debug_reset(int client_idx, char *params, void *user_data)
 	weberv_client_send(client_idx, RESET_STR, strlen(RESET_STR), HTTP_RESP_OK);
 	weberv_client_close(client_idx);
 	system_set_periodic_log_ms(0);
+	log_level_set(HLOG_INFO);
 	log_debug_set(0);
 	usb_debug_set(0);
 	mqtt_debug_set(0);
@@ -189,7 +233,8 @@ static web_requests_t debug_requests[] = {
 		{"log_on", NULL,		debug_log_on},
 		{"log_off", NULL,		debug_log_off},
 		{"reset", NULL,			debug_reset},
-		{"verbose", ":<level_hex>:all|log|mqtt|usb|bt", debug_verbose},
+		{"level", ":<emerg|alert|crit|err|warn|notice|info|debug> - one of", log_level},
+		{"verbose", ":<level_hex>:all|log|mqtt|usb|bt>", debug_verbose},
 };
 
 int webdebug_log_send(char *logbuff)
