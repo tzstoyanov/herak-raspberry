@@ -38,7 +38,9 @@ extern "C" {
 #define SYS_LOCK_END \
 	SYS_ARCH_UNPROTECT(__lev__); }
 
+#ifndef __weak
 #define __weak	__attribute__((__weak__))
+#endif
 
 void system_reconect(void);
 void system_set_periodic_log_ms(uint32_t ms);
