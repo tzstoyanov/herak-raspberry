@@ -4,22 +4,23 @@ cmake_minimum_required(VERSION 3.12)
 # Include build functions from Pico SDK
 set(PROJECT_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../../libs)
 set(ENV{PICO_SDK_PATH} "${PROJECT_LIB_DIR}/pico-sdk")
+set(PICO_BOARD pico_w)
+
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 # Set name of project (as PROJECT_NAME) and C/C++ standards
 project(herak-solar C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
-set(PICO_BOARD pico_w)
 set(ADD_USB true)
 set(DEBUG_BUILD false)
 
-add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
-
 set(PROJECT_TOP_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-set(PROJECT_INLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../include)
+set(PROJECT_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../include)
 set(PARAMS_FILE params)
 set(PARAMS_TEMPLETE ${PROJECT_TOP_DIR}/app/params_example)
+
+add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
 add_custom_target( check-params
   COMMAND test -e ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.txt ||
@@ -32,33 +33,29 @@ add_custom_target( check-params
 )
 
 add_custom_target( clear-params
-  COMMAND rm -f "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c" "${PROJECT_INLUDE_DIR}/${PARAMS_FILE}.h"
+  COMMAND rm -f "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c" "${PROJECT_INCLUDE_DIR}/${PARAMS_FILE}.h"
   COMMENT "Removing old ${PARAMS_FILE} artifacts..."
 )
 
-add_custom_command(OUTPUT "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c" "${PROJECT_INLUDE_DIR}/${PARAMS_FILE}.h"
+add_custom_command(OUTPUT "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c" "${PROJECT_INCLUDE_DIR}/${PARAMS_FILE}.h"
     COMMAND "${PROJECT_TOP_DIR}/scripts/params_crypt.sh" "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}" "${PROJECT_TOP_DIR}/scripts/params_all.txt"
-    COMMAND mv ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.h ${PROJECT_INLUDE_DIR}/${PARAMS_FILE}.h
+    COMMAND mv ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.h ${PROJECT_INCLUDE_DIR}/${PARAMS_FILE}.h
     COMMENT "Generating ${PARAMS_FILE} code ..."
     DEPENDS check-params clear-params)
 
-# Creates a pico-sdk subdirectory in our project for the libraries
-pico_sdk_init()
-
-#build required libraries
-include(${PROJECT_LIB_DIR}/pio-usb/CMakeLists.txt)
-include(${PROJECT_LIB_DIR}/one-wire/CMakeLists.txt)
-include(${PROJECT_LIB_DIR}/hd44780/CMakeLists.txt)
-include(${PROJECT_LIB_DIR}/common/CMakeLists.txt)
 
 if(${ADD_USB})
 	set(TINY_USB_HOST tinyusb_host)
 	set(TINY_USB_BOARD tinyusb_board)
 	set(INLUDE_USB ${PROJECT_TOP_DIR}/libs/common/api/usb)
 	set(PICO_PIO_USB pico_pio_usb)
+	set(PICO_PIO_USB_PATH ${PROJECT_LIB_DIR}/pio-usb)
 else()
 	set(MPTT_TEST ${CMAKE_CURRENT_LIST_DIR}/mppt_voltronic_test.c)
 endif()
+
+# Creates a pico-sdk subdirectory in our project for the libraries
+pico_sdk_init()
 
 # Tell CMake where to find the executable source file
 add_executable(${PROJECT_NAME}
@@ -73,6 +70,15 @@ add_executable(${PROJECT_NAME}
   ${MPTT_TEST}
 )
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE PIO_USB_USE_TINYUSB)
+
+
+#build required libraries
+include(${PROJECT_LIB_DIR}/one-wire/CMakeLists.txt)
+include(${PROJECT_LIB_DIR}/hd44780/CMakeLists.txt)
+include(${PROJECT_LIB_DIR}/pio-usb/CMakeLists.txt)
+include(${PROJECT_LIB_DIR}/common/CMakeLists.txt)
+
 if(${DEBUG_BUILD})
 	set(CMAKE_BUILD_TYPE "Debug")
 	target_compile_options(${PROJECT_NAME} PRIVATE -DPARAM_ASSERTIONS_ENABLE_ALL=1 -DPICO_CYW43_ARCH_DEBUG_ENABLED)
@@ -82,7 +88,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${CMAKE_CURRENT_LIST_DIR}
-			   ${PROJECT_INLUDE_DIR}
+			   ${PROJECT_INCLUDE_DIR}
 			   ${INLUDE_USB}
 			   ${PROJECT_LIB_DIR}/pio-usb/src
 			   ${PROJECT_LIB_DIR}/one-wire/api
