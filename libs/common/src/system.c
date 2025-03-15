@@ -10,6 +10,7 @@
 #include "common_internal.h"
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "hardware/clocks.h"
 #include "hardware/watchdog.h"
 
 #include "base64.h"
