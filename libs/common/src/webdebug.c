@@ -166,6 +166,16 @@ static void debug_status(int client_idx, char *params, void *user_data)
 	system_log_status();
 }
 
+#define PING_STR "pong\r\n"
+static void debug_ping(int client_idx, char *params, void *user_data)
+{
+	UNUSED(params);
+	UNUSED(user_data);
+
+	weberv_client_send(client_idx, PING_STR, strlen(PING_STR), HTTP_RESP_OK);
+	weberv_client_close(client_idx);
+}
+
 #define LOGON_STR	"\tSending device logs ...\r\n"
 static void debug_log_on(int client_idx, char *params, void *user_data)
 {
@@ -229,6 +239,7 @@ static void debug_periodic_log(int client_idx, char *params, void *user_data)
 static web_requests_t debug_requests[] = {
 		{"reboot", ":<delay_ms>",	debug_reboot},
 		{"status", NULL,			debug_status},
+		{"ping", NULL,			debug_ping},
 		{"periodic_log", ":<delay_ms>",	debug_periodic_log},
 		{"log_on", NULL,		debug_log_on},
 		{"log_off", NULL,		debug_log_off},
