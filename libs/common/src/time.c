@@ -107,18 +107,16 @@ void ntp_connect(void)
 	ntp_context.init = true;
 }
 
-#define UPTIME_STR_LEN	64
-char *get_uptime(void)
+uint64_t time_ms_since_boot(void)
 {
-	static char buf[UPTIME_STR_LEN];
-	uint32_t msec = 0;
-	uint32_t sec = 0;
-	uint32_t min = 0;
-	uint32_t hours = 0;
-	uint32_t days = 0;
-	uint32_t years = 0;
+	return (to_us_since_boot(get_absolute_time()) / 1000u);
+}
 
-	msec = to_ms_since_boot(get_absolute_time());
+uint64_t time_msec2datetime(datetime_t *date, uint64_t msec)
+{
+	uint32_t sec = 0, min = 0, hour = 0, day = 0, year = 0;
+
+	memset(date, 0, sizeof(datetime_t));
 	if (msec >= 1000) {
 		sec = msec / 1000;
 		msec = msec % 1000;
@@ -128,37 +126,58 @@ char *get_uptime(void)
 		sec = sec % 60;
 	}
 	if (min >= 60) {
-		hours = min / 60;
+		hour = min / 60;
 		min = min % 60;
 	}
-	if (hours >= 24) {
-		days = hours / 24;
-		hours = hours % 24;
+	if (hour >= 24) {
+		day = hour / 24;
+		hour = hour % 24;
 	}
-	if (days >= 365) {
-		years = days / 365;
-		days = days % 365;
+	if (day >= 365) {
+		year = day / 365;
+		day = day % 365;
 	}
 
-	if (years)
-		snprintf(buf, UPTIME_STR_LEN, "%ld years, %ld days, %.2ld:%.2ld:%.2ld.%.3ld hours",
-				years, days, hours, min, sec, msec);
-	else if (days)
-		snprintf(buf, UPTIME_STR_LEN, "%ld days, %.2ld:%.2ld:%.2ld.%.3ld hours",
-				days, hours, min, sec, msec);
-	else if (hours)
-		snprintf(buf, UPTIME_STR_LEN, "%.2ld:%.2ld:%.2ld.%.3ld hours",
-				hours, min, sec, msec);
-	else if (min)
-		snprintf(buf, UPTIME_STR_LEN, "%.2ld:%.2ld.%.3ld minutes",
-				min, sec, msec);
-	else if (sec)
-		snprintf(buf, UPTIME_STR_LEN, "%.2ld.%.3ld sec",
-				sec, msec);
+	date->sec = sec;
+	date->min = min;
+	date->hour = hour;
+	date->day = day;
+	date->year = year;
+
+	return msec;
+}
+
+char *time_date2str(char *buf, int str_len, datetime_t *date)
+{
+	if (date->year)
+		snprintf(buf, str_len, "%d years, %d days, %.2d:%.2d:%.2d hours",
+				date->year, date->day, date->hour, date->min, date->sec);
+	else if (date->day)
+		snprintf(buf, str_len, "%d days, %.2d:%.2d:%.2d hours",
+				date->day, date->hour, date->min, date->sec);
+	else if (date->hour)
+		snprintf(buf, str_len, "%.2d:%.2d:%.2d hours",
+				date->hour, date->min, date->sec);
+	else if (date->min)
+		snprintf(buf, str_len, "%.2d:%.2d minutes",
+				date->min, date->sec);
+	else if (date->sec)
+		snprintf(buf, str_len, "%.2d sec",
+				date->sec);
 	else
-		snprintf(buf, UPTIME_STR_LEN, "%.3ld msec", msec);
+		snprintf(buf, str_len, "0");
 
 	return buf;
+}
+
+#define UPTIME_STR_LEN	64
+char *get_uptime(void)
+{
+	static char buf[UPTIME_STR_LEN];
+	datetime_t date;
+
+	time_msec2datetime(&date, time_ms_since_boot());
+	return time_date2str(buf, UPTIME_STR_LEN, &date);
 }
 
 static int get_utc_eest_offset(datetime_t *dt)
@@ -247,9 +266,9 @@ char *get_current_time_str(char *buf, int buflen)
 		else
 			month = mnames[0];
 		snprintf(buf, buflen, "%.2d %s %d %.2d:%.2d:%.2d",
-					date.day, month, date.year, date.hour, date.min, date.sec);
+				 date.day, month, date.year, date.hour, date.min, date.sec);
 	} else {
-		snprintf(buf, buflen, "%s 0 %ld", mnames[0], to_ms_since_boot(get_absolute_time()));
+		snprintf(buf, buflen, "%s 0 %lld", mnames[0], time_ms_since_boot());
 	}
 
 	return buf;

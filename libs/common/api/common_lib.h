@@ -31,6 +31,10 @@ void system_force_reboot(int delay_ms);
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count);
 char *get_current_time_str(char *buf, int buflen);
 bool tz_datetime_get(datetime_t *date);
+uint64_t time_msec2datetime(datetime_t *date, uint64_t msec);
+char *time_date2str(char *buf, int str_len, datetime_t *date);
+uint64_t time_ms_since_boot(void);
+
 float temperature_internal_get(void);
 void dump_hex_data(char *topic, const uint8_t *data, int len);
 void dump_char_data(char *topic, const uint8_t *data, int len);
