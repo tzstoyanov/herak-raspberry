@@ -24,7 +24,7 @@
 #define DISCOVERY_INTERVAL_MSEC		3600000 // send every hour; 60*60*1000
 #define DISCOVERY_TOPIC_TEMPLATE	"homeassistant/device/%s/config"
 
-#define MSEC_INSEC	60000
+#define MSEC_INSEC	60000ULL
 
 #define IS_DEBUG	(mqtt_context.debug != 0)
 
@@ -34,8 +34,8 @@
 #define MQTT_SEND_MIN_TIME_MSEC	60000	/* 60s */
 
 #define DEF_SERVER_PORT	1883
-#define DF_MAX_PKT_DELAY_MS	60000
-#define DF_MIN_PKT_DELAY_MS	5000
+#define DF_MAX_PKT_DELAY_MS	60000ULL
+#define DF_MIN_PKT_DELAY_MS	5000ULL
 
 #define MQTT_QOS		0
 #define MQTT_RETAIN		1
@@ -57,12 +57,12 @@ static struct {
 	char *server_url;
 	char *state_topic;
 	char *discovery_topic;
-	uint32_t discovery_last_send;
+	uint64_t discovery_last_send;
 	bool discovery_send;
 	char discovery_msg[MQTT_OUTPUT_RINGBUF_SIZE];
 	int server_port;
-	uint32_t mqtt_max_delay;
-	uint32_t mqtt_min_delay;
+	uint64_t mqtt_max_delay;
+	uint64_t mqtt_min_delay;
 	uint32_t max_payload_size;
 	enum mqtt_client_state_t state;
 	ip_addr_t server_addr;
@@ -71,7 +71,7 @@ static struct {
 	struct mqtt_connect_client_info_t client_info;
 	bool data_send;
 	bool send_in_progerss;
-	uint32_t last_send;
+	uint64_t last_send;
 	mutex_t lock;
 	uint32_t connect_count;
 	uint32_t debug;
@@ -154,7 +154,7 @@ static void mqtt_log_status(void *context)
 		hlog_info(MQTTLOG, "Not connected to a server, looking for %s ... connect count %d ",
 				  mqtt_context.server_url, mqtt_context.connect_count);
 	else
-		hlog_info(MQTTLOG, "Connected to server %s, publish rate limit between %dppm and %dppm, connect count %d",
+		hlog_info(MQTTLOG, "Connected to server %s, publish rate limit between %lldppm and %lldppm, connect count %d",
 				mqtt_context.server_url, MSEC_INSEC/mqtt_context.mqtt_max_delay,
 				MSEC_INSEC/mqtt_context.mqtt_min_delay, mqtt_context.connect_count);
 }
@@ -207,7 +207,7 @@ static int mqtt_msg_send(char *topic, char *message)
 
 void mqtt_msg_publish(char *message, bool force)
 {
-	uint32_t now;
+	uint64_t now;
 
 	if (strlen(message) > mqtt_context.max_payload_size) {
 		hlog_info(MQTTLOG, "Message too big: %d, max payload is %d", strlen(message), mqtt_context.max_payload_size);
@@ -216,7 +216,7 @@ void mqtt_msg_publish(char *message, bool force)
 
 	mqtt_context.data_send = force;
 	/* Rate limit the packets between mqtt_min_delay and mqtt_max_delay */
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	if ((now - mqtt_context.last_send) > mqtt_context.mqtt_max_delay)
 		mqtt_context.data_send = true;
 	else if ((now - mqtt_context.last_send) < mqtt_context.mqtt_min_delay)
@@ -227,7 +227,7 @@ void mqtt_msg_publish(char *message, bool force)
 	if (!mqtt_msg_send(mqtt_context.state_topic, message)) {
 		mqtt_context.data_send = false;
 		MQTT_CLIENT_LOCK;
-			mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
+			mqtt_context.last_send = time_ms_since_boot();
 		MQTT_CLIENTL_UNLOCK;
 	}
 }
@@ -235,13 +235,13 @@ void mqtt_msg_publish(char *message, bool force)
 int mqtt_msg_discovery_send(void)
 {
 	bool send = false;
-	uint32_t now;
+	uint64_t now;
 	int ret;
 
 	if (!mqtt_context.discovery_send)
 		return -1;
 
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	MQTT_CLIENT_LOCK;
 		if ((now - mqtt_context.discovery_last_send) > DISCOVERY_INTERVAL_MSEC)
 			send = true;
@@ -254,6 +254,11 @@ int mqtt_msg_discovery_send(void)
 		MQTT_CLIENT_LOCK;
 			mqtt_context.discovery_last_send = now;
 		MQTT_CLIENTL_UNLOCK;
+		if (IS_DEBUG)
+			hlog_info(MQTTLOG, "Send %d bytes discovery message", strlen(mqtt_context.discovery_msg));
+	} else {
+		hlog_info(MQTTLOG, "Failed to publish %d bytes discovery message",
+				  strlen(mqtt_context.discovery_msg));
 	}
 	return ret;
 }
@@ -262,8 +267,8 @@ static void mqtt_connect(void)
 {
 	enum mqtt_client_state_t st;
 	ip_resolve_state_t res;
-	uint32_t last_send;
-	uint32_t now;
+	uint64_t last_send;
+	uint64_t now;
 	int ret;
 
 	if (!wifi_is_connected()) {
@@ -282,7 +287,7 @@ static void mqtt_connect(void)
 		last_send = mqtt_context.last_send;
 	MQTT_CLIENTL_UNLOCK;
 
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	if (st == MQTT_CLIENT_CONNECTING) {
 		if ((now - last_send) < IP_TIMEOUT_MS)
 			return;
@@ -313,7 +318,7 @@ static void mqtt_connect(void)
 		if (ret == ERR_INPROGRESS) {
 			hlog_info(MQTTLOG, "Resolving %s ...", mqtt_context.server_url);
 			MQTT_CLIENT_LOCK;
-				mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
+				mqtt_context.last_send = time_ms_since_boot();
 				mqtt_context.sever_ip_state = IP_RESOLVING;
 			MQTT_CLIENTL_UNLOCK;
 			return;
@@ -366,7 +371,7 @@ static void mqtt_connect(void)
 
 	MQTT_CLIENT_LOCK;
 		if (!ret) {
-			mqtt_context.last_send = to_ms_since_boot(get_absolute_time());
+			mqtt_context.last_send = time_ms_since_boot();
 			if (IS_DEBUG)
 				hlog_info(MQTTLOG, "Connected to server %s", mqtt_context.server_url);
 		} else {
@@ -498,7 +503,7 @@ static int discovery_init(void)
 #define ADD_STR(F, ...) {\
 	int ret = snprintf(mqtt_context.discovery_msg + count, size, F, __VA_ARGS__);\
 	count += ret; size -= ret;\
-	if (size < 0  )	\
+	if (size < 0)	\
 		return size; \
 	}
 // https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
@@ -586,6 +591,10 @@ int mqtt_msg_discovery_register(mqtt_discovery_t *discovery)
 		mqtt_context.discovery_send = true;
 		mqtt_context.discovery_last_send = 0;
 	MQTT_CLIENTL_UNLOCK;
+
+	if (IS_DEBUG)
+		hlog_info(MQTTLOG, "Registered %d bytes discovery message",
+				  strlen(mqtt_context.discovery_msg));
 
 	return size;
 }
