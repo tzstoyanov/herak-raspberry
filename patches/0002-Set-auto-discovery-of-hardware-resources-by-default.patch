@@ -1,0 +1,40 @@
+From 0f6923ec74351d47f49f810024ff70fd9187f861 Mon Sep 17 00:00:00 2001
+From: Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+Date: Sun, 23 Mar 2025 16:00:23 +0200
+Subject: [PATCH 2/2] Set auto-discovery of hardware resources by default.
+
+Use the logic for hardware resources auto-discovery by default, set this
+to be the PIO_USB_DEFAULT_CONFIG.
+
+Signed-off-by: Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+---
+ libs/pio-usb/src/pio_usb_configuration.h | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/libs/pio-usb/src/pio_usb_configuration.h b/libs/pio-usb/src/pio_usb_configuration.h
+index 2e3cf72..495e488 100644
+--- a/libs/pio-usb/src/pio_usb_configuration.h
++++ b/libs/pio-usb/src/pio_usb_configuration.h
+@@ -25,13 +25,13 @@ typedef struct {
+ #define PIO_USB_DP_PIN_DEFAULT 0
+ #endif
+ 
+-#define PIO_USB_TX_DEFAULT 0
+-#define PIO_SM_USB_TX_DEFAULT 0
+-#define PIO_USB_DMA_TX_DEFAULT 0
++#define PIO_USB_TX_DEFAULT (-1)
++#define PIO_SM_USB_TX_DEFAULT (-1)
++#define PIO_USB_DMA_TX_DEFAULT (-1)
+ 
+-#define PIO_USB_RX_DEFAULT 0
+-#define PIO_SM_USB_RX_DEFAULT 0
+-#define PIO_SM_USB_EOP_DEFAULT 0
++#define PIO_USB_RX_DEFAULT (-1)
++#define PIO_SM_USB_RX_DEFAULT (-1)
++#define PIO_SM_USB_EOP_DEFAULT (-1)
+ 
+ #define PIO_USB_DEBUG_PIN_NONE (-1)
+ 
+-- 
+2.48.1
+
