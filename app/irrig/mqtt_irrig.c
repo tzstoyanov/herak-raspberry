@@ -15,6 +15,7 @@
 
 #define MQTTLOG	"mqtt"
 #define MQTT_DATA_LEN	512
+#define MQTT_DISCOVERY_MS	1800000 // on 30 min
 
 struct soil_data {
 	uint32_t analog;
@@ -35,20 +36,23 @@ static struct {
 	struct ssr_data ssr[MAX_SSR_COUNT];
 	int ssr_count;
 	bool force;
+	uint64_t last_discovery;
 } mqtt_irrig_context = {};
 
+#define TIME_STR	64
 #define ADD_MQTT_MSG(_S_) { if ((len - count) < 0) { printf("%s: Buffer full\n\r", __func__); return; } \
 							count += snprintf(mqtt_irrig_context.payload + count, len - count, _S_); }
 #define ADD_MQTT_MSG_VAR(_S_, ...) { if ((len - count) < 0) { printf("%s: Buffer full\n\r", __func__); return; } \
 				     count += snprintf(mqtt_irrig_context.payload + count, len - count, _S_, __VA_ARGS__); }
 static void mqtt_data_send(bool force)
 {
-	static char time_buff[32];
+	static char time_buff[TIME_STR];
 	int len = MQTT_DATA_LEN;
 	int count = 0;
 	int i;
 
-	ADD_MQTT_MSG_VAR("{ \"time\": \"%s\", \"in_temp\": %3.2f", get_current_time_str(time_buff, 32), mqtt_irrig_context.internal_temp)
+	ADD_MQTT_MSG("{");
+	ADD_MQTT_MSG_VAR("\"time\": \"%s\", \"in_temp\": %3.2f", get_current_time_str(time_buff, TIME_STR), mqtt_irrig_context.internal_temp)
 	if (mqtt_irrig_context.ssr_count) {
 		count += snprintf(mqtt_irrig_context.payload + count, len - count, ", \"ssr_state\": %lu", mqtt_irrig_context.ssr_state);
 		for (i = 0; i < mqtt_irrig_context.ssr_count; i++) {
@@ -123,8 +127,39 @@ void mqtt_data_internal_temp(float temp)
 	}
 }
 
+#define DEV_QOS    2
+#define ORG_NAME   "RaspberryRelay"
+#define COMPONENTS_NUM	1
+static int mqtt_irrig_discovery_add(void)
+{
+	mqtt_discovery_comp_t comps[COMPONENTS_NUM] = {0};
+	mqtt_discovery_t discovery = {0};
+
+	discovery.origin_name = ORG_NAME;
+	discovery.qos = DEV_QOS;
+
+	/* 1 */
+	comps[0].name = "Chip temperature";
+	comps[0].id = "ch_temp";
+	comps[0].platform = "sensor";
+	comps[0].dev_class = "temperature";
+	comps[0].unit = "°C";
+	comps[0].value_template = "{{value_json.in_temp}}";
+
+	discovery.comp_count = COMPONENTS_NUM;
+	discovery.components = comps;
+	return mqtt_msg_discovery_register(&discovery);
+}
+
 void mqtt_irrig_send(void)
 {
+	uint64_t now = time_ms_since_boot();
+
+	if (!mqtt_irrig_context.last_discovery ||
+		(now - mqtt_irrig_context.last_discovery) > MQTT_DISCOVERY_MS) {
+		if (mqtt_irrig_discovery_add() >= 0)
+			mqtt_irrig_context.last_discovery = now;
+	}
 	mqtt_data_send(mqtt_irrig_context.force);
 	mqtt_irrig_context.force = false;
 }
