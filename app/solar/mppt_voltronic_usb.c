@@ -29,7 +29,7 @@
 #define SENT_MIN_TIME_MS	5000 /* Send command each 5s */
 #define CMD_BUF_SIZE		128
 #define CMD_END_CHAR		'\r'
-#define PARAM_FIXED_SIZE	16
+#define USB_DISCOVERY_MS	30000 /* If not connected, reset the USB bus on every 30sec */
 
 struct voltron_qdi_data_t {
 	float	ac_output_v;
@@ -150,11 +150,11 @@ struct voltron_qflags_data_t {
 };
 
 struct voltron_data_t {
-	char	serial_number[PARAM_FIXED_SIZE];	// QID
-	char	firmware_vesion[PARAM_FIXED_SIZE];	// QVFW
-	char	firmware_vesion3[PARAM_FIXED_SIZE];	// QVFW3
-	char	model_name[PARAM_FIXED_SIZE];		// QMN
-	char	gen_model_name[PARAM_FIXED_SIZE];	// QGMN
+	char	serial_number[MPPT_PARAM_FIXED_SIZE];	// QID
+	char	firmware_vesion[MPPT_PARAM_FIXED_SIZE];	// QVFW
+	char	firmware_vesion3[MPPT_PARAM_FIXED_SIZE];	// QVFW3
+	char	model_name[MPPT_PARAM_FIXED_SIZE];		// QMN
+	char	gen_model_name[MPPT_PARAM_FIXED_SIZE];	// QGMN
 	char	mode;								// QMOD
 	uint32_t pv_total_wh;						// QET
 	datetime_t date;							// QT
@@ -173,7 +173,8 @@ static struct {
 	bool send_in_progress;
 	bool timeout_state;
 	uint32_t timeout_count;
-	uint32_t cmd_send_time;
+	uint64_t cmd_send_time;
+	uint64_t usb_reset_time;
 	voltron_qcmd_t cmd_idx;
 	int cmd_count;
 	char cmd_buff[CMD_BUF_SIZE];
@@ -216,7 +217,7 @@ out:
 // (9283210100631
 int qid_cmd_process(void)
 {
-	strncpy(mppt_context.vdata.serial_number, mppt_context.cmd_buff + 1, PARAM_FIXED_SIZE - 1);
+	strncpy(mppt_context.vdata.serial_number, mppt_context.cmd_buff + 1, MPPT_PARAM_FIXED_SIZE - 1);
 	DBG_LOG(MPPT, "QID reply: [%s]", mppt_context.vdata.serial_number);
 	return 0;
 }
@@ -227,7 +228,7 @@ int qvfw_cmd_process(void)
 	char *ver = strchr(mppt_context.cmd_buff, ':');
 
 	if (ver) {
-		strncpy(mppt_context.vdata.firmware_vesion, ver + 1, PARAM_FIXED_SIZE - 1);
+		strncpy(mppt_context.vdata.firmware_vesion, ver + 1, MPPT_PARAM_FIXED_SIZE - 1);
 		DBG_LOG(MPPT, "QVFW reply: [%s]", mppt_context.vdata.firmware_vesion);
 		return 0;
 	}
@@ -416,7 +417,7 @@ int qet_cmd_process(void)
 // (VMIII-3000
 int qmn_cmd_process(void)
 {
-	strncpy(mppt_context.vdata.model_name, mppt_context.cmd_buff+1, PARAM_FIXED_SIZE);
+	strncpy(mppt_context.vdata.model_name, mppt_context.cmd_buff+1, MPPT_PARAM_FIXED_SIZE);
 	DBG_LOG(MPPT, "QMN reply: [%s]", mppt_context.vdata.model_name);
 	return 0;
 }
@@ -424,7 +425,7 @@ int qmn_cmd_process(void)
 // (037
 int qgmn_cmd_process(void)
 {
-	strncpy(mppt_context.vdata.gen_model_name, mppt_context.cmd_buff+1, PARAM_FIXED_SIZE);
+	strncpy(mppt_context.vdata.gen_model_name, mppt_context.cmd_buff+1, MPPT_PARAM_FIXED_SIZE);
 	DBG_LOG(MPPT, "QGMN reply: [%s]", mppt_context.vdata.gen_model_name);
 	return 0;
 }
@@ -494,7 +495,7 @@ int qvfw3_cmd_process(void)
 	char *ver = strchr(mppt_context.cmd_buff, ':');
 
 	if (ver) {
-		strncpy(mppt_context.vdata.firmware_vesion3, ver + 1, PARAM_FIXED_SIZE - 1);
+		strncpy(mppt_context.vdata.firmware_vesion3, ver + 1, MPPT_PARAM_FIXED_SIZE - 1);
 		DBG_LOG(MPPT, "QVFW3 reply: [%s]", mppt_context.vdata.firmware_vesion3);
 		return 0;
 	}
@@ -592,6 +593,12 @@ static void mppt_send_mqtt_data(void)
 	data.pv_in_bat_a	= mppt_context.vdata.qpigs_data.pv_in_bat_a;
 	data.pv_in_v		= mppt_context.vdata.qpigs_data.pv_in_v;
 	data.bat_discharge_a	= mppt_context.vdata.qpigs_data.bat_discharge_a;
+
+	memcpy(data.serial_number, mppt_context.vdata.serial_number, MPPT_PARAM_FIXED_SIZE);
+	memcpy(data.firmware_vesion, mppt_context.vdata.firmware_vesion, MPPT_PARAM_FIXED_SIZE);
+	memcpy(data.firmware_vesion3, mppt_context.vdata.firmware_vesion3, MPPT_PARAM_FIXED_SIZE);
+	memcpy(data.model_name, mppt_context.vdata.model_name, MPPT_PARAM_FIXED_SIZE);
+	memcpy(data.gen_model_name, mppt_context.vdata.gen_model_name, MPPT_PARAM_FIXED_SIZE);
 
 	mqtt_data_mppt(&data);
 }
@@ -816,42 +823,49 @@ static char *cmd_get(voltron_qcmd_t idx, int *len)
 void mppt_solar_query(void)
 {
 	const char *qcmd, *qdesc;
-	uint32_t now;
+	uint64_t now;
 	int len, ret;
 	char *cmd;
 
-	if (mppt_context.usb_connected) {
-		now = to_ms_since_boot(get_absolute_time());
-		if ((now - mppt_context.cmd_send_time) > SENT_WAIT_MS) {
-			if (!mppt_context.timeout_state) {
-				mppt_context.timeout_count++;
-				if (!mppt_get_qcommand_desc(mppt_context.cmd_idx, &qcmd, &qdesc))
-					hlog_info(MPPT, "Response timeout of %s [%s]", qcmd, qdesc);
-				else
-					hlog_info(MPPT, "Response timeout of %d", mppt_context.cmd_idx);
-			}
-			mppt_context.send_in_progress = false;
-			mppt_context.timeout_state = true;
+	if (!mppt_context.usb_connected) {
+		now = time_ms_since_boot();
+		if ((now - mppt_context.usb_reset_time) > USB_DISCOVERY_MS) {
+			usb_bus_restart();
+			mppt_context.usb_reset_time = now;
 		}
-		if (!mppt_context.send_in_progress && (now - mppt_context.cmd_send_time) > SENT_MIN_TIME_MS) {
+		return;
+	}
+
+	now = time_ms_since_boot();
+	if ((now - mppt_context.cmd_send_time) > SENT_WAIT_MS) {
+		if (!mppt_context.timeout_state) {
+			mppt_context.timeout_count++;
+			if (!mppt_get_qcommand_desc(mppt_context.cmd_idx, &qcmd, &qdesc))
+				hlog_info(MPPT, "Response timeout of %s [%s]", qcmd, qdesc);
+			else
+				hlog_info(MPPT, "Response timeout of %d", mppt_context.cmd_idx);
+		}
+		mppt_context.send_in_progress = false;
+		mppt_context.timeout_state = true;
+	}
+	if (!mppt_context.send_in_progress && (now - mppt_context.cmd_send_time) > SENT_MIN_TIME_MS) {
 #ifndef MPPT_TEST_CMD
-			mppt_context.cmd_idx = mppt_solar_cmd_next();
+		mppt_context.cmd_idx = mppt_solar_cmd_next();
 #else
-			mppt_context.cmd_idx = mppt_solar_cmd_test();
+		mppt_context.cmd_idx = mppt_solar_cmd_test();
 #endif
-			cmd = cmd_get(mppt_context.cmd_idx, &len);
-			if (cmd) {
-				mppt_context.cmd_buf_len = 0;
-				ret = usb_send_to_device(mppt_context.usb_idx, cmd, len);
-				if (!ret) {
-					mppt_context.send_in_progress = true;
-					mppt_context.cmd_send_time = now;
-				}
-				mppt_get_qcommand_desc(mppt_context.cmd_idx, &qcmd, &qdesc);
-				DBG_LOG(MPPT, "Sent command %d: %s [%s]; %d", mppt_context.cmd_idx, qcmd, qdesc, ret);
-			} else {
-				hlog_info(MPPT, "Failed to prepare command %d", mppt_context.cmd_idx);
+		cmd = cmd_get(mppt_context.cmd_idx, &len);
+		if (cmd) {
+			mppt_context.cmd_buf_len = 0;
+			ret = usb_send_to_device(mppt_context.usb_idx, cmd, len);
+			if (!ret) {
+				mppt_context.send_in_progress = true;
+				mppt_context.cmd_send_time = now;
 			}
+			mppt_get_qcommand_desc(mppt_context.cmd_idx, &qcmd, &qdesc);
+			DBG_LOG(MPPT, "Sent command %d: %s [%s]; %d", mppt_context.cmd_idx, qcmd, qdesc, ret);
+		} else {
+			hlog_info(MPPT, "Failed to prepare command %d", mppt_context.cmd_idx);
 		}
 	}
 }

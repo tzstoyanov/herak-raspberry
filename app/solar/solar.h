@@ -16,6 +16,7 @@ extern "C" {
 
 void mqtt_data_internal_temp(float temp);
 
+#define  MPPT_PARAM_FIXED_SIZE	16
 /* MPPT Voltron data */
 typedef struct {
 	float	ac_out_v;
@@ -31,6 +32,11 @@ typedef struct {
 	float	pv_in_bat_a;
 	float	pv_in_v;
 	int		bat_discharge_a;
+	char	serial_number[MPPT_PARAM_FIXED_SIZE];
+	char	firmware_vesion[MPPT_PARAM_FIXED_SIZE];
+	char	firmware_vesion3[MPPT_PARAM_FIXED_SIZE];
+	char	model_name[MPPT_PARAM_FIXED_SIZE];
+	char	gen_model_name[MPPT_PARAM_FIXED_SIZE];
 } mqtt_mppt_data_t;
 void mqtt_data_mppt(mqtt_mppt_data_t *data);
 
