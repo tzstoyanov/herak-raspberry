@@ -199,6 +199,17 @@ static void usb_read_config(void)
 		hlog_info(USBLOG, "Got port %d,%d", usb_context.ports[i].pin_dp, usb_context.ports[i].pin_dm);
 }
 
+void usb_bus_restart(void)
+{
+
+	hcd_port_reset(BOARD_TUH_RHPORT);
+	sleep_ms(50);
+	hcd_port_reset_end(BOARD_TUH_RHPORT);
+
+	if (IS_DEBUG)
+		hlog_info(USBLOG, "BUS restarted.");
+}
+
 static bool usb_stack_init(void)
 {
 	static pio_usb_configuration_t config = PIO_USB_DEFAULT_CONFIG;
@@ -212,9 +223,9 @@ static bool usb_stack_init(void)
 	else
 		config.pinout = PIO_USB_PINOUT_DMDP;
 	if (!tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &config))
-		return false;
+		goto err;
 	if (!tuh_init(BOARD_TUH_RHPORT))
-		return false;
+		goto err;
 	for (i = 1; i < usb_context.port_count; i++) {
 		if (usb_context.ports[i].pin_dm > usb_context.ports[i].pin_dp)
 			pio_usb_host_add_port(usb_context.ports[i].pin_dp, PIO_USB_PINOUT_DPDM);
@@ -226,6 +237,9 @@ static bool usb_stack_init(void)
 	for (i = 0; i < usb_context.dev_count; i++)
 		hlog_info(USBLOG, "\t%0.4X:%0.4X", usb_context.devices[i].desc.vid, usb_context.devices[i].desc.pid);
 	return true;
+err:
+	hlog_warning(USBLOG, "Failed to init USB subsystem");
+	return false;
 }
 
 bool usb_init(void)

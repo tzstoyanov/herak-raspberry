@@ -76,6 +76,7 @@ int lcd_clear_cell(int idx);
 /* USB API */
 bool usb_init(void);
 void usb_run(void);
+void usb_bus_restart(void);
 int usb_send_to_device(int idx, char *buf, int len);
 typedef struct {
 	uint16_t	vid; /* Vendor ID */
