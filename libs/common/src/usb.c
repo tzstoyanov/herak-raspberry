@@ -202,9 +202,9 @@ static void usb_read_config(void)
 void usb_bus_restart(void)
 {
 
-	hcd_port_reset(BOARD_TUH_RHPORT);
+	tuh_rhport_reset_bus(BOARD_TUH_RHPORT, true);
 	sleep_ms(50);
-	hcd_port_reset_end(BOARD_TUH_RHPORT);
+	tuh_rhport_reset_bus(BOARD_TUH_RHPORT, false);
 
 	if (IS_DEBUG)
 		hlog_info(USBLOG, "BUS restarted.");
@@ -260,7 +260,6 @@ void usb_run(void)
 	if (!usb_context.dev_count && !usb_context.force_init)
 		return;
 
-	pio_usb_host_task();
 	now = to_ms_since_boot(get_absolute_time());
 	if ((now - last) >= USB_RCV_REUQEST_PING_MS) {
 		last = now;
