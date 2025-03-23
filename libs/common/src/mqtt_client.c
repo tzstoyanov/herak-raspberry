@@ -243,7 +243,8 @@ int mqtt_msg_discovery_send(void)
 
 	now = time_ms_since_boot();
 	MQTT_CLIENT_LOCK;
-		if ((now - mqtt_context.discovery_last_send) > DISCOVERY_INTERVAL_MSEC)
+		if (!mqtt_context.discovery_last_send ||
+		    (now - mqtt_context.discovery_last_send) > DISCOVERY_INTERVAL_MSEC)
 			send = true;
 	MQTT_CLIENTL_UNLOCK;
 	if (!send)
@@ -571,7 +572,8 @@ int mqtt_msg_discovery_register(mqtt_discovery_t *discovery)
 			ADD_STR("%s", ",");
 		ADD_STR("\"%s\":{", discovery->components[i].name);
 		ADD_STR("\"p\": \"%s\"", discovery->components[i].platform);
-		ADD_STR(",\"unique_id\": \"%s\"", discovery->components[i].id);
+		ADD_STR(",\"unique_id\": \"%s_%s\"",
+				mqtt_context.client_info.client_id, discovery->components[i].id);
 		if (discovery->components[i].dev_class)
 			ADD_STR(",\"device_class\": \"%s\"", discovery->components[i].dev_class);
 		if (discovery->components[i].unit)
