@@ -206,7 +206,7 @@ int ssr_init(void)
 		ssr_context.relays[i].gpio_pin = -1;
 
 	tok = param_get(SSR_TRIGGER);
-	if (tok && strlen(tok) > 1)
+	if (tok && strlen(tok) >= 1)
 		ssr_context.on_state = (int)strtol(tok, NULL, 10);
 	free(tok);
 
