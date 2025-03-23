@@ -104,7 +104,7 @@ struct bt_terminal_t {
 	uint32_t	readId;
 	uint32_t	writeId;
 	bool wait_response;
-	uint32_t send_time;
+	uint64_t send_time;
 };
 
 static struct {
@@ -382,11 +382,11 @@ void bms_solar_query(void)
 {
 	const char *qcmd, *qdesc;
 	static uint8_t rchar;
-	uint32_t now;
+	uint64_t now;
 	int len;
 	uint8_t *cmd;
 
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	BMS_LOCAL_LOCK;
 		if (bms_context.state != BT_READY)
 			goto out;

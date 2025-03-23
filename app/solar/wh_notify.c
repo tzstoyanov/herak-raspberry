@@ -23,7 +23,7 @@
 
 static struct {
 	int wh_idx;
-	uint32_t last_send;
+	uint64_t last_send;
 } wh_notify_context;
 
 static bool wh_notify_get_config(char **server, char **endpoint, int *port)
@@ -79,9 +79,9 @@ int wh_notify(int level)
 
 void wh_notify_send(void)
 {
-	uint32_t now;
+	uint64_t now;
 
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	if ((now - wh_notify_context.last_send) > WH_SEND_DELAY_MS) {
 		wh_notify(temperature_internal_get());
 		wh_notify_context.last_send = now;
