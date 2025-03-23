@@ -72,3 +72,6 @@ SOIL_D		<sensor_id>:<gpio_id>
 # sensor analog input, in format <sensor_id>:<gpio_id>
 # The gpio pin must be one of the ADC inputs
 SOIL_A		<sensor_id>:<gpio_id>
+
+# OpenTherm pins config
+OPENTHERM_PINS <rx_pin>;<tx_pin>
