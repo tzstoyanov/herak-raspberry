@@ -26,6 +26,7 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 - Voltronic VM III inverter, over USB using [MAX communication protocol](docs/MAX-Communication-Protocol.pdf).
 - [DALY BMS](docs/Daly-Communications-Protocol-V1.2.pdf), over Bluetooth and [HLK-B40 serial interface](docs/HLK-B40.pdf).
 - [Solid State Relays](docs/SSR_8Channel_EN.pdf).
+- [OpenTherm](docs/Opentherm-Protocol-v2-2.pdf) device in master mode.
 
 ## Applications:
 Applications are built on top of common library, which provides basic functionality:
@@ -46,6 +47,12 @@ sends the data to a remote MQTT server.
 ### Irrigation
 Reads soil moisture sensor and controls set of SSRs using web commands and
 sends the data to a remote MQTT server.
+
+### Boiler
+Monitors and controls OpenTherm boiler. Sends the data to a remote MQTT
+server and executes web control commands. The PICO device has to be
+connected to the OT pins of the boiler using
+an [OpenTherm Adapter](https://ihormelnyk.com/opentherm_adapter).
 
 ## Try it out
 
@@ -84,8 +91,9 @@ It automatically reboots the device in bootloader mode and copies the new image.
 
 ## Documentation
 - [MAX communication protocol](docs/MAX-Communication-Protocol.pdf).
-- [DALY BMS protocol](docs/Daly-Communications-Protocol-V1.2.pdf)
-- [HLK-B40 serial interface](docs/HLK-B40.pdf)
+- [DALY BMS protocol](docs/Daly-Communications-Protocol-V1.2.pdf).
+- [HLK-B40 serial interface](docs/HLK-B40.pdf).
+- [OpenTherm](docs/Opentherm-Protocol-v2-2.pdf).
 
 ## License
 herak-raspberry is available under the [GPLv2.0 or later license](LICENSE).

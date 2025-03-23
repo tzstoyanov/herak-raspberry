@@ -40,3 +40,9 @@ jobs:
         cmake ../../app/irrig
         make
         ls -al ${{runner.workspace}}/herak-raspberry/build/irrig-ci/herak-gogo-irrig.uf2
+        cp -f ${{runner.workspace}}/herak-raspberry/scripts/params_all.txt /${{runner.workspace}}/herak-raspberry/app/boiler/params.txt
+        mkdir ${{runner.workspace}}/herak-raspberry/build/boiler-ci
+        cd ${{runner.workspace}}/herak-raspberry/build/boiler-ci
+        cmake ../../app/boiler
+        make
+        ls -al ${{runner.workspace}}/herak-raspberry/build/boiler-ci/herak-open-therm.uf2
