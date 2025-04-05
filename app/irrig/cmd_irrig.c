@@ -126,5 +126,7 @@ int cmd_irrig_init(void)
 {
 	if (webserv_add_commands(SSR_URL, ssr_requests, ARRAY_SIZE(ssr_requests), SSR_DESC, NULL) < 0)
 		hlog_warning(SSRLOG, "WEB Failed to register the commands.");
+	if (mqtt_add_commands(SSR_URL, ssr_requests, ARRAY_SIZE(ssr_requests), SSR_DESC, NULL) < 0)
+		hlog_warning(SSRLOG, "MQTT Failed to register the commands.");
 	return 0;
 }

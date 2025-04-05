@@ -311,6 +311,7 @@ bool webdebug_init(void)
 
 	if (!webdebug_read_config())
 		return false;
+	mqtt_add_commands(WEBDEBUG_URL, debug_requests, ARRAY_SIZE(debug_requests), WEBDEBUG_DESC, NULL);
 	idx = webserv_add_commands(WEBDEBUG_URL, debug_requests, ARRAY_SIZE(debug_requests), WEBDEBUG_DESC, NULL);
 	if (idx < 0)
 		return false;

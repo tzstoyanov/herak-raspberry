@@ -105,8 +105,10 @@ typedef struct {
 } mqtt_discovery_t;
 
 /* MQTT */
+typedef void (*mqtt_msg_receive_cb_t)(char *topic, char *data, uint16_t len, void *context);
 void mqtt_msg_publish(char *message, bool force);
 int mqtt_msg_discovery_register(mqtt_discovery_t *discovery);
+int mqtt_add_commands(char *url, app_command_t *commands, int commands_cont, char *description, void *user_data);
 
 /* LCD API */
 int lcd_set_int(int idx, int row, int column, int num);
