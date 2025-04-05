@@ -21,8 +21,12 @@
 #define MQTTLOG	"mqtt"
 #define MQTT_KEEPALIVE_S	100
 #define IP_TIMEOUT_MS	20000
-#define DISCOVERY_INTERVAL_MSEC		3600000 // send every hour; 60*60*1000
+#define SEND_TIMEOUT_MS	 2000
+// send discovery + subscribe on every hour; 60*60*1000
+#define CONFIG_INTERVAL_MSEC		3600000
 #define DISCOVERY_TOPIC_TEMPLATE	"homeassistant/device/%s/config"
+#define COMMAND_TOPIC_TEMPLATE		"homeassistant/device/%s/command"
+#define MAX_CMD_HANDLERS		3
 
 #define MSEC_INSEC	60000ULL
 
@@ -53,11 +57,31 @@ enum mqtt_client_state_t {
 	MQTT_CLIENT_CONNECTED
 };
 
+typedef struct {
+	int count;
+	char *url;
+	char *description;
+	void *user_data;
+	app_command_t *user_hook;
+} mqtt_cmd_t;
+
+typedef struct {
+	char *cmd_topic;
+	void *cmd_context;
+	int cmd_handler;
+	mqtt_cmd_t hooks[MAX_CMD_HANDLERS];
+	int cmd_msg_size;
+	bool cmd_msg_in_progress;
+	char cmd_msg[MQTT_OUTPUT_RINGBUF_SIZE];
+	mqtt_msg_receive_cb_t cmd_hook;
+} mqtt_commads_t;
+
 static struct {
 	char *server_url;
 	char *state_topic;
 	char *discovery_topic;
-	uint64_t discovery_last_send;
+	uint64_t config_last_send;
+	mqtt_commads_t	commands;
 	bool discovery_send;
 	char discovery_msg[MQTT_OUTPUT_RINGBUF_SIZE];
 	int server_port;
@@ -70,19 +94,232 @@ static struct {
 	mqtt_client_t *client;
 	struct mqtt_connect_client_info_t client_info;
 	bool data_send;
-	bool send_in_progerss;
+	bool send_in_progress;
+	uint64_t send_start;
 	uint64_t last_send;
 	mutex_t lock;
 	uint32_t connect_count;
 	uint32_t debug;
 } mqtt_context;
 
+static void mqtt_incoming_publish(void *arg, const char *topic, u32_t tot_len)
+{
+	UNUSED(arg);
+
+	MQTT_CLIENT_LOCK;
+	if (!mqtt_context.commands.cmd_topic ||
+		 mqtt_context.commands.cmd_msg_in_progress ||
+		 tot_len >= MQTT_OUTPUT_RINGBUF_SIZE)
+		goto out;
+
+	if (strcmp(topic, mqtt_context.commands.cmd_topic))
+		goto out;
+
+	mqtt_context.commands.cmd_msg_in_progress = true;
+	mqtt_context.commands.cmd_msg_size = 0;
+
+out:
+	MQTT_CLIENTL_UNLOCK;
+}
+
+static void mqtt_call_user_cb(void)
+{
+	cmd_run_context_t ctx = {0};
+	app_command_t *cmd;
+	int data_offset;
+	char *url;
+	int i, j;
+	int ret;
+
+	if (mqtt_context.commands.cmd_msg_size < 2)
+		return;
+
+	ctx.type = CMD_CTX_MQTT;
+	for (i = 0; i < mqtt_context.commands.cmd_handler; i++) {
+		url = mqtt_context.commands.hooks[i].url;
+		if (!url)
+			continue;
+		if (strlen(url) > strlen(mqtt_context.commands.cmd_msg))
+			continue;
+		if (strncmp(mqtt_context.commands.cmd_msg, url, strlen(url)))
+			continue;
+		data_offset = strlen(url);
+		if (mqtt_context.commands.cmd_msg[data_offset] != '/')
+			continue;
+		data_offset++;
+		for (j = 0; j < mqtt_context.commands.hooks[i].count; j++) {
+			cmd = &mqtt_context.commands.hooks[i].user_hook[j];
+			if (!cmd->cb)
+				continue;
+			if (strlen(cmd->command) > strlen(mqtt_context.commands.cmd_msg + data_offset))
+				continue;
+			if (strncmp(mqtt_context.commands.cmd_msg + data_offset, cmd->command, strlen(cmd->command)))
+				continue;
+			data_offset += strlen(cmd->command);
+			ret = cmd->cb(&ctx, cmd->command, mqtt_context.commands.cmd_msg + data_offset,
+						  mqtt_context.commands.hooks[i].user_data);
+			if (IS_DEBUG)
+				hlog_info(MQTTLOG, "Executed user command %s: %d", mqtt_context.commands.cmd_msg, ret);
+			break;
+		}
+	}
+}
+
+static void mqtt_incoming_data(void *arg, const u8_t *data, u16_t len, u8_t flags)
+{
+	UNUSED(arg);
+
+	MQTT_CLIENT_LOCK;
+
+	if (!mqtt_context.commands.cmd_msg_in_progress)
+		goto out;
+	if ((mqtt_context.commands.cmd_msg_size + len) >= (MQTT_OUTPUT_RINGBUF_SIZE-1))
+		goto out;
+
+	memcpy(mqtt_context.commands.cmd_msg + mqtt_context.commands.cmd_msg_size, data, len);
+	mqtt_context.commands.cmd_msg_size += len;
+
+	if (flags & MQTT_DATA_FLAG_LAST) {
+		mqtt_context.commands.cmd_msg[mqtt_context.commands.cmd_msg_size] = '\0';
+		mqtt_call_user_cb();
+		mqtt_context.commands.cmd_msg_in_progress = false;
+		mqtt_context.commands.cmd_msg_size = 0;
+	}
+
+out:
+	MQTT_CLIENTL_UNLOCK;
+}
+
+static int mqtt_cmd_subscribe(void)
+{
+	err_t ret = -1;
+
+	MQTT_CLIENT_LOCK;
+	if (!mqtt_context.commands.cmd_topic)
+		goto out;
+	if (mqtt_context.state != MQTT_CLIENT_CONNECTED)
+		goto out;
+	ret = mqtt_subscribe(mqtt_context.client, mqtt_context.commands.cmd_topic, MQTT_QOS, NULL, NULL);
+
+	if (IS_DEBUG)
+		hlog_info(MQTTLOG, "Subscribed to MQTT topic [%s]: %d", mqtt_context.commands.cmd_topic, ret);
+
+out:
+	MQTT_CLIENTL_UNLOCK;
+	return ret;
+}
+
+static void mqtt_publish_cb(void *arg, err_t result)
+{
+	UNUSED(result);
+	UNUSED(arg);
+	MQTT_CLIENT_LOCK;
+		mqtt_context.send_in_progress = false;
+	MQTT_CLIENTL_UNLOCK;
+}
+
+static int mqtt_msg_send(char *topic, char *message)
+{
+	uint64_t now, last;
+	bool in_progress;
+	err_t err;
+
+
+	if (!mqtt_is_connected())
+		return -1;
+
+	now = time_ms_since_boot();
+	MQTT_CLIENT_LOCK;
+		in_progress = mqtt_context.send_in_progress;
+		last = mqtt_context.send_start;
+	MQTT_CLIENTL_UNLOCK;
+
+	if (in_progress) {
+		if ((now - last) < SEND_TIMEOUT_MS) {
+			if (IS_DEBUG)
+				hlog_info(MQTTLOG, "Cannot publish: connected %d, send in progress %d", mqtt_is_connected(), in_progress);
+			return -1;
+		} else {
+			MQTT_CLIENT_LOCK;
+				mqtt_context.send_in_progress = false;
+			MQTT_CLIENTL_UNLOCK;
+			if (IS_DEBUG)
+				hlog_info(MQTTLOG, "Timeout sending MQTT packet");
+		}
+	}
+
+	LWIP_LOCK_START;
+		err = mqtt_publish(mqtt_context.client, topic, message,
+						   strlen(message), MQTT_QOS, MQTT_RETAIN, mqtt_publish_cb, NULL);
+	LWIP_LOCK_END;
+
+	if (err == ERR_OK) {
+		MQTT_CLIENT_LOCK;
+			mqtt_context.send_in_progress = true;
+			mqtt_context.send_start = time_ms_since_boot();
+		MQTT_CLIENTL_UNLOCK;
+		if (IS_DEBUG)
+			hlog_info(MQTTLOG, "Published %d bytes", strlen(message));
+	} else {
+		hlog_info(MQTTLOG, "Failed to publish the message: %d", err);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int mqtt_msg_discovery_send(void)
+{
+	int ret;
+
+	if (!mqtt_context.discovery_send)
+		return -1;
+
+	ret = mqtt_msg_send(mqtt_context.discovery_topic, mqtt_context.discovery_msg);
+	if (!ret) {
+		if (IS_DEBUG)
+			hlog_info(MQTTLOG, "Send %d bytes discovery message", strlen(mqtt_context.discovery_msg));
+	} else {
+		hlog_info(MQTTLOG, "Failed to publish %d bytes discovery message",
+				  strlen(mqtt_context.discovery_msg));
+	}
+
+	return ret;
+}
+
+static void mqtt_config_send(void)
+{
+	bool send = false;
+	uint64_t now;
+	int ret;
+
+	if (mqtt_context.state != MQTT_CLIENT_CONNECTED)
+		return;
+
+	now = time_ms_since_boot();
+	MQTT_CLIENT_LOCK;
+		if (!mqtt_context.config_last_send ||
+		    (now - mqtt_context.config_last_send) > CONFIG_INTERVAL_MSEC)
+			send = true;
+	MQTT_CLIENTL_UNLOCK;
+	if (!send)
+		return;
+	ret = mqtt_msg_discovery_send();
+	if (!ret)
+		ret = mqtt_cmd_subscribe();
+	if (!ret) {
+		MQTT_CLIENT_LOCK;
+			mqtt_context.config_last_send = now;
+		MQTT_CLIENTL_UNLOCK;
+	}
+}
+
 static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
 {
 	UNUSED(client);
 	UNUSED(arg);
 	MQTT_CLIENT_LOCK;
-		mqtt_context.send_in_progerss = false;
+		mqtt_context.send_in_progress = false;
 	MQTT_CLIENTL_UNLOCK;
 
 	switch (status) {
@@ -91,12 +328,14 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 			system_log_status();
 			MQTT_CLIENT_LOCK;
 				mqtt_context.connect_count++;
-				mqtt_context.discovery_last_send = 0;
+				mqtt_context.config_last_send = 0;
+				mqtt_set_inpub_callback(client, mqtt_incoming_publish, mqtt_incoming_data, NULL);
 			MQTT_CLIENTL_UNLOCK;
 			if (IS_DEBUG)
 				hlog_info(MQTTLOG, "Connected accepted");
 		}
 		mqtt_context.state = MQTT_CLIENT_CONNECTED;
+		mqtt_config_send();
 		break;
 	case MQTT_CONNECT_DISCONNECTED:
 		if (mqtt_context.state != MQTT_CLIENT_DISCONNECTED)
@@ -147,62 +386,30 @@ bool mqtt_is_connected(void)
 
 static void mqtt_log_status(void *context)
 {
+	int i, j;
 
 	UNUSED(context);
 
-	if (!mqtt_is_connected())
+	if (!mqtt_is_connected()) {
 		hlog_info(MQTTLOG, "Not connected to a server, looking for %s ... connect count %d ",
 				  mqtt_context.server_url, mqtt_context.connect_count);
-	else
-		hlog_info(MQTTLOG, "Connected to server %s, publish rate limit between %lldppm and %lldppm, connect count %d",
-				mqtt_context.server_url, MSEC_INSEC/mqtt_context.mqtt_max_delay,
-				MSEC_INSEC/mqtt_context.mqtt_min_delay, mqtt_context.connect_count);
-}
-
-static void mqtt_publish_cb(void *arg, err_t result)
-{
-	UNUSED(result);
-	UNUSED(arg);
-	MQTT_CLIENT_LOCK;
-		mqtt_context.send_in_progerss = false;
-	MQTT_CLIENTL_UNLOCK;
-}
-
-static int mqtt_msg_send(char *topic, char *message)
-{
-	bool in_progress;
-	err_t err;
-
-	if (!mqtt_is_connected())
-		return -1;
-
-	MQTT_CLIENT_LOCK;
-		in_progress = mqtt_context.send_in_progerss;
-	MQTT_CLIENTL_UNLOCK;
-
-	if (in_progress) {
-		if (IS_DEBUG)
-			hlog_info(MQTTLOG, "Cannot publish: connected %d, send in progress %d", mqtt_is_connected(), in_progress);
-		return -1;
+		return;
 	}
+	hlog_info(MQTTLOG, "Connected to server %s, publish rate limit between %lldppm and %lldppm, connect count %d",
+			mqtt_context.server_url, MSEC_INSEC/mqtt_context.mqtt_max_delay,
+			MSEC_INSEC/mqtt_context.mqtt_min_delay, mqtt_context.connect_count);
+	if (mqtt_context.commands.cmd_topic)
+		hlog_info(MQTTLOG, "Listen to topic [%s]", mqtt_context.commands.cmd_topic);
 
-	LWIP_LOCK_START;
-		err = mqtt_publish(mqtt_context.client, topic, message,
-						   strlen(message), MQTT_QOS, MQTT_RETAIN, mqtt_publish_cb, NULL);
-	LWIP_LOCK_END;
-
-	if (err == ERR_OK) {
-		MQTT_CLIENT_LOCK;
-			mqtt_context.send_in_progerss = true;
-		MQTT_CLIENTL_UNLOCK;
-		if (IS_DEBUG)
-			hlog_info(MQTTLOG, "Published %d bytes", strlen(message));
-	} else {
-		hlog_info(MQTTLOG, "Failed to publish the message: %d", err);
-		return -1;
+	for (i = 0; i < mqtt_context.commands.cmd_handler; i++) {
+		hlog_info(MQTTLOG, "  Serving user commands [%s]:", mqtt_context.commands.hooks[i].description);
+		for (j = 0; j < mqtt_context.commands.hooks[i].count; j++) {
+			hlog_info(MQTTLOG, "    %s/%s%s",
+					  mqtt_context.commands.hooks[i].url,
+					  mqtt_context.commands.hooks[i].user_hook[j].command,
+					  mqtt_context.commands.hooks[i].user_hook[j].help?mqtt_context.commands.hooks[i].user_hook[j].help:"");
+		}
 	}
-
-	return 0;
 }
 
 void mqtt_msg_publish(char *message, bool force)
@@ -230,38 +437,6 @@ void mqtt_msg_publish(char *message, bool force)
 			mqtt_context.last_send = time_ms_since_boot();
 		MQTT_CLIENTL_UNLOCK;
 	}
-}
-
-int mqtt_msg_discovery_send(void)
-{
-	bool send = false;
-	uint64_t now;
-	int ret;
-
-	if (!mqtt_context.discovery_send)
-		return -1;
-
-	now = time_ms_since_boot();
-	MQTT_CLIENT_LOCK;
-		if (!mqtt_context.discovery_last_send ||
-		    (now - mqtt_context.discovery_last_send) > DISCOVERY_INTERVAL_MSEC)
-			send = true;
-	MQTT_CLIENTL_UNLOCK;
-	if (!send)
-		return 0;
-
-	ret = mqtt_msg_send(mqtt_context.discovery_topic, mqtt_context.discovery_msg);
-	if (!ret) {
-		MQTT_CLIENT_LOCK;
-			mqtt_context.discovery_last_send = now;
-		MQTT_CLIENTL_UNLOCK;
-		if (IS_DEBUG)
-			hlog_info(MQTTLOG, "Send %d bytes discovery message", strlen(mqtt_context.discovery_msg));
-	} else {
-		hlog_info(MQTTLOG, "Failed to publish %d bytes discovery message",
-				  strlen(mqtt_context.discovery_msg));
-	}
-	return ret;
 }
 
 static void mqtt_connect(void)
@@ -388,7 +563,7 @@ void mqtt_run(void)
 	mqtt_connect();
 	if (mqtt_context.state != MQTT_CLIENT_CONNECTED)
 		return;
-	mqtt_msg_discovery_send();
+	mqtt_config_send();
 }
 
 static int mqtt_get_config(void)
@@ -468,7 +643,7 @@ bool mqtt_init(void)
 	mqtt_context.client_info.will_msg = WILL_MSG;
 	mqtt_context.client_info.will_qos = 1;
 	mqtt_context.client_info.will_retain = 1;
-	mqtt_context.send_in_progerss = false;
+	mqtt_context.send_in_progress = false;
 	mqtt_context.discovery_send = false;
 	mqtt_context.max_payload_size = MQTT_OUTPUT_RINGBUF_SIZE - (strlen(mqtt_context.state_topic) + 2);
 
@@ -591,7 +766,7 @@ int mqtt_msg_discovery_register(mqtt_discovery_t *discovery)
 
 	MQTT_CLIENT_LOCK;
 		mqtt_context.discovery_send = true;
-		mqtt_context.discovery_last_send = 0;
+		mqtt_context.config_last_send = 0;
 	MQTT_CLIENTL_UNLOCK;
 
 	if (IS_DEBUG)
@@ -599,4 +774,44 @@ int mqtt_msg_discovery_register(mqtt_discovery_t *discovery)
 				  strlen(mqtt_context.discovery_msg));
 
 	return size;
+}
+
+int mqtt_add_commands(char *url, app_command_t *commands, int commands_cont, char *description, void *user_data)
+{
+	mqtt_cmd_t *arr_hooks;
+	int size, ret;
+
+	MQTT_CLIENT_LOCK;
+
+	if (!mqtt_context.state_topic)
+		goto out_err;
+	if (mqtt_context.commands.cmd_handler >= MAX_CMD_HANDLERS)
+		goto out_err;
+
+	if (!mqtt_context.commands.cmd_topic) {
+		size = strlen(mqtt_context.state_topic) + strlen(COMMAND_TOPIC_TEMPLATE) + 1;
+		mqtt_context.commands.cmd_topic = malloc(size);
+		if (!mqtt_context.commands.cmd_topic)
+			goto out_err;
+		ret = snprintf(mqtt_context.commands.cmd_topic, size, COMMAND_TOPIC_TEMPLATE, mqtt_context.state_topic);
+		if (ret <= 0) {
+			free(mqtt_context.commands.cmd_topic);
+			mqtt_context.commands.cmd_topic = NULL;
+			goto out_err;
+		}
+	}
+	arr_hooks = &mqtt_context.commands.hooks[mqtt_context.commands.cmd_handler++];
+	arr_hooks->url = url;
+	arr_hooks->description = description;
+	arr_hooks->count = commands_cont;
+	arr_hooks->user_data = user_data;
+	arr_hooks->user_hook = commands;
+
+	MQTT_CLIENTL_UNLOCK;
+	mqtt_cmd_subscribe();
+	return 0;
+
+out_err:
+	MQTT_CLIENTL_UNLOCK;
+	return -1;
 }

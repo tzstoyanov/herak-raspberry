@@ -326,6 +326,8 @@ int boiler_cmd_init(opentherm_context_t *boiler)
 {
 	if (webserv_add_commands(BOILER_URL, boiler_web_requests, ARRAY_SIZE(boiler_web_requests), BOILER_DESC, boiler) < 0)
 		hlog_warning(OTHLOG, "WEB Failed to register the commands.");
+	if (mqtt_add_commands(BOILER_URL, boiler_web_requests, ARRAY_SIZE(boiler_web_requests), BOILER_DESC, boiler) < 0)
+		hlog_warning(OTHLOG, "MQTT Failed to register the commands.");
 
 	return 0;
 }
