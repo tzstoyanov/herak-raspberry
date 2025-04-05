@@ -53,7 +53,7 @@ int main(void)
 	}
 
 	boiler_data_init(&boiler.data);
-	opentherm_web_init(&boiler);
+	boiler_cmd_init(&boiler);
 	opentherm_cmd_init(&boiler);
 	if (!opentherm_pio_init(&boiler))
 		has_boiler = true;

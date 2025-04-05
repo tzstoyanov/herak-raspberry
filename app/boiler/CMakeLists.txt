@@ -55,7 +55,7 @@ add_executable(${PROJECT_NAME}
 #  ${CMAKE_CURRENT_LIST_DIR}/mqtt_boiler.c
   ${CMAKE_CURRENT_LIST_DIR}/opentherm_pio.c
   ${CMAKE_CURRENT_LIST_DIR}/opentherm_cmd.c
-  ${CMAKE_CURRENT_LIST_DIR}/opentherm_web.c
+  ${CMAKE_CURRENT_LIST_DIR}/cmd_boiler.c
   ${CMAKE_CURRENT_LIST_DIR}/mqtt_boiler.c
   ${CMAKE_CURRENT_LIST_DIR}/main.c
 )

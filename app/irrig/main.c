@@ -34,6 +34,7 @@ int main(void)
 	soil_count = soil_init();
 	ssr_count = ssr_init();
 	mqtt_irrig_init(soil_count, ssr_count);
+	cmd_irrig_init();
 
 	while (true) {
 		if (blinik_count++ % BLINK_INERVAL == 0)

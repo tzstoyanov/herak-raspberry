@@ -55,6 +55,7 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c
   ${CMAKE_CURRENT_LIST_DIR}/soil.c
   ${CMAKE_CURRENT_LIST_DIR}/ssr.c
+  ${CMAKE_CURRENT_LIST_DIR}/cmd_irrig.c
   ${CMAKE_CURRENT_LIST_DIR}/mqtt_irrig.c
   ${CMAKE_CURRENT_LIST_DIR}/main.c
 )
