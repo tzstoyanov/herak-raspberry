@@ -54,9 +54,9 @@ WEBHOOK_SERVER
 WEBHOOK_PORT
 WEBHOOK_ENDPINT
 
-###### Config, specific to solar application:
-# Daly BMS - Bluethooth <address>:<pin>
-BMS_DALY_BT		<XX:XX:XX:XX:XX:XX>;<XXXX>
+###### Config, specific to solar and bms application:
+# BMS - Bluethooth <address>:<pin>
+BMS_BT		<XX:XX:XX:XX:XX:XX>;<XXXX>
 # Voltron inverter - USB address, <venodr-id>:<device-id>
 MPPT_VOLTRON_USB	<XXXX:XXXX>
 

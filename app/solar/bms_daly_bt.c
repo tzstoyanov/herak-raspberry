@@ -426,10 +426,10 @@ static bool get_bms_config(void)
 	char *tok;
 	int  i;
 
-	if (BMS_DALY_BT_len < 1)
+	if (BMS_BT_len < 1)
 		return false;
 
-	bt_id = param_get(BMS_DALY_BT);
+	bt_id = param_get(BMS_BT);
 	if (!bt_id || strlen(bt_id) < 1)
 		goto out;
 	rest = bt_id;
