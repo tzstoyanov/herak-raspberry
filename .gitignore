@@ -14,7 +14,7 @@
 tags
 TAGS
 cscope*
-params.txt
+params*.txt
 params.h
 params.c
 build/
