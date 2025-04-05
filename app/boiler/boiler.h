@@ -17,9 +17,9 @@ extern "C" {
 #define OTHLOG   		"opentherm"
 
 #define LOG_PIO_DEBUG	0x0001
-#define LOG_CMD_DEBUG	0x0002
+#define LOG_OCMD_DEBUG	0x0002
 #define LOG_MQTT_DEBUG	0x0004
-#define LOG_WEB_DEBUG	0x0008
+#define LOG_UCMD_DEBUG	0x0008
 bool boiler_dbg_check(uint32_t mask);
 
 typedef struct {
@@ -255,11 +255,11 @@ int opentherm_pio_attached(void);
 int opentherm_pio_find(void);
 void opentherm_pio_log(opentherm_context_t *boiler);
 
-int opentherm_web_init(opentherm_context_t *boiler);
-
 void mqtt_boiler_send(opentherm_context_t *boiler);
 void mqtt_boiler_init(opentherm_context_t *boiler);
 void mqtt_boiler_data(opentherm_context_t *boiler);
 void mqtt_data_internal_temp(float temp);
+
+int boiler_cmd_init(opentherm_context_t *boiler);
 
 #endif /* _MAIN_SHAFT_H_ */

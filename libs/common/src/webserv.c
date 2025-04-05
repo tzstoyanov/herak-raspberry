@@ -21,6 +21,7 @@
 #define HELP_CMD	"help"
 #define HELP_URL	"/help"
 #define HELP_DONE	"done"
+#define CMD_RESP_ERR	"fail"
 //#define WS_DEBUG
 
 #define HTTP_RESPONCE_HEAD	"HTTP/1.1 %d %s\r\nDate: %s\r\nUser-Agent: %s\r\nContent-Type: text/plain; charset=UTF-8\r\nConnection: keep-alive\r\n\r\n"
@@ -57,7 +58,7 @@ struct webcmd_t {
 	int web_handler;
 	char *description;
 	void *user_data;
-	web_requests_t *commands;
+	app_command_t *commands;
 };
 
 struct webhandler_t {
@@ -142,8 +143,10 @@ static void commands_help(int client_idx, struct webcmd_t *handlers)
 static enum http_response_id commands_handler(int client_idx, char *cmd, char *url, void *context)
 {
 	struct webcmd_t *handlers = (struct webcmd_t *)context;
+	cmd_run_context_t r_ctx = {0};
 	char *request, *params;
 	size_t len;
+	int ret;
 	int i;
 
 	if (!cmd)
@@ -172,7 +175,17 @@ static enum http_response_id commands_handler(int client_idx, char *cmd, char *u
 					if (*params != ':')
 						continue;
 				}
-				handlers->commands[i].cb(client_idx, params, handlers->user_data);
+				r_ctx.type = CMD_CTX_WEB;
+				r_ctx.context.web.client_idx = client_idx;
+				ret = handlers->commands[i].cb(&r_ctx, handlers->commands[i].command, params, handlers->user_data);
+				if (!r_ctx.context.web.not_reply) {
+					if (!ret)
+						weberv_client_send(client_idx, HELP_DONE, strlen(HELP_DONE), HTTP_RESP_OK);
+					else
+						weberv_client_send(client_idx, CMD_RESP_ERR, strlen(CMD_RESP_ERR), HTTP_RESP_BAD);
+				}
+				if (!r_ctx.context.web.not_close)
+					weberv_client_close(client_idx);
 				break;
 			}
 		}
@@ -183,7 +196,7 @@ static enum http_response_id commands_handler(int client_idx, char *cmd, char *u
 	return HTTP_RESP_NOT_FOUND;
 }
 
-int webserv_add_commands(char *url, web_requests_t *commands, int commands_cont, char *description, void *user_data)
+int webserv_add_commands(char *url, app_command_t *commands, int commands_cont, char *description, void *user_data)
 {
 	struct webcmd_t *cmd;
 

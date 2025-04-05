@@ -40,6 +40,47 @@ void dump_hex_data(char *topic, const uint8_t *data, int len);
 void dump_char_data(char *topic, const uint8_t *data, int len);
 void wd_update(void);
 
+typedef enum {
+	CMD_CTX_WEB,
+	CMD_CTX_MQTT,
+} run_type_t;
+
+typedef struct {
+	// ToDo
+} run_context_mqtt_t;
+
+typedef struct {
+	int client_idx;
+	bool not_close;
+	bool not_reply;
+} run_context_web_t;
+
+typedef union {
+	run_context_web_t web;
+	run_context_mqtt_t mqtt;
+} run_context_t;
+
+typedef struct {
+	run_type_t 		type;
+	run_context_t	context;
+} cmd_run_context_t;
+
+// C - cmd_run_context_t; S - log string; R - http_response_id
+#define WEB_CLIENT_REPLY_CLOSE(C, S, R)\
+	do {if ((C)->type == CMD_CTX_WEB) {\
+		weberv_client_send((C)->context.web.client_idx, (S), strlen((S)), (R));\
+		weberv_client_close((C)->context.web.client_idx);\
+		(C)->context.web.not_reply = true;\
+		(C)->context.web.not_close = true;\
+	}} while (0)
+
+typedef int (*app_command_cb_t) (cmd_run_context_t *ctx, char *cmd, char *params, void *user_data);
+typedef struct {
+	char *command;
+	char *help;
+	app_command_cb_t cb;
+} app_command_t;
+
 // https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
 typedef struct {
 	char *name;			// mandatory
@@ -187,13 +228,7 @@ int weberv_client_close(int client_idx);
 
 #define WEB_CMD_NR   "\r\n"
 /* Web commands API */
-typedef void (*web_cmd_cb_t) (int client_idx, char *params, void *user_data);
-typedef struct {
-	char *command;
-	char *help;
-	web_cmd_cb_t cb;
-} web_requests_t;
-int webserv_add_commands(char *url, web_requests_t *commands, int commands_cont, char *description, void *user_data);
+int webserv_add_commands(char *url, app_command_t *commands, int commands_cont, char *description, void *user_data);
 
 #ifdef __cplusplus
 }

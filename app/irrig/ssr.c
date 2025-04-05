@@ -29,23 +29,41 @@ static struct {
 	int count;
 	uint8_t on_state;
 	uint32_t state;
-	int hindex;
 	struct ssr_t relays[MAX_SSR_COUNT];
 } ssr_context;
 
-static void ssr_state_set(uint8_t id, bool value, uint32_t time, uint32_t delay)
+void ssr_reset_all(void)
 {
-	if (id < ssr_context.count) {
-		if (!delay)
-			gpio_put(ssr_context.relays[id].gpio_pin, value);
-		ssr_context.relays[id].state = value;
-		ssr_context.relays[id].time_ms = time;
-		ssr_context.relays[id].delay_ms = delay;
-		ssr_context.relays[id].last_switch = to_ms_since_boot(get_absolute_time());
+	int off = !ssr_context.on_state;
+	int i;
+
+	for (i = 0; i < ssr_context.count; i++) {
+		gpio_put(ssr_context.relays[i].gpio_pin, off);
+		ssr_context.relays[i].state = off;
+		ssr_context.relays[i].time_ms = 0;
+		ssr_context.relays[i].delay_ms = 0;
+		ssr_context.relays[i].last_switch = to_ms_since_boot(get_absolute_time());
 	}
+
 }
 
-static void ssr_log(void *context)
+int ssr_state_set(uint8_t id, bool state, uint32_t time, uint32_t delay)
+{
+	int value = state ? ssr_context.on_state : !ssr_context.on_state;
+
+	if (id >= ssr_context.count)
+		return -1;
+	if (!delay)
+		gpio_put(ssr_context.relays[id].gpio_pin, value);
+	ssr_context.relays[id].state = value;
+	ssr_context.relays[id].time_ms = time;
+	ssr_context.relays[id].delay_ms = delay;
+	ssr_context.relays[id].last_switch = to_ms_since_boot(get_absolute_time());
+
+	return 0;
+}
+
+void ssr_log(void *context)
 {
 	uint32_t now, delta_t, delta_d;
 	int i;
@@ -69,83 +87,6 @@ static void ssr_log(void *context)
 				  delta_t/1000, ssr_context.relays[i].time_ms/1000);
 	}
 }
-
-#define STATUS_STR "\tSSR status: \r\n"
-static void ssr_status(int client_idx, char *params, void *user_data)
-{
-	UNUSED(params);
-	UNUSED(user_data);
-
-	weberv_client_send(client_idx, STATUS_STR, strlen(STATUS_STR), HTTP_RESP_OK);
-	debug_log_forward(client_idx);
-	ssr_log(NULL);
-	debug_log_forward(-1);
-	weberv_client_send(client_idx, SSR_STATE_DONE, strlen(SSR_STATE_DONE), HTTP_RESP_OK);
-	weberv_client_close(client_idx);
-}
-
-#define SET_OK_STR "\tSSR switched.\r\n"
-#define SET_ERR_STR "\tInvalid parameters.\r\n"
-static void ssr_set(int client_idx, char *params, void *user_data)
-{
-	int id, state, time, delay;
-	char *rest, *tok;
-
-	UNUSED(user_data);
-
-	if (!params || params[0] != ':' || strlen(params) < 2)
-		goto out_err;
-
-	rest = params + 1;
-	tok = strtok_r(rest, ":", &rest);
-	if (!tok)
-		goto out_err;
-	id = (int)strtol(tok, NULL, 10);
-	if (id < 0 || id >= ssr_context.count)
-		goto out_err;
-
-	tok = strtok_r(rest, ":", &rest);
-	if (!tok)
-		goto out_err;
-	state = (int)strtol(tok, NULL, 10);
-
-	/* Get state time */
-	time = 0;
-	delay = 0;
-	tok = strtok_r(rest, ":", &rest);
-	if (tok) {
-		time = (int)strtol(tok, NULL, 10);
-		if (time < 0)
-			time = 0;
-		/* sec -> ms */
-		time *= 1000;
-
-		/* Get delay */
-		tok = strtok_r(rest, ":", &rest);
-		if (tok) {
-			delay = (int)strtol(tok, NULL, 10);
-			if (delay < 0)
-				delay = 0;
-			/* sec -> ms */
-			delay *= 1000;
-		}
-	}
-
-	ssr_state_set(id, state ? ssr_context.on_state : !ssr_context.on_state, time, delay);
-
-	weberv_client_send(client_idx, SET_OK_STR, strlen(SET_OK_STR), HTTP_RESP_OK);
-	weberv_client_close(client_idx);
-	return;
-
-out_err:
-	weberv_client_send(client_idx, SET_OK_STR, strlen(SET_ERR_STR), HTTP_RESP_BAD);
-	weberv_client_close(client_idx);
-}
-
-static web_requests_t ssr_requests[] = {
-		{"set", ":<ssr_id>:<state_0_1>:<state_time_sec>:<delay_sec>", ssr_set},
-		{"status", NULL, ssr_status},
-};
 
 void ssr_run(void)
 {
@@ -233,11 +174,6 @@ int ssr_init(void)
 		gpio_set_dir(ssr_context.relays[i].gpio_pin, GPIO_OUT);
 		gpio_put(ssr_context.relays[i].gpio_pin, !ssr_context.on_state);
 	}
-
-	i = webserv_add_commands(SSR_URL, ssr_requests, ARRAY_SIZE(ssr_requests), SSR_DESC, NULL);
-	if (i < 0)
-		return false;
-	ssr_context.hindex = i;
 
 	free(config);
 	hlog_info(SSRLOG, "%d Solid State Relays initialized", ssr_context.count);

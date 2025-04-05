@@ -17,7 +17,7 @@
 #define CMD_READ	0x01
 #define CMD_WRITE	0x02
 
-#define IS_CMD_LOG (boiler_dbg_check(LOG_CMD_DEBUG))
+#define IS_CMD_LOG (boiler_dbg_check(LOG_OCMD_DEBUG))
 
 typedef union {
 	uint16_t u16;
