@@ -49,6 +49,7 @@ static struct {
 	log_status_hook_t log_status[LOG_STATUS_HOOKS_COUNT];
 	uint8_t log_status_count;
 	int log_status_progress;
+	bool reconnect;
 } sys_context;
 
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count)
@@ -281,7 +282,7 @@ static void log_wd_boot(void)
 	one_time = true;
 }
 
-void system_reconect(void)
+static void do_system_reconnect(void)
 {
 	hlog_info(COMMONSYSLOG, "Reconnecting ...");
 
@@ -292,6 +293,11 @@ void system_reconect(void)
 	if (sys_context.has_websrv)
 		webserv_reconnect();
 	hlog_reconnect();
+}
+
+void system_reconnect(void)
+{
+	sys_context.reconnect = true;
 }
 
 void system_force_reboot(int delay_ms)
@@ -314,8 +320,6 @@ void wd_update(void)
 
 void system_common_run(void)
 {
-	bool reconnect = false;
-
 	sys_context.last_loop = to_ms_since_boot(get_absolute_time());
 	wd_update();
 	if (sys_context.has_lcd)
@@ -325,7 +329,7 @@ void system_common_run(void)
 		temperature_measure();
 	wd_update();
 	if (sys_context.has_wifi)
-		reconnect = wifi_connect();
+		wifi_connect();
 	if (sys_context.has_bt)
 		bt_run();
 	wd_update();
@@ -343,8 +347,10 @@ void system_common_run(void)
 	if (sys_context.has_websrv)
 		webserv_run();
 	log_wd_boot();
-	if (reconnect)
-		system_reconect();
+	if (sys_context.reconnect) {
+		do_system_reconnect();
+		sys_context.reconnect = false;
+	}
 	wd_update();
 	webdebug_run();
 	system_log_run();

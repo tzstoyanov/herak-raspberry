@@ -42,7 +42,7 @@ extern "C" {
 #define __weak	__attribute__((__weak__))
 #endif
 
-void system_reconect(void);
+void system_reconnect(void);
 void system_set_periodic_log_ms(uint32_t ms);
 
 typedef enum {
@@ -52,7 +52,7 @@ typedef enum {
 } ip_resolve_state_t;
 
 bool wifi_init(void);
-bool wifi_connect(void);
+void wifi_connect(void);
 bool wifi_is_connected(void);
 
 bool mqtt_init(void);
