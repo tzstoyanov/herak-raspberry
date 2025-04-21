@@ -117,19 +117,18 @@ bool wifi_is_connected(void)
 	return bret;
 }
 
-bool wifi_connect(void)
+void wifi_connect(void)
 {
-	bool reconnect = false;
 	int err;
 
 	if (wifi_is_connected()) {
 		if (wifi_context.connect_in_progress) {
 			hlog_info(WIFILOG, "Connected to %s -> got %s", wifi_context.all_nets[wifi_context.net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
-			reconnect = true;
+			system_reconnect();
 		}
 		wifi_context.connect_in_progress = false;
 		wifi_context.all_nets[wifi_context.net_id]->connected = true;
-		return reconnect;
+		return;
 	}
 
 	if (!wifi_context.connect_in_progress) {
@@ -155,5 +154,4 @@ bool wifi_connect(void)
 				wifi_context.all_nets[wifi_context.net_id]->ssid, cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA));
 	}
 
-	return reconnect;
 }
