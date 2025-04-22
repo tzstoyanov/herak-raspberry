@@ -141,9 +141,9 @@ void hlog_reconnect(void)
 	LOG_LOCK;
 		log_context.sever_ip_state = IP_NOT_RESOLEVED;
 		if (log_context.log_pcb) {
-			LWIP_LOCK_START
+			LWIP_LOCK_START;
 				udp_remove(log_context.log_pcb);
-			LWIP_LOCK_END
+			LWIP_LOCK_END;
 			log_context.log_pcb = NULL;
 		}
 	LOG_UNLOCK;
