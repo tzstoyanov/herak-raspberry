@@ -12,5 +12,5 @@
 
 void devices_register_and_init(void)
 {
-
+	DEV_REGISTER(ssr_register);
 }
