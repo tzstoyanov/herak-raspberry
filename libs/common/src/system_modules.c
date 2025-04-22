@@ -10,6 +10,8 @@
 #include "common_internal.h"
 #include "pico/stdlib.h"
 
+#include "devices_init.h"
+
 #define MAX_MODULES 30
 #define SYSMODLOG   "sys_mod"
 
@@ -86,6 +88,8 @@ void sys_modules_init(void)
 {
 	int ret;
 	int i;
+
+	devices_register_and_init();
 
 	for (i = 0; i < sys_modules_context.modules_count; i++) {
 		if (sys_modules_context.modules[i]->commands.hooks)	{
