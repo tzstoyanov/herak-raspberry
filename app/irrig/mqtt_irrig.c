@@ -16,6 +16,8 @@
 #define MQTTLOG	"mqtt"
 #define MQTT_DATA_LEN	512
 #define MQTT_DISCOVERY_MS	1800000 // on 30 min
+#define MQTT_DISCOVERY_LEN	512
+#define COMPONENTS_NUM	1
 
 struct soil_data {
 	uint32_t analog;
@@ -36,7 +38,7 @@ static struct {
 	struct ssr_data ssr[MAX_SSR_COUNT];
 	int ssr_count;
 	bool force;
-	uint64_t last_discovery;
+	mqtt_component_t components[COMPONENTS_NUM];
 } mqtt_irrig_context = {};
 
 #define TIME_STR	64
@@ -80,7 +82,7 @@ static void mqtt_data_send(bool force)
 
 	ADD_MQTT_MSG("}")
 	mqtt_irrig_context.payload[MQTT_DATA_LEN] = 0;
-	mqtt_msg_publish(mqtt_irrig_context.payload, force);
+	mqtt_msg_publish(NULL, mqtt_irrig_context.payload, force);
 }
 
 void mqtt_data_soil(int id, uint32_t analog, uint8_t digital)
@@ -129,37 +131,22 @@ void mqtt_data_internal_temp(float temp)
 
 #define DEV_QOS    2
 #define ORG_NAME   "RaspberryRelay"
-#define COMPONENTS_NUM	1
 static int mqtt_irrig_discovery_add(void)
 {
-	mqtt_discovery_comp_t comps[COMPONENTS_NUM] = {0};
-	mqtt_discovery_t discovery = {0};
-
-	discovery.origin_name = ORG_NAME;
-	discovery.qos = DEV_QOS;
+	mqtt_component_t *comps = mqtt_irrig_context.components;
 
 	/* 1 */
-	comps[0].name = "Chip temperature";
-	comps[0].id = "ch_temp";
+	comps[0].name = "Chip_Temperature";
 	comps[0].platform = "sensor";
 	comps[0].dev_class = "temperature";
 	comps[0].unit = "°C";
 	comps[0].value_template = "{{value_json.in_temp}}";
 
-	discovery.comp_count = COMPONENTS_NUM;
-	discovery.components = comps;
-	return mqtt_msg_discovery_register(&discovery);
+	return mqtt_msg_component_register(&mqtt_irrig_context.components[0]);
 }
 
 void mqtt_irrig_send(void)
 {
-	uint64_t now = time_ms_since_boot();
-
-	if (!mqtt_irrig_context.last_discovery ||
-		(now - mqtt_irrig_context.last_discovery) > MQTT_DISCOVERY_MS) {
-		if (mqtt_irrig_discovery_add() >= 0)
-			mqtt_irrig_context.last_discovery = now;
-	}
 	mqtt_data_send(mqtt_irrig_context.force);
 	mqtt_irrig_context.force = false;
 }
@@ -168,4 +155,5 @@ void mqtt_irrig_init(int soil_count, int ssr_count)
 {
 	mqtt_irrig_context.soil_count = soil_count;
 	mqtt_irrig_context.ssr_count = ssr_count;
+	mqtt_irrig_discovery_add();
 }

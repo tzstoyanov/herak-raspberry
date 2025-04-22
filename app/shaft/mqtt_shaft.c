@@ -33,7 +33,7 @@ static void mqtt_data_send(bool force)
 		snprintf(mqtt_shaft_context.payload, MQTT_DATA_LEN, MQTT_MESSAGE,
 				 get_current_time_str(time_buff, 32),
 				 mqtt_shaft_context.sonar_distance, mqtt_shaft_context.internal_temp);
-	mqtt_msg_publish(mqtt_shaft_context.payload, force);
+	mqtt_msg_publish(NULL, mqtt_shaft_context.payload, force);
 }
 
 void mqtt_data_sonar(float distance)

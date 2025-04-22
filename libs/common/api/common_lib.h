@@ -84,32 +84,27 @@ typedef struct {
 
 // https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
 typedef struct {
+	char *module;		// mandatory
 	char *name;			// mandatory
-	char *id;			// mandatory
-	char *platform;		// mandatory
-	char *dev_class;
-	char *unit;
+	char *platform;		// mandatory - sensor, switch, number ... 
+	char *dev_class;	// temperature, humidity ...
+	char *unit;			// unit of measurement
 	char *value_template;
-} mqtt_discovery_comp_t;
-typedef struct {
-	char *dev_name;
-	char *dev_manufacture;
-	char *dev_model;
-	char *dev_sn;
-	char *dev_sw_ver;
-	char *dev_hw_ver;
-	char *origin_name;		// mandatory
-	char *origin_sw_ver;
-	int qos;
-	int comp_count;
-	mqtt_discovery_comp_t *components; // Array of size comp_count
-} mqtt_discovery_t;
+	char *payload_on;
+	char *payload_off;
+	char *state_topic;
+	int id;
+	bool force;
+	uint64_t last_send;	
+} mqtt_component_t;
 
 /* MQTT */
+#define MQTT_DEV_QOS    2
 typedef void (*mqtt_msg_receive_cb_t)(char *topic, char *data, uint16_t len, void *context);
-void mqtt_msg_publish(char *message, bool force);
-int mqtt_msg_discovery_register(mqtt_discovery_t *discovery);
-int mqtt_add_commands(char *url, app_command_t *commands, int commands_cont, char *description, void *user_data);
+int mqtt_msg_publish(char *topic, char *message, bool force);
+int mqtt_msg_component_publish(mqtt_component_t *component, char *message);
+int mqtt_msg_component_register(mqtt_component_t *component);
+int mqtt_add_commands(char *module, app_command_t *commands, int commands_cont, char *description, void *user_data);
 
 /* LCD API */
 int lcd_set_int(int idx, int row, int column, int num);

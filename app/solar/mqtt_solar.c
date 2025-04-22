@@ -16,57 +16,30 @@
 #define MQTTLOG	"mqtt"
 
 #define MQTT_DATA_LEN	512
-#define MQTT_DISCOVERY_MS	1800000 // on 30 min
+#define COMPONENTS_NUM	1
 static struct {
 	mqtt_mppt_data_t mppt;
 	mqtt_bms_data_t bms;
 	float internal_temp;
-	uint64_t last_discovery;
 	char payload[MQTT_DATA_LEN + 1];
+	mqtt_component_t components[COMPONENTS_NUM];
 } mqtt_solar_context;
 
 #define DEV_QOS    2
 #define ORG_NAME   "MPPT"
 #define ORG_VER	   "MAX"
-#define COMPONENTS_NUM	1
 static int mqtt_mppt_discovery_add(mqtt_mppt_data_t *mppt)
 {
-	mqtt_discovery_comp_t comps[COMPONENTS_NUM] = {0};
-	mqtt_discovery_t discovery = {0};
-
-	discovery.dev_model = mppt->model_name;
-	discovery.dev_sw_ver = mppt->firmware_vesion;
-	discovery.dev_hw_ver = mppt->firmware_vesion3;
-	discovery.dev_sn = mppt->serial_number;
-	discovery.origin_name = ORG_NAME;
-	discovery.origin_sw_ver = ORG_VER;
-	discovery.qos = DEV_QOS;
+	mqtt_component_t *comps = mqtt_solar_context.components;
 
 	/* 1 */
-	comps[0].name = "Chip temperature";
-	comps[0].id = "ch_temp";
+	comps[0].name = "Chip_Temperature";
 	comps[0].platform = "sensor";
 	comps[0].dev_class = "temperature";
 	comps[0].unit = "°C";
 	comps[0].value_template = "{{value_json.in_temp}}";
 
-	discovery.comp_count = COMPONENTS_NUM;
-	discovery.components = comps;
-	return mqtt_msg_discovery_register(&discovery);
-}
-
-static void mqtt_discovery_add(void)
-{
-	uint64_t now = time_ms_since_boot();
-
-	if (mqtt_solar_context.last_discovery &&
-		(now - mqtt_solar_context.last_discovery) < MQTT_DISCOVERY_MS)
-		return;
-
-	if (mqtt_mppt_discovery_add(&mqtt_solar_context.mppt) >= 0)
-		mqtt_solar_context.last_discovery = now;
-	else
-		hlog_warning(MQTTLOG, "Failed to register discovery message");
+	return mqtt_msg_component_register(&mqtt_solar_context.components[0]);
 }
 
 #define TIME_STR	64
@@ -106,12 +79,11 @@ void mqtt_data_send(bool force)
 	}
 
 	if (strlen(mqtt_solar_context.payload))
-		mqtt_msg_publish(mqtt_solar_context.payload, force);
+		mqtt_msg_publish(NULL, mqtt_solar_context.payload, force);
 }
 
 static void mqtt_solar_run(bool force)
 {
-	mqtt_discovery_add();
 	mqtt_data_send(force);
 }
 
@@ -146,4 +118,9 @@ void mqtt_data_internal_temp(float temp)
 		force = true;
 	}
 	mqtt_solar_run(force);
+}
+
+void mqtt_solar_init(void)
+{
+	mqtt_mppt_discovery_add(&mqtt_solar_context.mppt);
 }
