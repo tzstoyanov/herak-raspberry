@@ -27,6 +27,7 @@ extern "C" {
 bool system_common_init(void);
 void system_common_run(void);
 void system_force_reboot(int delay_ms);
+void system_common_main(void);
 
 int sys_asprintf(char **strp, const char *fmt, ...);
 
