@@ -25,6 +25,9 @@ extern char __StackLimit, __bss_end__;
 
 #define PERIODIC_LOG_MS	0
 
+#define MAIN_WAIT_MS	100
+#define BLINK_INTERVAL	3
+
 typedef struct {
 	log_status_cb_t hook;
 	void *user_context;
@@ -215,6 +218,24 @@ bool system_common_init(void)
 	watchdog_update();
 
 	return true;
+}
+
+void system_common_main(void)
+{
+	int blinik_count = 0;
+
+	if (!system_common_init()) {
+		printf("\r\nFailed to initialize the system\r\n");
+		exit(1);
+	}
+
+	while (true) {
+		if (blinik_count++ % BLINK_INTERVAL == 0)
+			LED_ON;
+		system_common_run();
+		LED_OFF;
+		busy_wait_ms(MAIN_WAIT_MS);
+	}
 }
 
 bool system_log_in_progress(void)
