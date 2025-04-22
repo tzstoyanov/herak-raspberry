@@ -1,12 +1,8 @@
-
-
 target_sources(${lib_name} INTERFACE
-   ${CMAKE_CURRENT_LIST_DIR}/devices_init.c
+  ${CMAKE_CURRENT_LIST_DIR}/ssr.c
 )
 
 target_include_directories(${lib_name} INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-
-include(${CMAKE_CURRENT_LIST_DIR}/ssr/CMakeLists.txt)
 
 # enable all warnings
 target_compile_options(${lib_name} INTERFACE -Wall -Wextra)
