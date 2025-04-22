@@ -129,6 +129,7 @@ bool webserv_init(void);
 void webserv_run(void);
 int webserv_port(void);
 void webserv_reconnect(void);
+int weberv_client_close(int client_idx);
 
 bool webdebug_init(void);
 void webdebug_run(void);

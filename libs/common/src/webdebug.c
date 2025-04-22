@@ -13,8 +13,7 @@
 #include "base64.h"
 #include "params.h"
 
-#define WEBDEBUG_URL	"/debug"
-#define WDBLOG			"webdbg"
+#define WDB_MODULE		"debug"
 #define WEBDEBUG_DESC	"Debug and extended logs commands"
 #define WD_REBOOT_DELAY_MS	3000
 
@@ -47,7 +46,7 @@ static int debug_reboot(cmd_run_context_t *ctx, char *cmd, char *params, void *u
 	UNUSED(user_data);
 	UNUSED(cmd);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, REBOOT_STR, HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, REBOOT_STR);
 	if (params && params[0] == ':' && strlen(params) > 2)
 		delay = atoi(params + 1);
 	system_force_reboot(delay);
@@ -98,11 +97,11 @@ static int debug_verbose(cmd_run_context_t *ctx, char *cmd, char *params, void *
 	if (what & DEBUG_BT)
 		bt_debug_set(lvl);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, VERBOSE_STR, HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, VERBOSE_STR);
 	return 0;
 
 out_err:
-	WEB_CLIENT_REPLY_CLOSE(ctx, VERBOSE_ERR_STR, HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, VERBOSE_ERR_STR);
 	return 0;
 }
 
@@ -141,11 +140,11 @@ static int log_level(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 
 	log_level_set(lvl);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, LEVEL_STR, HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, LEVEL_STR);
 	return 0;
 
 out_err:
-	WEB_CLIENT_REPLY_CLOSE(ctx, LEVEL_ERR_STR, HTTP_RESP_BAD);
+	WEB_CLIENT_REPLY(ctx, LEVEL_ERR_STR);
 	return 0;
 }
 
@@ -164,9 +163,9 @@ static int debug_status(cmd_run_context_t *ctx, char *cmd, char *params, void *u
 		} else {
 			weberv_client_send(ctx->context.web.client_idx, STATUS_STR, strlen(STATUS_STR), HTTP_RESP_OK);
 			debug_log_forward(ctx->context.web.client_idx);
-			ctx->context.web.not_close = true;
+			ctx->context.web.keep_open = true;
 		}
-		ctx->context.web.not_reply = true;
+		ctx->context.web.keep_silent = true;
 	}
 
 	webdebug_context.status_log = true;
@@ -181,7 +180,7 @@ static int debug_ping(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 	UNUSED(params);
 	UNUSED(user_data);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, PING_STR, HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, PING_STR);
 	return 0;
 }
 
@@ -197,12 +196,12 @@ static int debug_log_on(cmd_run_context_t *ctx, char *cmd, char *params, void *u
 
 	if (webdebug_context.client_log >= 0) {
 		weberv_client_send(ctx->context.web.client_idx, STATUS_TOO_MANY_STR, strlen(STATUS_TOO_MANY_STR), HTTP_RESP_TOO_MANY_ERROR);
-		ctx->context.web.not_reply = true;
+		ctx->context.web.keep_open = true;
 		return 0;
 	}
 	weberv_client_send(ctx->context.web.client_idx, LOGON_STR, strlen(LOGON_STR), HTTP_RESP_OK);
-	ctx->context.web.not_reply = true;
-	ctx->context.web.not_close = true;
+	ctx->context.web.keep_silent = true;
+	ctx->context.web.keep_open = true;
 	debug_log_forward(ctx->context.web.client_idx);
 	return 0;
 }
@@ -214,7 +213,7 @@ static int debug_log_off(cmd_run_context_t *ctx, char *cmd, char *params, void *
 	UNUSED(params);
 	UNUSED(user_data);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, LOGOFF_STR, HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, LOGOFF_STR);
 	if (ctx->type == CMD_CTX_WEB &&
 		webdebug_context.client_log != ctx->context.web.client_idx)
 		weberv_client_close(webdebug_context.client_log);
@@ -229,7 +228,7 @@ static int debug_reset(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	UNUSED(params);
 	UNUSED(user_data);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, RESET_STR, HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, RESET_STR);
 	system_set_periodic_log_ms(0);
 	log_level_set(HLOG_INFO);
 	log_debug_set(0);
@@ -247,7 +246,7 @@ static int debug_periodic_log(cmd_run_context_t *ctx, char *cmd, char *params, v
 	UNUSED(cmd);
 	UNUSED(user_data);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, PERIODIC_STR, HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, PERIODIC_STR);
 	if (params && params[0] == ':' && strlen(params) > 2)
 		delay = atoi(params + 1);
 	if (delay < 0)
@@ -311,8 +310,8 @@ bool webdebug_init(void)
 
 	if (!webdebug_read_config())
 		return false;
-	mqtt_add_commands(WEBDEBUG_URL, debug_requests, ARRAY_SIZE(debug_requests), WEBDEBUG_DESC, NULL);
-	idx = webserv_add_commands(WEBDEBUG_URL, debug_requests, ARRAY_SIZE(debug_requests), WEBDEBUG_DESC, NULL);
+	mqtt_add_commands(WDB_MODULE, debug_requests, ARRAY_SIZE(debug_requests), WEBDEBUG_DESC, NULL);
+	idx = webserv_add_commands(WDB_MODULE, debug_requests, ARRAY_SIZE(debug_requests), WEBDEBUG_DESC, NULL);
 	if (idx < 0)
 		return false;
 

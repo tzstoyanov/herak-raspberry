@@ -102,11 +102,11 @@ static int cmd_send(cmd_run_context_t *ctx, char *params, void *user_data, bool 
 		snprintf(rstr, WEB_REPLY_MAX, "Requested %d, got valid reply 0x%X.\n\r", id, reply);
 	}
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, rstr,  HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, rstr);
 	return 0;
 
 out_err:
-	WEB_CLIENT_REPLY_CLOSE(ctx, rstr,  HTTP_RESP_BAD);
+	WEB_CLIENT_REPLY(ctx, rstr);
 	return -1;
 }
 
@@ -140,11 +140,11 @@ static int cmd_debug(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 	boiler_debug_mask = dbg;
 
 	snprintf(rstr, WEB_REPLY_MAX, "Set debug to 0x%lX.\n\r", boiler_debug_mask);
-	WEB_CLIENT_REPLY_CLOSE(ctx, rstr,  HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, rstr);
 	return 0;
 
 out_err:
-	WEB_CLIENT_REPLY_CLOSE(ctx, rstr,  HTTP_RESP_BAD);
+	WEB_CLIENT_REPLY(ctx, rstr);
 	return -1;
 }
 
@@ -169,11 +169,11 @@ static int cmd_set_status(cmd_run_context_t *ctx, char *params, void *user_data,
 	else
 		boiler->data.dhw_enabled = ((set != 0) ? 1 : 0);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, WEB_CMD_NR,  HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, WEB_CMD_NR);
 	return 0;
 
 out_err:
-	WEB_CLIENT_REPLY_CLOSE(ctx, SET_ERR_STR,  HTTP_RESP_BAD);
+	WEB_CLIENT_REPLY(ctx, SET_ERR_STR);
 	if (IS_CMD_LOG)
 		hlog_warning(OTHLOG, "WEB Failed to set the param: invalid data.");
 
@@ -207,12 +207,12 @@ static int cmd_set_param_float(cmd_run_context_t *ctx, char *params, void *user_
 	default:
 		goto out_err;
 	}
-	WEB_CLIENT_REPLY_CLOSE(ctx, WEB_CMD_NR,  HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, WEB_CMD_NR);
 	return 0;
 
 out_err:
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, SET_ERR_STR,  HTTP_RESP_BAD);
+	WEB_CLIENT_REPLY(ctx, SET_ERR_STR);
 	if (IS_CMD_LOG)
 		hlog_warning(OTHLOG, "WEB Failed to set the param: invalid data.");
 	return -1;
@@ -264,7 +264,7 @@ static int cmd_scan_all(cmd_run_context_t *ctx, char *cmd, char *params, void *u
 	if (ctx->type == CMD_CTX_WEB)
 		debug_log_forward(-1);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, WEB_CMD_NR,  HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, WEB_CMD_NR);
 	return 0;
 }
 
@@ -289,7 +289,7 @@ static int boiler_status(cmd_run_context_t *ctx, char *cmd, char *params, void *
 	if (ctx->type == CMD_CTX_WEB)
 		debug_log_forward(-1);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, WEB_CMD_NR,  HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, WEB_CMD_NR);
 	return 0;
 }
 
@@ -305,7 +305,7 @@ static int boiler_statistics_reset(cmd_run_context_t *ctx, char *cmd, char *para
 
 	opentherm_reset_statistics(&boiler->data);
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, WEB_CMD_NR,  HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, WEB_CMD_NR);
 	return 0;
 }
 
