@@ -28,6 +28,8 @@ bool system_common_init(void);
 void system_common_run(void);
 void system_force_reboot(int delay_ms);
 
+int sys_asprintf(char **strp, const char *fmt, ...);
+
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count);
 char *get_current_time_str(char *buf, int buflen);
 bool tz_datetime_get(datetime_t *date);
