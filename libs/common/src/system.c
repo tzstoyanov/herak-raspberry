@@ -21,7 +21,7 @@ extern char __StackLimit, __bss_end__;
 #define COMMONSYSLOG	"system"
 #define WATCHDOG_TIMEOUT_MS	30000 /* Reboot on 30s inactivity */
 
-#define LOG_STATUS_HOOKS_COUNT	16
+#define LOG_STATUS_HOOKS_COUNT	64
 
 #define PERIODIC_LOG_MS	0
 
