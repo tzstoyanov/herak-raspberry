@@ -11,6 +11,7 @@ target_sources(${lib_name} INTERFACE
    ${dir}/base64.c
    ${dir}/system.c
    ${dir}/sys_utils.c
+   ${dir}/system_modules.c
    ${dir}/system_weak.c
    ${dir}/lcd.cpp
    ${dir}/wifi.c

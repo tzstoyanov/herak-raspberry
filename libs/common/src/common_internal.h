@@ -42,6 +42,31 @@ extern "C" {
 #define __weak	__attribute__((__weak__))
 #endif
 
+typedef struct {
+	app_command_t *hooks;
+	int count;
+	char *description;
+} sys_commands_t;
+
+typedef void (*sys_module_run_cb_t) (void *context);
+typedef void (*sys_module_debug_cb_t) (uint32_t debug, void *context);
+typedef struct {
+	char *name;
+	sys_commands_t commands;
+	void *context;
+	/* Callbacks */
+	sys_module_run_cb_t run;
+	sys_module_run_cb_t reconnect;
+	log_status_cb_t	log;
+	sys_module_debug_cb_t debug;
+} sys_module_t;
+int sys_module_register(sys_module_t *module);
+
+void sys_modules_init(void);
+void sys_modules_run(void);
+void sys_modules_log(void);
+void sys_modules_reconnect(void);
+
 void system_reconnect(void);
 void system_set_periodic_log_ms(uint32_t ms);
 
