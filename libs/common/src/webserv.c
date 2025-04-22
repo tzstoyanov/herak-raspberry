@@ -23,7 +23,7 @@
 // #define WS_DEBUG
 
 #define HTTP_RESPONCE_HEAD	"HTTP/1.1 %d %s\r\nDate: %s\r\nUser-Agent: %s\r\nContent-Type: text/plain; charset=UTF-8\r\nConnection: keep-alive\r\n\r\n"
-#define MAX_HANDLERS		3
+#define MAX_HANDLERS		64
 #define MAX_CLIENTS			3
 #define WS_POLL_INTERVAL	2
 #define WEBSRV_PRIO			TCP_PRIO_NORMAL
