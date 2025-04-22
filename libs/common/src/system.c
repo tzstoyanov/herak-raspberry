@@ -210,6 +210,7 @@ bool system_common_init(void)
 	sys_context.has_wh = webhook_init();
 	sys_context.has_websrv = webserv_init();
 	webdebug_init();
+	sys_modules_init();
 	LED_OFF;
 	watchdog_update();
 
@@ -234,6 +235,7 @@ void system_log_status(void)
 	hlog_info(COMMONSYSLOG, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
 			  get_uptime(), get_free_heap(), temperature_internal_get());
 	sys_context.log_status_progress = 0;
+	sys_modules_log();
 }
 
 static void system_log_run(void)
@@ -293,6 +295,7 @@ static void do_system_reconnect(void)
 	if (sys_context.has_websrv)
 		webserv_reconnect();
 	hlog_reconnect();
+	sys_modules_reconnect();
 }
 
 void system_reconnect(void)
@@ -355,7 +358,7 @@ void system_common_run(void)
 	webdebug_run();
 	system_log_run();
 	wd_update();
-
+	sys_modules_run();
 	if (sys_context.periodic_log_ms > 0) {
 		static uint32_t llog;
 
