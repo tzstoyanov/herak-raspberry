@@ -12,14 +12,14 @@
 #define MQTTLOG	"mqtt"
 #define MQTT_DATA_LEN	768
 #define SMALL_STR_LEN	8
-#define MQTT_DISCOVERY_MS	1800000 // on 30 min
 
 #define IS_MQTT_LOG (boiler_dbg_check(LOG_MQTT_DEBUG))
-
+#define COMPONENTS_NUM	1
 typedef struct {
 	char dev_hw_ver[SMALL_STR_LEN];
 	char dev_model[SMALL_STR_LEN];
 	char dev_sw_ver[SMALL_STR_LEN];
+	mqtt_component_t components[COMPONENTS_NUM];
 } mqtt_boiler_discovery_t;
 
 static struct {
@@ -27,8 +27,7 @@ static struct {
 	opentherm_data_t data;
 	char payload[MQTT_DATA_LEN + 1];
 	bool force;
-	uint64_t last_discovery;
-	mqtt_boiler_discovery_t disc_data;
+	mqtt_boiler_discovery_t discovery;
 } mqtt_boiler_context = {0};
 
 #define TIME_STR	64
@@ -93,7 +92,7 @@ static void mqtt_data_send(bool force)
 	ADD_MQTT_MSG("}");
 
 	mqtt_boiler_context.payload[MQTT_DATA_LEN] = 0;
-	mqtt_msg_publish(mqtt_boiler_context.payload, force);
+	mqtt_msg_publish(NULL, mqtt_boiler_context.payload, force);
 }
 
 void mqtt_data_internal_temp(float temp)
@@ -115,51 +114,22 @@ void mqtt_boiler_data(opentherm_context_t *boiler)
 #define DEV_QOS    2
 #define ORG_NAME   "OpenTherm"
 #define ORG_VER	   "2.2"
-#define COMPONENTS_NUM	1
 static int mqtt_boiler_discovery_add(opentherm_data_t *boiler)
 {
-	mqtt_boiler_discovery_t *ddata = &mqtt_boiler_context.disc_data;
-	mqtt_discovery_comp_t comps[COMPONENTS_NUM] = {0};
-	mqtt_discovery_t discovery = {0};
-	int ret;
-
-	snprintf(ddata->dev_model, SMALL_STR_LEN, "%2d", boiler->dev_type);
-	snprintf(ddata->dev_sw_ver, SMALL_STR_LEN, "%2d", boiler->dev_ver);
-	snprintf(ddata->dev_hw_ver, SMALL_STR_LEN, "%2d", boiler->dev_id);
-
-	discovery.dev_model = ddata->dev_model;
-	discovery.dev_sw_ver = ddata->dev_sw_ver;
-	discovery.dev_hw_ver = ddata->dev_hw_ver;
-	discovery.origin_name = ORG_NAME;
-	discovery.origin_sw_ver = ORG_VER;
-	discovery.qos = DEV_QOS;
-
+	mqtt_component_t *comps = mqtt_boiler_context.discovery.components;
+	
 	/* 1 */
-	comps[0].name = "Chip temperature";
-	comps[0].id = "ch_temp";
+	comps[0].name = "Chip_Temperature";
 	comps[0].platform = "sensor";
 	comps[0].dev_class = "temperature";
 	comps[0].unit = "°C";
 	comps[0].value_template = "{{value_json.in_temp}}";
 
-	discovery.comp_count = COMPONENTS_NUM;
-	discovery.components = comps;
-	ret = mqtt_msg_discovery_register(&discovery);
-	if (IS_MQTT_LOG)
-		hlog_info(OTHLOG, "MQTT discovery register %s: %d.",
-				  ret >= 0 ? "success":"failed", ret);
-	return ret;
+	return mqtt_msg_component_register(&mqtt_boiler_context.discovery.components[0]);
 }
 
 void mqtt_boiler_send(opentherm_context_t *boiler)
 {
-	uint64_t now = time_ms_since_boot();
-
-	if (!mqtt_boiler_context.last_discovery ||
-		(now - mqtt_boiler_context.last_discovery) > MQTT_DISCOVERY_MS) {
-		if (mqtt_boiler_discovery_add(&boiler->data) >= 0)
-			mqtt_boiler_context.last_discovery = now;
-	}
 	mqtt_data_send(mqtt_boiler_context.force);
 	mqtt_boiler_context.force = false;
 }

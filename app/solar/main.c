@@ -33,6 +33,7 @@ int main(void)
 	has_solar = mppt_solar_init();
 	has_bms = bms_solar_init();
 	has_wh = wh_notify_init();
+	mqtt_solar_init();
 
 	while (true) {
 		if (blinik_count++ % BLINK_INERVAL == 0)

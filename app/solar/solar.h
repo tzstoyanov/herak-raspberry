@@ -48,6 +48,7 @@ typedef struct {
 	uint32_t remain_capacity;
 } mqtt_bms_data_t;
 void mqtt_data_bms(mqtt_bms_data_t *data);
+void mqtt_solar_init(void);
 
 /* MPPT Voltron */
 bool mppt_solar_init(void);
