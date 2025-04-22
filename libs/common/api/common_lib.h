@@ -54,8 +54,9 @@ typedef struct {
 
 typedef struct {
 	int client_idx;
-	bool not_close;
-	bool not_reply;
+	bool keep_open;
+	bool keep_silent;
+	int hret;
 } run_context_web_t;
 
 typedef union {
@@ -64,17 +65,14 @@ typedef union {
 } run_context_t;
 
 typedef struct {
-	run_type_t 		type;
+	run_type_t		type;
 	run_context_t	context;
 } cmd_run_context_t;
 
-// C - cmd_run_context_t; S - log string; R - http_response_id
-#define WEB_CLIENT_REPLY_CLOSE(C, S, R)\
+// C - cmd_run_context_t; S - log string
+#define WEB_CLIENT_REPLY(C, S)\
 	do {if ((C)->type == CMD_CTX_WEB) {\
-		weberv_client_send((C)->context.web.client_idx, (S), strlen((S)), (R));\
-		weberv_client_close((C)->context.web.client_idx);\
-		(C)->context.web.not_reply = true;\
-		(C)->context.web.not_close = true;\
+		weberv_client_send_data((C)->context.web.client_idx, (S), strlen((S)));\
 	}} while (0)
 
 typedef int (*app_command_cb_t) (cmd_run_context_t *ctx, char *cmd, char *params, void *user_data);
@@ -225,11 +223,9 @@ enum http_response_id {
 	HTTP_RESP_TOO_MANY_ERROR,
 	HTTP_RESP_MAX
 };
-typedef enum http_response_id (*webserv_request_cb_t) (int client_idx, char *cmd, char *url, void *context);
-int webserv_add_handler(char *url, webserv_request_cb_t user_cb, void *user_data);
+typedef enum http_response_id (*webserv_request_cb_t) (run_context_web_t *wctx, char *cmd, char *url, void *context);
 int weberv_client_send(int client_idx, char *data, int datalen, enum http_response_id rep);
 int weberv_client_send_data(int client_idx, char *data, int datalen);
-int weberv_client_close(int client_idx);
 
 #define WEB_CMD_NR   "\r\n"
 /* Web commands API */

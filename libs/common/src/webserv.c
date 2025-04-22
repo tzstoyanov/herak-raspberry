@@ -20,9 +20,7 @@
 #define WSLOG		"webserv"
 #define HELP_CMD	"help"
 #define HELP_URL	"/help"
-#define HELP_DONE	"done"
-#define CMD_RESP_ERR	"fail"
-//#define WS_DEBUG
+// #define WS_DEBUG
 
 #define HTTP_RESPONCE_HEAD	"HTTP/1.1 %d %s\r\nDate: %s\r\nUser-Agent: %s\r\nContent-Type: text/plain; charset=UTF-8\r\nConnection: keep-alive\r\n\r\n"
 #define MAX_HANDLERS		3
@@ -93,7 +91,7 @@ static struct {
 	struct altcp_pcb *tcp_srv;
 } werbserv_context;
 
-int webserv_add_handler(char *url, webserv_request_cb_t user_cb, void *user_data)
+static int webserv_add_handler(char *url, webserv_request_cb_t user_cb, void *user_data)
 {
 	int i;
 
@@ -113,7 +111,12 @@ int webserv_add_handler(char *url, webserv_request_cb_t user_cb, void *user_data
 	WS_LOCK(&werbserv_context);
 		werbserv_context.handle[i].user_cb = user_cb;
 		werbserv_context.handle[i].user_data = user_data;
-		strncpy(werbserv_context.handle[i].url, url, HTTP_URL_LEN);
+		if (url[0] != '/') {
+			werbserv_context.handle[i].url[0] = '/';
+			strncpy(werbserv_context.handle[i].url + 1, url, HTTP_URL_LEN - 1);
+		} else {
+			strncpy(werbserv_context.handle[i].url, url, HTTP_URL_LEN);
+		}
 		werbserv_context.handle[i].url[HTTP_URL_LEN - 1] = 0;
 		mutex_init(&werbserv_context.handle[i].h_lock);
 		werbserv_context.wh_count++;
@@ -140,13 +143,13 @@ static void commands_help(int client_idx, struct webcmd_t *handlers)
 	}
 }
 
-static enum http_response_id commands_handler(int client_idx, char *cmd, char *url, void *context)
+static enum http_response_id commands_handler(run_context_web_t *wctx, char *cmd, char *url, void *context)
 {
 	struct webcmd_t *handlers = (struct webcmd_t *)context;
+	int ret = HTTP_RESP_NOT_FOUND;
 	cmd_run_context_t r_ctx = {0};
 	char *request, *params;
 	size_t len;
-	int ret;
 	int i;
 
 	if (!cmd)
@@ -155,15 +158,17 @@ static enum http_response_id commands_handler(int client_idx, char *cmd, char *u
 	request = strchr(url, '?');
 	if (!request)
 		request = strchr(url + 1, '/');
+	r_ctx.type = CMD_CTX_WEB;
+	r_ctx.context.web.client_idx = wctx->client_idx;
 	if (request) {
 		len = strlen(request);
 		if (len >= strlen(HELP_CMD) && !strncmp(request + 1, HELP_CMD, strlen(HELP_CMD))) {
-			weberv_client_send(client_idx, handlers->description, strlen(handlers->description), HTTP_RESP_OK);
-			weberv_client_send_data(client_idx, ":\n\r", strlen(":\n\r"));
-			commands_help(client_idx, handlers);
-			weberv_client_send(client_idx, HELP_DONE, strlen(HELP_DONE), HTTP_RESP_OK);
-			weberv_client_close(client_idx);
-			return HTTP_RESP_OK;
+			weberv_client_send_data(wctx->client_idx, handlers->description, strlen(handlers->description));
+			weberv_client_send_data(wctx->client_idx, ":\n\r", strlen(":\n\r"));
+			commands_help(wctx->client_idx, handlers);
+			ret = HTTP_RESP_OK;
+			r_ctx.context.web.hret = 0;
+			goto out;
 		}
 		for (i = 0; i < handlers->count; i++) {
 			if (len < strlen(handlers->commands[i].command))
@@ -175,25 +180,16 @@ static enum http_response_id commands_handler(int client_idx, char *cmd, char *u
 					if (*params != ':')
 						continue;
 				}
-				r_ctx.type = CMD_CTX_WEB;
-				r_ctx.context.web.client_idx = client_idx;
-				ret = handlers->commands[i].cb(&r_ctx, handlers->commands[i].command, params, handlers->user_data);
-				if (!r_ctx.context.web.not_reply) {
-					if (!ret)
-						weberv_client_send(client_idx, HELP_DONE, strlen(HELP_DONE), HTTP_RESP_OK);
-					else
-						weberv_client_send(client_idx, CMD_RESP_ERR, strlen(CMD_RESP_ERR), HTTP_RESP_BAD);
-				}
-				if (!r_ctx.context.web.not_close)
-					weberv_client_close(client_idx);
+				r_ctx.context.web.hret = handlers->commands[i].cb(&r_ctx, handlers->commands[i].command, params, handlers->user_data);
 				break;
 			}
 		}
 		if (i < handlers->count)
-			return HTTP_RESP_OK;
+			ret = HTTP_RESP_OK;
 	}
-
-	return HTTP_RESP_NOT_FOUND;
+out:
+	memcpy(wctx, &r_ctx.context.web, sizeof(run_context_web_t));
+	return ret;
 }
 
 int webserv_add_commands(char *url, app_command_t *commands, int commands_cont, char *description, void *user_data)
@@ -305,10 +301,16 @@ static bool parse_http_request(struct pbuf *p, char *cmd, int cmd_len, char *url
 	return ret;
 }
 
+#define CMD_OK_STR			"done\n\r"
+#define CMD_FAIL_STR		"fail\n\r"
+#define CMD_WRONG_STR		"invalid command\n\r"
+#define CMD_NOT_FOUND_STR	"command not found n\r"
 static enum http_response_id client_parse_incoming(struct webclient_t *client, struct pbuf *p)
 {
 	enum http_response_id resp = HTTP_RESP_INTERNAL_ERROR;
 	char cmd[HTTP_CMD_LEN], url[HTTP_URL_LEN];
+	run_context_web_t wctx = {0};
+	int handled = 0;
 	int i;
 
 #ifdef WS_DEBUG
@@ -322,6 +324,10 @@ static enum http_response_id client_parse_incoming(struct webclient_t *client, s
 		}
 	}
 #endif
+	wctx.client_idx = client->idx;
+	wctx.keep_open = false;
+	wctx.keep_silent = false;
+	weberv_client_send(client->idx, WEB_CMD_NR, strlen(WEB_CMD_NR), HTTP_RESP_OK);
 	if (parse_http_request(p, cmd, HTTP_CMD_LEN, url, HTTP_URL_LEN)) {
 		cmd[HTTP_CMD_LEN - 1] = 0;
 		url[HTTP_URL_LEN - 1] = 0;
@@ -329,19 +335,33 @@ static enum http_response_id client_parse_incoming(struct webclient_t *client, s
 			if (!werbserv_context.handle[i].user_cb)
 				continue;
 			if (!strncmp(url, werbserv_context.handle[i].url, strlen(werbserv_context.handle[i].url))) {
-				resp = werbserv_context.handle[i].user_cb(client->idx, cmd, url,
+				resp = werbserv_context.handle[i].user_cb(&wctx, cmd, url,
 														  werbserv_context.handle[i].user_data);
-				break;
+				if (resp == HTTP_RESP_OK)
+					handled++;
 			}
 		}
-		if (i >= MAX_HANDLERS)
+		if (!handled)
 			resp = HTTP_RESP_NOT_FOUND;
+		else
+			resp = HTTP_RESP_OK;
 	} else {
-		resp = HTTP_RESP_BAD;
+		resp = HTTP_RESP_INTERNAL_ERROR;
 	}
+	if (!wctx.keep_silent) {
+		weberv_client_send_data(client->idx, WEB_CMD_NR, strlen(WEB_CMD_NR));
+		if (wctx.hret)
+			weberv_client_send(client->idx, CMD_FAIL_STR, strlen(CMD_FAIL_STR), HTTP_RESP_BAD);
+		else if (resp == HTTP_RESP_OK)
+			weberv_client_send(client->idx, CMD_OK_STR, strlen(CMD_OK_STR), HTTP_RESP_OK);
+		else if (resp == HTTP_RESP_NOT_FOUND)
+			weberv_client_send(client->idx, CMD_NOT_FOUND_STR, strlen(CMD_NOT_FOUND_STR), HTTP_RESP_NOT_FOUND);
+		else
+			weberv_client_send(client->idx, CMD_WRONG_STR, strlen(CMD_WRONG_STR), HTTP_RESP_INTERNAL_ERROR);
+	}
+	if (!wctx.keep_open)
+		weberv_client_close(client->idx);
 
-	if (resp != HTTP_RESP_OK)
-		weberv_client_send(client->idx, NULL, 0, resp);
 	return resp;
 }
 
@@ -600,30 +620,26 @@ static err_t webserv_accept(void *arg, struct altcp_pcb *pcb, err_t err)
 	return ERR_OK;
 }
 
-static enum http_response_id webserv_help_cb(int client_idx, char *cmd, char *url, void *context)
+static enum http_response_id webserv_help_cb(run_context_web_t *wctx, char *cmd, char *url, void *context)
 {
 	struct webcmd_t *web_cmd;
 	char help[HELP_SIZE];
 	int i;
 
-	UNUSED(client_idx);
 	UNUSED(context);
 	UNUSED(cmd);
 	UNUSED(url);
 
-	weberv_client_send(client_idx, "\n\r", strlen("\n\r"), HTTP_RESP_OK);
+	weberv_client_send_data(wctx->client_idx, "\n\r", strlen("\n\r"));
 	for (i = 0; i < werbserv_context.wcmd_count; i++) {
 		web_cmd = &werbserv_context.commands[i];
 		if (web_cmd->web_handler >= werbserv_context.wh_count)
 			continue;
-		snprintf(help, HELP_SIZE, "  %s ... %s\n\r",
+		snprintf(help, HELP_SIZE, "  %s     [%s]\n\r",
 				 werbserv_context.handle[web_cmd->web_handler].url,  web_cmd->description);
-		weberv_client_send_data(client_idx, help, strlen(help));
-		commands_help(client_idx, web_cmd);
+		weberv_client_send_data(wctx->client_idx, help, strlen(help));
+		commands_help(wctx->client_idx, web_cmd);
 	}
-
-	weberv_client_send(client_idx, HELP_DONE, strlen(HELP_DONE), HTTP_RESP_OK);
-	weberv_client_close(client_idx);
 
 	return HTTP_RESP_OK;
 }
@@ -648,13 +664,13 @@ static bool webserv_open(void)
 	struct altcp_pcb *pcb = NULL;
 	bool ret = false;
 
-	LWIP_LOCK_START
+	LWIP_LOCK_START;
 		pcb = altcp_tcp_new_ip_type(IPADDR_TYPE_ANY);
 	LWIP_LOCK_END;
 	if (!pcb)
 		return false;
 
-	LWIP_LOCK_START
+	LWIP_LOCK_START;
 		altcp_setprio(pcb, WEBSRV_PRIO);
 		if (altcp_bind(pcb, IP_ANY_TYPE, werbserv_context.port) == ERR_OK) {
 			pcb = altcp_listen(pcb);

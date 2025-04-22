@@ -80,7 +80,7 @@ static int cmd_ssr_status(cmd_run_context_t *ctx, char *cmd, char *params, void 
 
 	if (ctx->type == CMD_CTX_WEB)
 		debug_log_forward(-1);
-	WEB_CLIENT_REPLY_CLOSE(ctx, SSR_STATE_DONE, HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, SSR_STATE_DONE);
 	return 0;
 }
 
@@ -108,11 +108,11 @@ static int cmd_ssr_set(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	if (cmd_ssr_set_state(cmd, params, user_data))
 		goto out_err;
 
-	WEB_CLIENT_REPLY_CLOSE(ctx, SET_OK_STR, HTTP_RESP_OK);
+	WEB_CLIENT_REPLY(ctx, SET_OK_STR);
 	return 0;
 
 out_err:
-	WEB_CLIENT_REPLY_CLOSE(ctx, SET_ERR_STR, HTTP_RESP_BAD);
+	WEB_CLIENT_REPLY(ctx, SET_ERR_STR);
 	return -1;
 }
 
