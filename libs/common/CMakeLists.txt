@@ -27,6 +27,8 @@ target_sources(${lib_name} INTERFACE
    ${COMMON_USB}
 )
 
+include(${CMAKE_CURRENT_LIST_DIR}/devices/CMakeLists.txt)
+
 target_include_directories(${lib_name} INTERFACE ${dir})
 
 # enable all warnings
