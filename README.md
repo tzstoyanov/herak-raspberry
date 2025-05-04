@@ -51,12 +51,6 @@ sends the data to a remote MQTT server.
 Reads soil moisture sensor and controls set of SSRs using web commands and
 sends the data to a remote MQTT server.
 
-### Boiler
-Monitors and controls OpenTherm boiler. Sends the data to a remote MQTT
-server and executes web control commands. The PICO device has to be
-connected to the OT pins of the boiler using
-an [OpenTherm Adapter](https://ihormelnyk.com/opentherm_adapter).
-
 ## Try it out
 
 ### Prerequisites
