@@ -61,7 +61,7 @@ void get_wifi_networks(void)
 		wifi_context.all_nets[idx++]->pass = tok;
 }
 
-static void wifi_log_status(void *context)
+static bool wifi_log_status(void *context)
 {
 	int i;
 
@@ -76,10 +76,12 @@ static void wifi_log_status(void *context)
 			if (wifi_context.all_nets[i])
 				hlog_info(WIFILOG, "\t%s", wifi_context.all_nets[i]->ssid);
 		}
-		return;
+		return true;
 	}
 
 	hlog_info(WIFILOG, "Connected to %s -> %s", wifi_context.all_nets[wifi_context.net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
+
+	return true;
 }
 
 

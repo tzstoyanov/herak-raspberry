@@ -239,7 +239,7 @@ typedef enum {
 	DATA_ID_CMD_MAX   = 128                   // MAX command ID, invalid
 } opentherm_cmd_id_t;
 
-void opentherm_status_log(void *context);
+bool opentherm_status_log(void *context);
 
 int opentherm_cmd_init(opentherm_context_t *boiler);
 void opentherm_cmd_run(opentherm_context_t *boiler);

@@ -27,7 +27,7 @@ int soil_init(void);
 void soil_measure(void);
 int ssr_init(void);
 void ssr_run(void);
-void ssr_log(void *context);
+bool ssr_log(void *context);
 int ssr_state_set(uint8_t id, bool value, uint32_t time, uint32_t delay);
 void ssr_reset_all(void);
 

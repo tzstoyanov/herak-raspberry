@@ -158,7 +158,7 @@ static void ssr_state_remain_times(struct ssr_context_t *context, uint8_t id, in
 	context->relays[id]->drelay_remain_ms = delay;
 }
 
-static void ssr_log(void *context)
+static bool ssr_log(void *context)
 {
 	struct ssr_context_t *ctx = (struct ssr_context_t *)context;
 	int i;
@@ -174,6 +174,8 @@ static void ssr_log(void *context)
 				  ctx->relays[i]->drelay_remain_ms/1000, ctx->relays[i]->delay_ms/1000,
 				  ctx->relays[i]->time_remain_ms/1000, ctx->relays[i]->time_ms/1000);
 	}
+
+	return true;
 }
 
 static void ssr_run(void *context)

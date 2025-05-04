@@ -138,7 +138,7 @@ int usb_send_to_device(int idx, char *buf, int len)
 	return -1;
 }
 
-static void usb_log_status(void *context)
+static bool usb_log_status(void *context)
 {
 	bool mounted;
 	int i;
@@ -164,6 +164,8 @@ static void usb_log_status(void *context)
 						 usb_context.devices[i].connect_count);
 		}
 	USB_UNLOCK;
+
+	return true;
 }
 
 void usb_debug_set(uint32_t lvl)

@@ -851,15 +851,14 @@ void bt_run(void)
 		bt_context.current_device = dev;
 }
 
-static void bt_log_status(void *context)
+static bool bt_log_status(void *context)
 {
 	int i;
 
 	UNUSED(context);
 
 	if (!bt_context.started)
-		return;
-
+		return true;
 	hlog_info(BTLOG, "BT stack started, %s, %s.",
 				bt_context.running?"running":"not running yet",
 				bt_context.scanning?"scanning for devices":"not scanning for devices");
@@ -871,6 +870,7 @@ static void bt_log_status(void *context)
 		else
 			hlog_info(BTLOG, "\t  Looking for [%s] ...", bt_context.devcies[i].name);
 	}
+	return true;
 }
 
 bool bt_init(void)

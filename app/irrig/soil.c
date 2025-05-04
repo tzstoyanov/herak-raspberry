@@ -229,7 +229,7 @@ out_err:
 	return false;
 }
 
-static void soil_log(void *context)
+static bool soil_log(void *context)
 {
 	int s, i;
 
@@ -243,6 +243,8 @@ static void soil_log(void *context)
 		hlog_info(SOILOG, "Sensor %d: digital %d, analog %d",
 				  i, soil_context.sensors[i].last_digital, s);
 	}
+
+	return true;
 }
 
 int soil_init(void)
