@@ -219,25 +219,25 @@ out_err:
 
 }
 
-int cmd_set_dwh(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+static int cmd_set_dwh(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	UNUSED(cmd);
 	return cmd_set_status(ctx, params, user_data, false);
 }
 
-int cmd_set_dwh_temp(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+static int cmd_set_dwh_temp(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	UNUSED(cmd);
 	return cmd_set_param_float(ctx, params, user_data, DATA_ID_TDHWSET);
 }
 
-int cmd_set_ch(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+static int cmd_set_ch(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	UNUSED(cmd);
 	return cmd_set_status(ctx, params, user_data, true);
 }
 
-int cmd_set_ch_temp(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+static int cmd_set_ch_temp(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	UNUSED(cmd);
 	return cmd_set_param_float(ctx, params, user_data, DATA_ID_TSET);
@@ -303,7 +303,7 @@ static int boiler_statistics_reset(cmd_run_context_t *ctx, char *cmd, char *para
 	if (IS_CMD_LOG)
 		hlog_info(OTHLOG, "WEB boiler statistics reset command.");
 
-	opentherm_reset_statistics(&boiler->data);
+	boiler_reset_statistics(&boiler->data);
 
 	WEB_CLIENT_REPLY(ctx, WEB_CMD_NR);
 	return 0;

@@ -247,7 +247,7 @@ void opentherm_cmd_log(opentherm_context_t *boiler);
 opentherm_cmd_response_t opentherm_cmd_read(opentherm_cmd_id_t cmd, uint16_t send, uint16_t *value);
 opentherm_cmd_response_t opentherm_cmd_write(opentherm_cmd_id_t cmd, uint16_t send, uint16_t *value);
 void opentherm_cmd_scan_all(void);
-void opentherm_reset_statistics(opentherm_data_t *boiler);
+void boiler_reset_statistics(opentherm_data_t *boiler);
 
 int opentherm_pio_init(opentherm_context_t *boiler);
 int opentherm_pio_exchange(opentherm_msg_t *request, opentherm_msg_t *reply);
