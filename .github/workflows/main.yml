@@ -46,3 +46,9 @@ jobs:
         cmake ../../app/boiler
         make
         ls -al ${{runner.workspace}}/herak-raspberry/build/boiler-ci/herak-open-therm.uf2
+        cp -f ${{runner.workspace}}/herak-raspberry/scripts/params_all.txt /${{runner.workspace}}/herak-raspberry/app/common/params.txt
+        mkdir ${{runner.workspace}}/herak-raspberry/build/common-ci
+        cd ${{runner.workspace}}/herak-raspberry/build/common-ci
+        cmake ../../app/common
+        make
+        ls -al ${{runner.workspace}}/herak-raspberry/build/common-ci/herak-common.uf2
