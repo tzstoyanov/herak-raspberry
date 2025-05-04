@@ -53,10 +53,17 @@ char *base64_encode(const char *plain, int len)
 
 char *base64_decode(const char *cipher, int len)
 {
-	char *plain = malloc(len * 3 / 4);
 	unsigned char counts = 0;
-	char buffer[4];
+	int plen = (len * 3 / 4);
 	int i = 0, p = 0;
+	char buffer[4];
+	char *plain;
+
+	if (plen < 1)
+		return NULL;
+	plain = malloc(plen);
+	if (!plain)
+		return NULL;
 
 	for (i = 0; i < len; i++) {
 		unsigned char k;
