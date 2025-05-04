@@ -403,7 +403,7 @@ static bool opentherm_read_static_data(opentherm_data_t *boiler)
 	return true;
 }
 
-void opentherm_reset_statistics(opentherm_data_t *boiler)
+void boiler_reset_statistics(opentherm_data_t *boiler)
 {
 	ot_data_t req = {0};
 
