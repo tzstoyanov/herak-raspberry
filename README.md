@@ -32,9 +32,12 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 Applications are built on top of common library, which provides basic functionality:
 Internet over WiFi, Bluetooth, remote logging, time synchronization, MQTT client, HTTP client
 and server, watchdog, USB in host mode, encrypted key-value store.
-All user specific parameters are defined in params.txt file which must be available at
+All user specific parameters are defined in `params.txt` file which must be available at
 build time in the application directory. The [params-example.txt](app/params_example.txt) file can
 be used as a template.
+
+### Common
+Minimal application - only the system main loop. Uses the system modules, which configuration is defined in `params.txt` file.
 
 ### Shaft
 Monitors water level in an underground tank using AJ-SR04M sonar sensor and
@@ -71,21 +74,21 @@ Apply all mandatory patches, which are not yet released upstream. Run in the top
 ```
 
 ### Build
-- Copy [params-example.txt](app/params_example.txt) file as `params.txt` in the application directory
-and modify it with your configuration.
-- In the `build/<application>` directory, run `cmake ../../app/<applicattion>`
-- In the `build/<application>` directory, run `make`
+- Copy [params-example.txt](app/params_example.txt) file as `params.txt` in the `app/common/` directory
+and modify it with your configuration. Optionally, in the `app/common/CMakeLists.txt` file , on the first line, replace the default application name `herak-common` with the name of your application.  
+- In the `build/common` directory, run `cmake ../../app/common`
+- In the `build/common` directory, run `make`
 
 ### Installation
 #### Manually
 - Attach to your Pico W over USB and start it in the bootloader mode (hold down the BOOTSEL button).
-- Copy the generated image `build/<application>/<app-name>.uf2` to your Pico W.
+- Copy the generated image `build/common/<application_name>.uf2` to your Pico W.
 #### Using the helper script
 The `flash_pico.sh` script uses [picotool](https://github.com/raspberrypi/picotool) to copy image to the device.
 If that tool is available on your system, the script can be used to copy the generated image. Attach the device
 and run the script:
 ```
-./scripts/flash_pico.sh build/<application>/<app_name>.uf2
+./scripts/flash_pico.sh build/common/<application_name>.uf2
 ```
 It automatically reboots the device in bootloader mode and copies the new image.
 
