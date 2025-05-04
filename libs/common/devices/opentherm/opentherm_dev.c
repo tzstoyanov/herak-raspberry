@@ -267,17 +267,12 @@ static bool opentherm_sync_params(opentherm_context_t *ctx)
 						   &ctx->data.param_actual.ch_max);
 	opentherm_sync_param_f(ctx, DATA_ID_TDHWSET,
 						   &ctx->data.param_desired.dhw_temperature_setpoint,
-						   &ctx->data.param_actual.dhw_temperature_setpoint);						   
-	opentherm_sync_param_f(ctx, DATA_ID_TDHWSET,
-						   &ctx->data.param_desired.dhw_max,
-						   &ctx->data.param_actual.dhw_max);
+						   &ctx->data.param_actual.dhw_temperature_setpoint);
 	opentherm_sync_param_f(ctx, DATA_ID_TSET,
 						   &ctx->data.param_desired.ch_temperature_setpoint,
 						   &ctx->data.param_actual.ch_temperature_setpoint);
 
-
 	return true;
-
 }
 
 #define ERRORS_READ(S, V)\
