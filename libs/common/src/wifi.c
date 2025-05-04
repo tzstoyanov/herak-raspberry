@@ -121,7 +121,7 @@ bool wifi_is_connected(void)
 
 void wifi_connect(void)
 {
-	int err;
+	int ret;
 
 	if (wifi_is_connected()) {
 		if (wifi_context.connect_in_progress) {
@@ -140,11 +140,13 @@ void wifi_connect(void)
 		wifi_context.net_id++;
 		if (wifi_context.net_id < 0 || wifi_context.net_id >= MAX_WIFI_NETS || !wifi_context.all_nets[wifi_context.net_id])
 			wifi_context.net_id = 0;
-
-		err = cyw43_arch_wifi_connect_async(wifi_context.all_nets[wifi_context.net_id]->ssid,
-											wifi_context.all_nets[wifi_context.net_id]->pass, CYW43_AUTH_WPA2_AES_PSK);
-		if (err) {
-			hlog_info(WIFILOG, "FAILED to start wifi scan for %s: %d", wifi_context.all_nets[wifi_context.net_id]->ssid, err);
+		LWIP_LOCK_START;
+			ret = cyw43_arch_wifi_connect_async(wifi_context.all_nets[wifi_context.net_id]->ssid,
+												wifi_context.all_nets[wifi_context.net_id]->pass,
+												CYW43_AUTH_WPA2_AES_PSK);
+		LWIP_LOCK_END;
+		if (ret) {
+			hlog_info(WIFILOG, "FAILED to start wifi scan for %s: %d", wifi_context.all_nets[wifi_context.net_id]->ssid, ret);
 		} else {
 			wifi_context.connect_in_progress = true;
 			wifi_context.connect_time = make_timeout_time_ms(CONNECT_TIMEOUT_MS);
@@ -152,8 +154,11 @@ void wifi_connect(void)
 		}
 	} else if (absolute_time_diff_us(get_absolute_time(), wifi_context.connect_time) < 0) {
 		wifi_context.connect_in_progress = false;
+		LWIP_LOCK_START;
+			ret = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+		LWIP_LOCK_END;
 		hlog_info(WIFILOG, "TimeOut connecting to %s: %d",
-				wifi_context.all_nets[wifi_context.net_id]->ssid, cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA));
+				wifi_context.all_nets[wifi_context.net_id]->ssid, ret);
 	}
 
 }
