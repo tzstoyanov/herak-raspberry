@@ -24,9 +24,8 @@
 #define SEND_TIMEOUT_MS	 2000
 // send discovery + subscribe on every hour; 60*60*1000
 #define CONFIG_INTERVAL_MSEC	3600000
-#define COMMAND_TOPIC_TEMPLATE	"homeassistant/device/%s/command"
+#define COMMAND_TOPIC_TEMPLATE	"%s/command"
 #define MAX_CMD_HANDLERS		64
-#define HOME_ASSISTANT_STATUS_TOPIC	"homeassistant/status"
 
 #define MSEC_INSEC	60000ULL
 
