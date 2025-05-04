@@ -32,12 +32,13 @@ static void boiler_data_init(opentherm_data_t *boiler)
 	boiler->param_desired.dhw_temperature_setpoint = 40.0;
 }
 
-void opentherm_status_log(void *context)
+bool opentherm_status_log(void *context)
 {
 	opentherm_context_t *boiler = (opentherm_context_t *)context;
 
 	opentherm_pio_log(boiler);
 	opentherm_cmd_log(boiler);
+	return true;
 }
 
 

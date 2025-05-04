@@ -704,7 +704,7 @@ static void mppt_usb_callback(int idx, usb_event_t event, const void *data, int 
 	}
 }
 
-static void mppt_volt_log(void *context)
+static bool mppt_volt_log(void *context)
 {
 
 	UNUSED(context);
@@ -722,6 +722,8 @@ static void mppt_volt_log(void *context)
 	} else {
 		hlog_info(MPPT, "Not connected to Voltronic");
 	}
+
+	return true;
 }
 
 bool mppt_solar_init(void)

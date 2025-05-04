@@ -255,21 +255,23 @@ void system_log_status(void)
 	hlog_info(COMMONSYSLOG, "----------- Status -----------");
 	hlog_info(COMMONSYSLOG, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
 			  get_uptime(), get_free_heap(), temperature_internal_get());
-	sys_context.log_status_progress = 0;
 	sys_modules_log();
+	sys_context.log_status_progress = 0;
 }
 
 static void system_log_run(void)
 {
 	int idx = sys_context.log_status_progress;
+	bool ret = true;
 
 	if (idx < 0 || idx >= sys_context.log_status_count)
 		return;
 
 	if (sys_context.log_status[idx].hook)
-		sys_context.log_status[idx].hook(sys_context.log_status[idx].user_context);
+		ret = sys_context.log_status[idx].hook(sys_context.log_status[idx].user_context);
 
-	sys_context.log_status_progress++;
+	if (ret)
+		sys_context.log_status_progress++;
 	if (sys_context.log_status_progress >= sys_context.log_status_count) {
 		hlog_info(COMMONSYSLOG, "----------- Status end--------");
 		sys_context.log_status_progress = -1;

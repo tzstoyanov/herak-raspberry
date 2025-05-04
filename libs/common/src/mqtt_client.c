@@ -577,33 +577,49 @@ bool mqtt_is_connected(void)
 	return ret;
 }
 
-static void mqtt_log_status(void *context)
+#define LOG_STEP	2
+static bool mqtt_log_status(void *context)
 {
-	int i, j;
+	static int progress;
+	int i, j, k;
 
 	UNUSED(context);
 
-	if (!mqtt_is_connected()) {
-		hlog_info(MQTTLOG, "Not connected to a server, looking for %s ... connect count %d ",
-				  mqtt_context.server_url, mqtt_context.connect_count);
-		return;
+	if (!progress) {
+		if (!mqtt_is_connected()) {
+			hlog_info(MQTTLOG, "Not connected to a server, looking for %s ... connect count %d ",
+					mqtt_context.server_url, mqtt_context.connect_count);
+			return true;
+		}
+		hlog_info(MQTTLOG, "Connected to server %s, publish rate limit between %lldppm and %lldppm, connect count %d",
+				mqtt_context.server_url, MSEC_INSEC/mqtt_context.mqtt_max_delay,
+				MSEC_INSEC/mqtt_context.mqtt_min_delay, mqtt_context.connect_count);
+		if (mqtt_context.commands.cmd_topic)
+			hlog_info(MQTTLOG, "Listen to topic [%s]", mqtt_context.commands.cmd_topic);
+		progress++;
+		return false;
 	}
-	hlog_info(MQTTLOG, "Connected to server %s, publish rate limit between %lldppm and %lldppm, connect count %d",
-			mqtt_context.server_url, MSEC_INSEC/mqtt_context.mqtt_max_delay,
-			MSEC_INSEC/mqtt_context.mqtt_min_delay, mqtt_context.connect_count);
-	if (mqtt_context.commands.cmd_topic)
-		hlog_info(MQTTLOG, "Listen to topic [%s]", mqtt_context.commands.cmd_topic);
 
-	for (i = 0; i < mqtt_context.commands.cmd_handler; i++) {
-		hlog_info(MQTTLOG, "  Serving user commands [%s]:", mqtt_context.commands.hooks[i].description);
-		for (j = 0; j < mqtt_context.commands.hooks[i].count; j++) {
-			hlog_info(MQTTLOG, "    %s/%s%s",
-					  mqtt_context.commands.hooks[i].url,
-					  mqtt_context.commands.hooks[i].user_hook[j].command,
-					  mqtt_context.commands.hooks[i].user_hook[j].help?mqtt_context.commands.hooks[i].user_hook[j].help:"");
+	if (progress <= mqtt_context.commands.cmd_handler) {
+		k = 0;
+		for (i = progress - 1; i < mqtt_context.commands.cmd_handler; i++) {
+			hlog_info(MQTTLOG, "  Serving user commands [%s]:", mqtt_context.commands.hooks[i].description);
+			for (j = 0; j < mqtt_context.commands.hooks[i].count; j++) {
+				hlog_info(MQTTLOG, "    %s/%s%s",
+						mqtt_context.commands.hooks[i].url,
+						mqtt_context.commands.hooks[i].user_hook[j].command,
+						mqtt_context.commands.hooks[i].user_hook[j].help?mqtt_context.commands.hooks[i].user_hook[j].help:"");
+			}
+			k++;
+			progress++;
+			if (k >= LOG_STEP)
+				break;
 		}
 	}
+	if (progress <= mqtt_context.commands.cmd_handler)
+		return false;
 
+	hlog_info(MQTTLOG, "Registered %d devices", mqtt_context.cmp_count);
 	hlog_info(MQTTLOG, "Sent %d discovery messages", mqtt_context.config.discovery_send);
 
 	if (mqtt_context.status_topic[0]) {
@@ -619,6 +635,8 @@ static void mqtt_log_status(void *context)
 	} else {
 		hlog_info(MQTTLOG, "Do not listen for commands");
 	}
+	progress = 0;
+	return true;
 }
 
 int mqtt_msg_publish(char *topic, char *message, bool force)

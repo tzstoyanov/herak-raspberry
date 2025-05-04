@@ -63,7 +63,7 @@ int ssr_state_set(uint8_t id, bool state, uint32_t time, uint32_t delay)
 	return 0;
 }
 
-void ssr_log(void *context)
+bool ssr_log(void *context)
 {
 	uint32_t now, delta_t, delta_d;
 	int i;
@@ -86,6 +86,8 @@ void ssr_log(void *context)
 				  delta_d/1000, ssr_context.relays[i].delay_ms/1000,
 				  delta_t/1000, ssr_context.relays[i].time_ms/1000);
 	}
+
+	return true;
 }
 
 void ssr_run(void)

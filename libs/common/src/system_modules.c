@@ -58,6 +58,7 @@ out_err:
 static int cmd_module_status(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	sys_module_t *mod = (sys_module_t *)user_data;
+	bool ret;
 
 	UNUSED(cmd);
 	UNUSED(params);
@@ -70,7 +71,9 @@ static int cmd_module_status(cmd_run_context_t *ctx, char *cmd, char *params, vo
 		debug_log_forward(ctx->context.web.client_idx);
 	}
 
-	mod->log(mod->context);
+	do {
+		ret = mod->log(mod->context);
+	} while (!ret);
 
 	if (ctx->type == CMD_CTX_WEB)
 		debug_log_forward(-1);

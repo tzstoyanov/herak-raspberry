@@ -75,7 +75,7 @@ void hlog_web_enable(bool set)
 	LOG_UNLOCK;
 }
 
-static void hlog_status(void *context)
+static bool hlog_status(void *context)
 {
 	ip_resolve_state_t sever_ip_state;
 	ip_addr_t server_addr;
@@ -85,7 +85,7 @@ static void hlog_status(void *context)
 
 	if (!log_context.server_url) {
 		hlog_info(LLOG, "Logs are not forwarded to an external server");
-		return;
+		return true;
 	}
 
 	LOG_LOCK;
@@ -106,6 +106,8 @@ static void hlog_status(void *context)
 				  log_context.server_url, inet_ntoa(server_addr), dcount);
 		break;
 	}
+
+	return true;
 }
 
 void hlog_init(int level)

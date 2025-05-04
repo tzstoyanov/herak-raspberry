@@ -502,7 +502,7 @@ void webhook_timeot_check(void)
 	}
 }
 
-static void webhook_log_status(void *context)
+static bool webhook_log_status(void *context)
 {
 	struct webhook_t *wh;
 	int i;
@@ -522,6 +522,8 @@ static void webhook_log_status(void *context)
 				  wh->conn_count, wh->send_count, wh->recv_count, wh->last_reply);
 		WH_UNLOCK(wh);
 	}
+
+	return true;
 }
 
 void webhook_reconnect(void)

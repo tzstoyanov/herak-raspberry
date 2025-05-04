@@ -536,14 +536,14 @@ static void webclient_close_check(void)
 	}
 }
 
-static void webserv_log_status(void *context)
+static bool webserv_log_status(void *context)
 {
 	int i, cnt;
 
 	UNUSED(context);
 
 	if (!werbserv_context.wh_count)
-		return;
+		return true;
 
 	if (!werbserv_context.init) {
 		hlog_info(WSLOG, "Web server at port %d not init yet", werbserv_context.port);
@@ -561,6 +561,8 @@ static void webserv_log_status(void *context)
 		if (werbserv_context.handle[i].user_cb)
 			hlog_info(WSLOG, "    [%s]", werbserv_context.handle[i].url);
 	}
+
+	return true;
 }
 
 void webserv_reconnect(void)
