@@ -259,7 +259,7 @@ static bool ssr_config_get(struct ssr_context_t **ctx)
 	int i;
 
 	(*ctx) = NULL;
-	if ((!config || SSR_len < 1))
+	if (!config || strlen(config) < 1)
 		goto out_error;
 
 	(*ctx) = calloc(1, sizeof(struct ssr_context_t));
