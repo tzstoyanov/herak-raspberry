@@ -26,7 +26,7 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 - Voltronic VM III inverter, over USB using [MAX communication protocol](docs/MAX-Communication-Protocol.pdf).
 - [DALY BMS](docs/Daly-Communications-Protocol-V1.2.pdf), over Bluetooth and [HLK-B40 serial interface](docs/HLK-B40.pdf).
 - [Solid State Relays](libs/common/devices/ssr/README.md).
-- [OpenTherm](docs/Opentherm-Protocol-v2-2.pdf) device in master mode.
+- [OpenTherm](libs/common/devices/opentherm/README.md).
 
 ## Applications:
 Applications are built on top of common library, which provides basic functionality:
