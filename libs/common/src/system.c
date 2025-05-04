@@ -192,6 +192,8 @@ bool system_common_init(void)
 
 	if (!base_init())
 		return false;
+
+	wd_update();
 	LED_ON;
 	sys_context.log_status_count = 0;
 	sys_context.log_status_progress = -1;
@@ -199,23 +201,34 @@ bool system_common_init(void)
 	sys_context.force_reboot = false;
 	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
 	sys_context.has_wifi = wifi_init();
+	wd_update();
 	sys_context.has_lcd = lcd_init();
+	wd_update();
 	if (sys_context.has_lcd)
 		hlog_info(COMMONSYSLOG, "LCD initialized");
 	else
 		hlog_info(COMMONSYSLOG, "no LCD attached");
 	sys_context.has_bt = bt_init();
+	wd_update();
 	sys_context.has_usb = usb_init();
+	wd_update();
 	sys_context.has_mqtt = mqtt_init();
+	wd_update();
 	sys_context.has_time = ntp_init();
+	wd_update();
 	sys_context.has_temp = temperature_init();
+	wd_update();
 	sys_context.has_swout = sw_out_init();
+	wd_update();
 	sys_context.has_wh = webhook_init();
+	wd_update();
 	sys_context.has_websrv = webserv_init();
+	wd_update();
 	webdebug_init();
+	wd_update();
 	sys_modules_init();
+	wd_update();
 	LED_OFF;
-	watchdog_update();
 
 	return true;
 }
@@ -313,11 +326,15 @@ static void do_system_reconnect(void)
 
 	if (sys_context.has_mqtt)
 		mqtt_reconnect();
+	wd_update();
 	if (sys_context.has_wh)
 		webhook_reconnect();
+	wd_update();
 	if (sys_context.has_websrv)
 		webserv_reconnect();
+	wd_update();
 	hlog_reconnect();
+	wd_update();
 	sys_modules_reconnect();
 }
 
@@ -356,6 +373,7 @@ void system_common_run(void)
 	wd_update();
 	if (sys_context.has_wifi)
 		wifi_connect();
+	wd_update();
 	if (sys_context.has_bt)
 		bt_run();
 	wd_update();

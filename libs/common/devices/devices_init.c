@@ -8,7 +8,7 @@
 
 #include "common_internal.h"
 
-#define DEV_REGISTER(F) {extern void F(void); F(); }
+#define DEV_REGISTER(F) {extern void F(void); F(); wd_update();}
 
 void devices_register_and_init(void)
 {
