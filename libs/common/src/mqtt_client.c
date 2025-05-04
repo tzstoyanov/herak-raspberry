@@ -50,7 +50,7 @@
 #define MQTT_CLIENT_LOCK	mutex_enter_blocking(&mqtt_context.lock)
 #define MQTT_CLIENTL_UNLOCK	mutex_exit(&mqtt_context.lock)
 
-#define MQTT_DISCOVERY_MAX_COUNT	128
+#define MQTT_DISCOVERY_MAX_COUNT	256
 #define MQTT_DISCOVERY_BUFF_SIZE	640
 #define MQTT_MAX_TOPIC_SIZE	96
 
