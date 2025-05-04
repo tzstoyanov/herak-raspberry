@@ -87,6 +87,9 @@ static void ssr_mqtt_send(struct ssr_context_t *ctx)
 {
 	static int midx;
 
+	if (!mqtt_discovery_sent())
+		return;
+
 	while (true) {
 		if (midx >= MAX_SSR_COUNT)
 			midx = 0;
