@@ -523,6 +523,7 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 				hlog_info(MQTTLOG, "Connected to server %s", mqtt_context.server_url);
 		}
 		mqtt_context.state = MQTT_CLIENT_CONNECTED;
+		mqtt_context.config.discovery_send = 0;
 		mqtt_context.config.last_send = 0;
 		mqtt_config_send();
 		break;
@@ -572,6 +573,20 @@ bool mqtt_is_connected(void)
 	LWIP_LOCK_START;
 		ret = mqtt_client_is_connected(mqtt_context.client);
 	LWIP_LOCK_END;
+
+	return ret;
+}
+
+bool mqtt_discovery_sent(void)
+{
+	bool ret = false;
+
+	if (!mqtt_context.client)
+		return false;
+	MQTT_CLIENT_LOCK;
+		if (mqtt_context.config.discovery_send >= mqtt_context.cmp_count)
+			ret = true;
+	MQTT_CLIENTL_UNLOCK;
 
 	return ret;
 }
