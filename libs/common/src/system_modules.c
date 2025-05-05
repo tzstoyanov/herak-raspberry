@@ -150,8 +150,9 @@ void sys_modules_reconnect(void)
 	for (i = 0; i < sys_modules_context.modules_count; i++) {
 		if (!sys_modules_context.modules[i]->reconnect)
 			continue;
-		sys_modules_context.modules[i]->reconnect(sys_modules_context.modules[i]->context);
-		wd_update();
+		LOOP_FUNC_RUN(sys_modules_context.modules[i]->name,
+			      sys_modules_context.modules[i]->reconnect,
+  			      sys_modules_context.modules[i]->context);
 	}
 }
 
@@ -160,7 +161,8 @@ void sys_modules_run(void)
 	int i;
 
 	for (i = 0; i < sys_modules_context.modules_count; i++) {
-		sys_modules_context.modules[i]->run(sys_modules_context.modules[i]->context);
-		wd_update();
+		LOOP_FUNC_RUN(sys_modules_context.modules[i]->name,
+ 			     sys_modules_context.modules[i]->run,
+			     sys_modules_context.modules[i]->context);
 	}
 }
