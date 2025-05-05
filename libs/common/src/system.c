@@ -325,16 +325,12 @@ static void do_system_reconnect(void)
 	hlog_info(COMMONSYSLOG, "Reconnecting ...");
 
 	if (sys_context.has_mqtt)
-		mqtt_reconnect();
-	wd_update();
+		LOOP_FUNC_RUN("mqtt reconnect", mqtt_reconnect);
 	if (sys_context.has_wh)
-		webhook_reconnect();
-	wd_update();
+		LOOP_FUNC_RUN("webhook reconnect", webhook_reconnect);
 	if (sys_context.has_websrv)
-		webserv_reconnect();
-	wd_update();
-	hlog_reconnect();
-	wd_update();
+		LOOP_FUNC_RUN("websrc reconnect", webserv_reconnect);
+	LOOP_FUNC_RUN("hlog reconnect", hlog_reconnect);
 	sys_modules_reconnect();
 }
 
@@ -364,49 +360,39 @@ void wd_update(void)
 void system_common_run(void)
 {
 	sys_context.last_loop = to_ms_since_boot(get_absolute_time());
-	wd_update();
 	if (sys_context.has_lcd)
-		lcd_refresh();
-	hlog_connect();
+		LOOP_FUNC_RUN("lcd", lcd_refresh);
+	LOOP_FUNC_RUN("hloq", hlog_connect);
 	if (sys_context.has_temp)
-		temperature_measure();
-	wd_update();
+		LOOP_FUNC_RUN("temperature", temperature_measure);
 	if (sys_context.has_wifi)
-		wifi_connect();
-	wd_update();
+		LOOP_FUNC_RUN("wifi", wifi_connect);
 	if (sys_context.has_bt)
-		bt_run();
-	wd_update();
+		LOOP_FUNC_RUN("bt", bt_run);
 	if (sys_context.has_mqtt)
-		mqtt_run();
+		LOOP_FUNC_RUN("mqtt", mqtt_run);
 	if (sys_context.has_time)
-		ntp_connect();
-	wd_update();
+		LOOP_FUNC_RUN("ntp", ntp_connect);
 	if (sys_context.has_usb)
-		usb_run();
-	wd_update();
+		LOOP_FUNC_RUN("usb", usb_run);
 	if (sys_context.has_wh)
-		webhook_run();
-	log_wd_boot();
+		LOOP_FUNC_RUN("webhook", webhook_run);
 	if (sys_context.has_websrv)
-		webserv_run();
-	log_wd_boot();
+		LOOP_FUNC_RUN("websrc", webserv_run);
+	LOOP_FUNC_RUN("log WD boot", log_wd_boot);
 	if (sys_context.reconnect) {
 		do_system_reconnect();
 		sys_context.reconnect = false;
 	}
-	wd_update();
-	webdebug_run();
-	system_log_run();
-	wd_update();
+	LOOP_FUNC_RUN("webdebug", webdebug_run);
+	LOOP_FUNC_RUN("slog", system_log_run);
 	sys_modules_run();
 	if (sys_context.periodic_log_ms > 0) {
 		static uint32_t llog;
 
 		if ((sys_context.last_loop - llog) > sys_context.periodic_log_ms) {
 			llog = sys_context.last_loop;
-			system_log_status();
-			wd_update();
+			LOOP_FUNC_RUN("syslog status", system_log_status);
 		}
 	}
 }
