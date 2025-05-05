@@ -42,6 +42,7 @@ struct ssr_t {
 };
 
 struct ssr_context_t {
+	sys_module_t mod;
 	int count;
 	uint8_t on_state;
 	uint32_t state;
@@ -422,22 +423,18 @@ static void ssr_debug_set(uint32_t debug, void *context)
 void ssr_register(void)
 {
 	struct ssr_context_t *ctx = NULL;
-	sys_module_t *mod;
 
 	if (!ssr_init(&ctx))
 		return;
 
-	mod = calloc(1, sizeof(sys_module_t));
-	if (!mod)
-		return;
-	mod->name = SSR_MODULE;
-	mod->run = ssr_run;
-	mod->log = ssr_log;
-	mod->debug = ssr_debug_set;
-	mod->commands.hooks = ssr_requests;
-	mod->commands.count = ARRAY_SIZE(ssr_requests);
-	mod->commands.description = "SSR control";
-	mod->context = ctx;
+	ctx->mod.name = SSR_MODULE;
+	ctx->mod.run = ssr_run;
+	ctx->mod.log = ssr_log;
+	ctx->mod.debug = ssr_debug_set;
+	ctx->mod.commands.hooks = ssr_requests;
+	ctx->mod.commands.count = ARRAY_SIZE(ssr_requests);
+	ctx->mod.commands.description = "SSR control";
+	ctx->mod.context = ctx;
 
-	sys_module_register(mod);
+	sys_module_register(&ctx->mod);
 }
