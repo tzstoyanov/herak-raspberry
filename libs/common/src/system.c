@@ -26,7 +26,7 @@ extern char __StackLimit, __bss_end__;
 #define PERIODIC_LOG_MS	0
 
 #define MAIN_WAIT_MS	100
-#define BLINK_INTERVAL	3
+#define BLINK_INTERVAL	100
 
 typedef struct {
 	log_status_cb_t hook;
@@ -247,7 +247,7 @@ void system_common_main(void)
 			LED_ON;
 		system_common_run();
 		LED_OFF;
-		busy_wait_ms(MAIN_WAIT_MS);
+		//busy_wait_ms(MAIN_WAIT_MS);
 	}
 }
 
