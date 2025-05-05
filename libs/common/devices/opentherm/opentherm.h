@@ -324,6 +324,7 @@ typedef struct {
 } opentherm_dev_t;
 
 typedef struct opentherm_context_type {
+	sys_module_t mod;
 	uint32_t log_mask;
 	opentherm_data_t data;
 	opentherm_pio_t pio;

@@ -110,21 +110,17 @@ out_err:
 void opentherm_register(void)
 {
 	opentherm_context_t *ctx = NULL;
-	sys_module_t *mod;
-
+	
 	if (!opentherm_init(&ctx))
 		return;
 
-	mod = calloc(1, sizeof(sys_module_t));
-	if (!mod)
-		return;
-	mod->name = OTHM_MODULE;
-	mod->run = opentherm_run;
-	mod->log = opentherm_log;
-	mod->debug = opentherm_debug_set;
-	mod->commands.hooks = opentherm_user_comands_get(&mod->commands.count);
-	mod->commands.description = "OpenTherm control";
-	mod->context = ctx;
+	ctx->mod.name = OTHM_MODULE;
+	ctx->mod.run = opentherm_run;
+	ctx->mod.log = opentherm_log;
+	ctx->mod.debug = opentherm_debug_set;
+	ctx->mod.commands.hooks = opentherm_user_comands_get(&ctx->mod.commands.count);
+	ctx->mod.commands.description = "OpenTherm control";
+	ctx->mod.context = ctx;
 
-	sys_module_register(mod);
+	sys_module_register(&ctx->mod);
 }
