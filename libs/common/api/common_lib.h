@@ -33,6 +33,7 @@ void system_force_reboot(int delay_ms);
 void system_common_main(void);
 
 int sys_asprintf(char **strp, const char *fmt, ...);
+uint8_t sys_value_to_percent(uint32_t range_min, uint32_t range_max, uint32_t val);
 
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count);
 char *get_current_time_str(char *buf, int buflen);

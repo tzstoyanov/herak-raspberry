@@ -30,3 +30,13 @@ int sys_asprintf(char **strp, const char *fmt, ...)
 	va_end(args);
 	return size;
 }
+
+uint8_t sys_value_to_percent(uint32_t range_min, uint32_t range_max, uint32_t val)
+{
+	if (val <= range_min)
+		return 0;
+	if (val >= range_max)
+		return 100;
+
+	return	(100 * (val - range_min)) / (range_max - range_min);
+}
