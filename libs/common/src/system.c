@@ -170,6 +170,7 @@ static bool base_init(void)
 		return false;
 	}
 	cyw43_arch_enable_sta_mode();
+	busy_wait_ms(2000);
 	gpio_init(CYW43_WL_GPIO_LED_PIN);
 	gpio_set_dir(CYW43_WL_GPIO_LED_PIN, GPIO_OUT);
 
