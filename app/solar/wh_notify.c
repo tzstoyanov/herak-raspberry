@@ -36,7 +36,7 @@ static bool wh_notify_get_config(char **server, char **endpoint, int *port)
 	srv = param_get(WEBHOOK_SERVER);
 	if (!srv || strlen(srv) < 1)
 		goto out_err;
-	ep = param_get(WEBHOOK_ENDPINT);
+	ep = param_get(WEBHOOK_ENDPOINT);
 	if (!ep || strlen(ep) < 1)
 		goto out_err;
 
