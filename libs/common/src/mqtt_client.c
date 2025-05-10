@@ -79,6 +79,7 @@ typedef struct {
 	mqtt_cmd_t hooks[MAX_CMD_HANDLERS];
 	int cmd_msg_size;
 	bool cmd_msg_in_progress;
+	bool cmd_msg_ready;
 	char cmd_msg[MQTT_OUTPUT_RINGBUF_SIZE];
 	mqtt_msg_receive_cb_t cmd_hook;
 } mqtt_commads_t;
@@ -141,6 +142,7 @@ static void mqtt_incoming_publish(void *arg, const char *topic, u32_t tot_len)
 		goto out;
 
 	mqtt_context.commands.cmd_msg_in_progress = true;
+	mqtt_context.commands.cmd_msg_ready = false;
 	mqtt_context.commands.cmd_msg_size = 0;
 
 out:
@@ -201,7 +203,7 @@ static void mqtt_incoming_data(void *arg, const u8_t *data, u16_t len, u8_t flag
 
 	MQTT_CLIENT_LOCK;
 
-	if (!mqtt_context.commands.cmd_msg_in_progress)
+	if (!mqtt_context.commands.cmd_msg_in_progress || mqtt_context.commands.cmd_msg_ready)
 		goto out;
 	if ((mqtt_context.commands.cmd_msg_size + len) >= (MQTT_OUTPUT_RINGBUF_SIZE-1))
 		goto out;
@@ -211,15 +213,31 @@ static void mqtt_incoming_data(void *arg, const u8_t *data, u16_t len, u8_t flag
 
 	if (flags & MQTT_DATA_FLAG_LAST) {
 		mqtt_context.commands.cmd_msg[mqtt_context.commands.cmd_msg_size] = '\0';
-		MQTT_CLIENTL_UNLOCK;
-			mqtt_call_user_cb();
-		MQTT_CLIENT_LOCK;
-		mqtt_context.commands.cmd_msg_in_progress = false;
-		mqtt_context.commands.cmd_msg_size = 0;
+		mqtt_context.commands.cmd_msg_ready = true;
 	}
 
 out:
 	MQTT_CLIENTL_UNLOCK;
+}
+
+static bool mqtt_incoming_ready()
+{
+	bool ret = false;
+
+	MQTT_CLIENT_LOCK;
+	if (!mqtt_context.commands.cmd_msg_ready)
+		goto out;
+	MQTT_CLIENTL_UNLOCK;
+	mqtt_call_user_cb();
+	MQTT_CLIENT_LOCK;
+	mqtt_context.commands.cmd_msg_in_progress = false;
+	mqtt_context.commands.cmd_msg_ready = false;
+	mqtt_context.commands.cmd_msg_size = 0;
+	ret = true;
+	
+out:
+	MQTT_CLIENTL_UNLOCK;
+	return ret;
 }
 
 static int mqtt_cmd_subscribe(void)
@@ -444,7 +462,7 @@ static void mqtt_config_send(void)
 	uint64_t now;
 	int ret = -1;
 
-	if (mqtt_context.state != MQTT_CLIENT_CONNECTED)
+	if (!mqtt_is_connected())
 		return;
 
 	now = time_ms_since_boot();
@@ -462,8 +480,7 @@ static void mqtt_config_send(void)
 				mqtt_context.config.subscribe = true;
 		}
 	MQTT_CLIENTL_UNLOCK;
-	if (!mqtt_is_connected())
-		return;
+
 	if (mqtt_context.config.status) {
 		ret = mqtt_msg_send(mqtt_context.status_topic, ONLINE_MSG);
 		if (!ret) {
@@ -522,20 +539,18 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 	switch (status) {
 	case MQTT_CONNECT_ACCEPTED:
 		if (mqtt_context.state != MQTT_CLIENT_CONNECTED) {
-			system_log_status();
 			MQTT_CLIENT_LOCK;
 				mqtt_context.connect_count++;
-				LWIP_LOCK_START;
-					mqtt_set_inpub_callback(client, mqtt_incoming_publish, mqtt_incoming_data, NULL);
-				LWIP_LOCK_END;
 			MQTT_CLIENTL_UNLOCK;
+			LWIP_LOCK_START;
+				mqtt_set_inpub_callback(client, mqtt_incoming_publish, mqtt_incoming_data, NULL);
+			LWIP_LOCK_END;
 			if (IS_DEBUG)
 				hlog_info(MQTTLOG, "Connected to server %s", mqtt_context.server_url);
 		}
 		mqtt_context.state = MQTT_CLIENT_CONNECTED;
 		mqtt_context.config.discovery_send = 0;
 		mqtt_context.config.last_send = 0;
-		mqtt_config_send();
 		break;
 	case MQTT_CONNECT_DISCONNECTED:
 		if (mqtt_context.state != MQTT_CLIENT_DISCONNECTED) {
@@ -848,6 +863,8 @@ void mqtt_run(void)
 {
 	if (!mqtt_connect())
 		return;
+	if (mqtt_incoming_ready())
+		return;	
 	mqtt_config_send();
 }
 
