@@ -414,8 +414,9 @@ static int mqtt_msg_discovery_send_device(void)
 			hlog_info(MQTTLOG, "Send %d bytes device discovery message",
 					  strlen(mqtt_context.discovery.buff));
 	} else {
-		hlog_info(MQTTLOG, "Failed to publish %d/%d bytes device discovery message",
-				  strlen(mqtt_context.discovery.buff), msize);
+		if (IS_DEBUG)
+			hlog_info(MQTTLOG, "Failed to publish %d/%d bytes device discovery message",
+				  	  strlen(mqtt_context.discovery.buff), msize);
 	}
 	return ret;
 }
@@ -441,8 +442,9 @@ static int mqtt_msg_discovery_send(void)
 			hlog_info(MQTTLOG, "Send %d bytes discovery message of %s/%s",
 					  strlen(mqtt_context.discovery.buff), comp->module, comp->name);
 	} else {
-		hlog_info(MQTTLOG, "Failed to publish %d/%d bytes discovery message",
-				  strlen(mqtt_context.discovery.buff), msize);
+		if (IS_DEBUG)
+			hlog_info(MQTTLOG, "Failed to publish %d/%d bytes discovery message",
+				  	  strlen(mqtt_context.discovery.buff), msize);
 	}
 
 	return ret;
@@ -497,6 +499,8 @@ static void mqtt_config_send(void)
 			sent++;
 			mqtt_context.config.discovery_send++;
 			mqtt_context.discovery.send_idx++;
+			if (mqtt_context.config.discovery_send == mqtt_context.cmp_count)
+				hlog_info(MQTTLOG, "Send all %d discovery messages", mqtt_context.config.discovery_send);
 		}
 		if (mqtt_context.discovery.send_idx >= mqtt_context.cmp_count) {
 			mqtt_context.discovery.send_idx = 0;
