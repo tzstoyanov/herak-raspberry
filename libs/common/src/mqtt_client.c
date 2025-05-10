@@ -57,6 +57,11 @@
 #define MQTT_DISCOVERY_BUFF_SIZE	640
 #define MQTT_MAX_TOPIC_SIZE	96
 
+#define MAX_CONN_ERR		10
+#define CONN_ERR_TIME_MSEC	120000 // 2 min
+
+// MQTT_REQ_MAX_IN_FLIGHT
+
 enum mqtt_client_state_t {
 	MQTT_CLIENT_INIT = 0,
 	MQTT_CLIENT_DISCONNECTED,
@@ -120,12 +125,13 @@ static struct {
 	mqtt_client_t *client;
 	struct mqtt_connect_client_info_t client_info;
 	bool data_send;
-	bool send_in_progress;
+	int send_in_progress;
 	uint64_t send_start;
 	uint64_t last_send;
 	mutex_t lock;
 	uint32_t connect_count;
 	uint32_t debug;
+	uint8_t send_err_count;
 } mqtt_context;
 
 static void mqtt_incoming_publish(void *arg, const char *topic, u32_t tot_len)
@@ -271,37 +277,18 @@ static void mqtt_publish_cb(void *arg, err_t result)
 	UNUSED(result);
 	UNUSED(arg);
 	MQTT_CLIENT_LOCK;
-		mqtt_context.send_in_progress = false;
+		mqtt_context.send_in_progress--;
+		if (result != ERR_OK)
+			mqtt_context.send_err_count++;
 	MQTT_CLIENTL_UNLOCK;
 }
 
 static int mqtt_msg_send(char *topic, char *message)
 {
-	uint64_t now, last;
-	bool in_progress;
 	err_t err;
 
 	if (!mqtt_is_connected())
 		return -1;
-
-	now = time_ms_since_boot();
-	MQTT_CLIENT_LOCK;
-		in_progress = mqtt_context.send_in_progress;
-		last = mqtt_context.send_start;
-	MQTT_CLIENTL_UNLOCK;
-
-	if (in_progress) {
-		if ((now - last) < SEND_TIMEOUT_MS) {
-			if (IS_DEBUG)
-				hlog_info(MQTTLOG, "Cannot publish: connected %d, send in progress %d", mqtt_is_connected(), in_progress);
-			return -1;
-		}
-		MQTT_CLIENT_LOCK;
-			mqtt_context.send_in_progress = false;
-		MQTT_CLIENTL_UNLOCK;
-		if (IS_DEBUG)
-			hlog_info(MQTTLOG, "Timeout sending MQTT packet");
-	}
 
 	LWIP_LOCK_START;
 		err = mqtt_publish(mqtt_context.client, topic, message,
@@ -310,13 +297,18 @@ static int mqtt_msg_send(char *topic, char *message)
 
 	if (err == ERR_OK) {
 		MQTT_CLIENT_LOCK;
-			mqtt_context.send_in_progress = true;
+			mqtt_context.send_err_count = 0;
+			mqtt_context.send_in_progress++;
 			mqtt_context.send_start = time_ms_since_boot();
 		MQTT_CLIENTL_UNLOCK;
 		if (IS_DEBUG)
 			hlog_info(MQTTLOG, "Published %d bytes to [%s]", strlen(message), topic);
 	} else {
-		hlog_info(MQTTLOG, "Failed to publish the message: %d", err);
+		MQTT_CLIENT_LOCK;
+			mqtt_context.send_err_count++;
+		MQTT_CLIENTL_UNLOCK;
+		if (IS_DEBUG)
+			hlog_info(MQTTLOG, "Failed to publish the message: %d / %d", err, mqtt_context.send_in_progress);
 		return -1;
 	}
 
@@ -533,7 +525,7 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 	UNUSED(client);
 	UNUSED(arg);
 	MQTT_CLIENT_LOCK;
-		mqtt_context.send_in_progress = false;
+		mqtt_context.send_in_progress = 0;
 	MQTT_CLIENTL_UNLOCK;
 
 	switch (status) {
@@ -551,6 +543,7 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 		mqtt_context.state = MQTT_CLIENT_CONNECTED;
 		mqtt_context.config.discovery_send = 0;
 		mqtt_context.config.last_send = 0;
+		mqtt_context.send_err_count = 0;
 		break;
 	case MQTT_CONNECT_DISCONNECTED:
 		if (mqtt_context.state != MQTT_CLIENT_DISCONNECTED) {
@@ -558,11 +551,13 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 				hlog_info(MQTTLOG, "Disconnected from server %s", mqtt_context.server_url);
 		}
 		mqtt_context.state = MQTT_CLIENT_DISCONNECTED;
+		mqtt_context.send_err_count = 0;
 		break;
 	case MQTT_CONNECT_TIMEOUT:
 		if (IS_DEBUG)
 			hlog_info(MQTTLOG, "Server timeout %s", mqtt_context.server_url);
 		mqtt_context.state = MQTT_CLIENT_DISCONNECTED;
+		mqtt_context.send_err_count = 0;
 		break;
 	case MQTT_CONNECT_REFUSED_PROTOCOL_VERSION:
 	case MQTT_CONNECT_REFUSED_IDENTIFIER:
@@ -571,6 +566,7 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 	case MQTT_CONNECT_REFUSED_NOT_AUTHORIZED_:
 		hlog_info(MQTTLOG, "Connection refused from server %s -> %d", mqtt_context.server_url, status);
 		mqtt_context.state = MQTT_CLIENT_DISCONNECTED;
+		mqtt_context.send_err_count = 0;
 		break;
 	default:
 		hlog_info(MQTTLOG, "Unknown state of the server %s -> %d", mqtt_context.server_url, status);
@@ -915,6 +911,8 @@ void mqtt_reconnect(void)
 	mqtt_client_t *clnt = NULL;
 
 	MQTT_CLIENT_LOCK;
+		mqtt_context.send_err_count = 0;
+		mqtt_context.send_start = 0;
 		if (mqtt_context.state == MQTT_CLIENT_INIT) {
 			MQTT_CLIENTL_UNLOCK;
 			return;
@@ -952,7 +950,7 @@ bool mqtt_init(void)
 	mqtt_context.client_info.will_msg = OFFLINE_MSG;
 	mqtt_context.client_info.will_qos = 1;
 	mqtt_context.client_info.will_retain = 1;
-	mqtt_context.send_in_progress = false;
+	mqtt_context.send_in_progress = 0;
 	mqtt_context.max_payload_size = MQTT_OUTPUT_RINGBUF_SIZE - MQTT_MAX_TOPIC_SIZE;
 
 	add_status_callback(mqtt_log_status, NULL);
