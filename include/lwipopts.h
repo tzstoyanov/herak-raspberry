@@ -6,8 +6,9 @@
 
 #define NO_SYS						1
 #define LWIP_SOCKET					0
+#define LWIP_TIMERS 				1
 
-#define MEMP_NUM_SYS_TIMEOUT	(LWIP_NUM_SYS_TIMEOUT_INTERNAL + 3)
+#define MEMP_NUM_SYS_TIMEOUT	(LWIP_NUM_SYS_TIMEOUT_INTERNAL + 5)
 #define MQTT_REQ_MAX_IN_FLIGHT	(5) /* maximum of subscribe requests */
 
 #if PICO_CYW43_ARCH_POLL
@@ -18,12 +19,12 @@
 #endif
 
 #define MEM_ALIGNMENT				4
-#define MEM_SIZE					4000
+#define MEM_SIZE				8192
 #define MEMP_NUM_TCP_SEG			32
-#define MEMP_NUM_ARP_QUEUE			10
-#define PBUF_POOL_SIZE				24
-#define LWIP_TCPIP_CORE_LOCKING		0
-#define LWIP_TCPIP_CORE_LOCKING_INPUT	0
+#define MEMP_NUM_ARP_QUEUE			5
+#define PBUF_POOL_SIZE				32
+#define LWIP_TCPIP_CORE_LOCKING		1
+#define LWIP_TCPIP_CORE_LOCKING_INPUT	1
 #define SYS_LIGHTWEIGHT_PROT		1
 #define LWIP_MPU_COMPATIBLE			0
 #define LWIP_ARP					1
@@ -38,10 +39,14 @@
 #define LWIP_NETIF_LINK_CALLBACK	1
 #define LWIP_NETIF_HOSTNAME			1
 #define LWIP_NETCONN				0
-#define MEM_STATS					0
-#define SYS_STATS					0
-#define MEMP_STATS					0
-#define LINK_STATS					0
+#define MEM_STATS				1
+#define SYS_STATS				1
+#define MEMP_STATS				1
+#define LINK_STATS				1
+#define IP_STATS           			1
+#define ETHARP_STATS       			1
+#define TCP_STATS          			1
+#define UDP_STATS          			1
 //#define ETH_PAD_SIZE				2
 #define LWIP_CHKSUM_ALGORITHM		3
 #define LWIP_DHCP					1
@@ -51,7 +56,8 @@
 #define LWIP_UDP					1
 #define LWIP_DNS					1
 #define LWIP_CALLBACK_API			1
-#define LWIP_ALTCP					0
+#define LWIP_ALTCP				1
+#define LWIP_ALTCP_TLS				0
 #define DNS_TABLE_SIZE				6
 #define LWIP_TCP_KEEPALIVE			1
 #define LWIP_NETIF_TX_SINGLE_PBUF	1
@@ -66,6 +72,12 @@
 //#define DNS_DEBUG					LWIP_DBG_TYPES_ON
 //#define MQTT_DEBUG				LWIP_DBG_TYPES_ON
 //#endif
+
+/*
+void hlog_any(int severity, const char *topic, const char *fmt, ...);
+#define hlog_sys(args...) hlog_any(-1, NULL, args)
+#define LWIP_PLATFORM_DIAG(x)       do {hlog_sys x;} while(0)
+*/
 
 #define MQTT_OUTPUT_RINGBUF_SIZE	1024
 

@@ -343,7 +343,7 @@ static void webhook_connect(struct webhook_t *wh)
 		wh_abort(wh);
 		WH_LOCK(wh);
 			LWIP_LOCK_START;
-				wh->tcp_conn = altcp_tcp_new_ip_type(IP_GET_TYPE(&(wh->addr)));
+				wh->tcp_conn = altcp_new_ip_type(NULL, IP_GET_TYPE(&(wh->addr)));
 				if (wh->tcp_conn) {
 					altcp_arg(wh->tcp_conn, wh);
 					err = altcp_bind(wh->tcp_conn, IP_ADDR_ANY, 0);
