@@ -433,8 +433,12 @@ bool opentherm_dev_log(opentherm_context_t *ctx)
 	switch (in_progress) {
 	case 0:
 		hlog_info(OTHM_MODULE, "Params");
-		hlog_info(OTHM_MODULE, "  CH %s", ctx->data.status.ch_enabled ? "enabled" : "disabled");
-		hlog_info(OTHM_MODULE, "  DHW %s", ctx->data.status.dhw_enabled ? "enabled" : "disabled");
+		hlog_info(OTHM_MODULE, "  CH %s / %s", 
+					ctx->data.status.ch_enabled ? "enabled" : "disabled",
+					ctx->data.status.ch_active ? "running" : "not running");
+		hlog_info(OTHM_MODULE, "  DHW %s / %s", 
+					ctx->data.status.dhw_enabled ? "enabled" : "disabled",
+					ctx->data.status.dhw_active ? "running" : "not running");
 		hlog_info(OTHM_MODULE, "  CH set: %3.2f/%3.2f*C",
 				ctx->data.param_desired.ch_temperature_setpoint, ctx->data.param_actual.ch_temperature_setpoint);
 		hlog_info(OTHM_MODULE, "  DHW set: %3.2f/%3.2f*C",
