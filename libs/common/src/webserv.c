@@ -667,7 +667,7 @@ static bool webserv_open(void)
 	bool ret = false;
 
 	LWIP_LOCK_START;
-		pcb = altcp_tcp_new_ip_type(IPADDR_TYPE_ANY);
+		pcb = altcp_new_ip_type(NULL, IPADDR_TYPE_ANY);
 	LWIP_LOCK_END;
 	if (!pcb)
 		return false;
