@@ -709,7 +709,7 @@ int mqtt_msg_component_publish(mqtt_component_t *component, char *message)
 	return ret;
 }
 
-static void mqtt_connect(void)
+static bool mqtt_connect(void)
 {
 	enum mqtt_client_state_t st;
 	mqtt_client_t *clnt = NULL;	
@@ -724,20 +724,30 @@ static void mqtt_connect(void)
 				hlog_info(MQTTLOG, "No WiFi, force reconnection");
 			mqtt_reconnect();
 		}
-		return;
+		return false;
 	}
-	if (mqtt_is_connected())
-		return;
+
+	now = time_ms_since_boot();
+	if (mqtt_is_connected()) {
+		if (mqtt_context.send_err_count >= MAX_CONN_ERR && 
+			(now - mqtt_context.send_start) >= CONN_ERR_TIME_MSEC) {
+			if (IS_DEBUG)
+				hlog_info(MQTTLOG, "%d packet send errors in %s sec , force reconnection",
+						  mqtt_context.send_err_count, (now - mqtt_context.send_start)/1000);
+			mqtt_reconnect();
+			return false;
+		}		
+		return true;
+	}
 
 	MQTT_CLIENT_LOCK;
 		st = mqtt_context.state;
 		last_send = mqtt_context.last_send;
 	MQTT_CLIENTL_UNLOCK;
 
-	now = time_ms_since_boot();
 	if (st == MQTT_CLIENT_CONNECTING) {
 		if ((now - last_send) < IP_TIMEOUT_MS)
-			return;
+			return false;
 		if (mqtt_context.client) {
 			LWIP_LOCK_START;
 				mqtt_disconnect(mqtt_context.client);
@@ -768,7 +778,7 @@ static void mqtt_connect(void)
 				mqtt_context.last_send = time_ms_since_boot();
 				mqtt_context.sever_ip_state = IP_RESOLVING;
 			MQTT_CLIENTL_UNLOCK;
-			return;
+			return false;
 		} else if (ret == ERR_OK) {
 			if (IS_DEBUG)
 				hlog_info(MQTTLOG, "MQTT server resolved");
@@ -776,7 +786,7 @@ static void mqtt_connect(void)
 				mqtt_context.sever_ip_state = IP_RESOLVED;
 			MQTT_CLIENTL_UNLOCK;
 		} else {
-			return;
+			return false;
 		}
 		break;
 	case IP_RESOLVED:
@@ -789,9 +799,9 @@ static void mqtt_connect(void)
 				mqtt_context.sever_ip_state = IP_NOT_RESOLEVED;
 			MQTT_CLIENTL_UNLOCK;
 		}
-		return;
+		return false;
 	default:
-		return;
+		return false;
 	}
 
 	MQTT_CLIENT_LOCK;
@@ -808,7 +818,7 @@ static void mqtt_connect(void)
 		clnt = mqtt_client_new();
 	LWIP_LOCK_END;
 	if (!clnt)
-		return;
+		return false;
 	MQTT_CLIENT_LOCK;		
 		mqtt_context.client = clnt;
 		mqtt_context.state = MQTT_CLIENT_CONNECTING;
@@ -830,12 +840,13 @@ static void mqtt_connect(void)
 					mqtt_context.server_url, inet_ntoa(mqtt_context.server_addr), ret);
 		}
 	MQTT_CLIENTL_UNLOCK;
+
+	return false;
 }
 
 void mqtt_run(void)
 {
-	mqtt_connect();
-	if (mqtt_context.state != MQTT_CLIENT_CONNECTED)
+	if (!mqtt_connect())
 		return;
 	mqtt_config_send();
 }
