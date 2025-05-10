@@ -47,8 +47,11 @@
 #define ONLINE_MSG				"online"
 #define OFFLINE_MSG				"offline"
 
-#define MQTT_CLIENT_LOCK	mutex_enter_blocking(&mqtt_context.lock)
-#define MQTT_CLIENTL_UNLOCK	mutex_exit(&mqtt_context.lock)
+//#define MQTT_CLIENT_LOCK	mutex_enter_blocking(&mqtt_context.lock)
+//#define MQTT_CLIENTL_UNLOCK	mutex_exit(&mqtt_context.lock)
+
+#define MQTT_CLIENT_LOCK
+#define MQTT_CLIENTL_UNLOCK
 
 #define MQTT_DISCOVERY_MAX_COUNT	256
 #define MQTT_DISCOVERY_BUFF_SIZE	640
@@ -152,8 +155,9 @@ static void mqtt_call_user_cb(void)
 	char *url;
 	int i, j;
 
+	MQTT_CLIENT_LOCK;
 	if (mqtt_context.commands.cmd_msg_size < 2)
-		return;
+		goto out;
 
 	ctx.type = CMD_CTX_MQTT;
 	for (i = 0; i < mqtt_context.commands.cmd_handler; i++) {
@@ -180,11 +184,15 @@ static void mqtt_call_user_cb(void)
 			data_offset += strlen(cmd->command);
 			if (IS_DEBUG)
 				hlog_info(MQTTLOG, "User command [%s]", mqtt_context.commands.cmd_msg);
+			MQTT_CLIENTL_UNLOCK;
 			cmd->cb(&ctx, cmd->command, mqtt_context.commands.cmd_msg + data_offset,
 					mqtt_context.commands.hooks[i].user_data);
+			MQTT_CLIENT_LOCK;
 			break;
 		}
 	}
+out:
+	MQTT_CLIENTL_UNLOCK;
 }
 
 static void mqtt_incoming_data(void *arg, const u8_t *data, u16_t len, u8_t flags)
@@ -226,9 +234,11 @@ static int mqtt_cmd_subscribe(void)
 	if (mqtt_context.state != MQTT_CLIENT_CONNECTED)
 		goto out;
 
+	MQTT_CLIENTL_UNLOCK;
 	LWIP_LOCK_START;
 		ret = mqtt_subscribe(mqtt_context.client, mqtt_context.commands.cmd_topic, MQTT_QOS, NULL, NULL);
 	LWIP_LOCK_END;
+	MQTT_CLIENT_LOCK;
 
 	if (!ret && IS_DEBUG)
 		hlog_info(MQTTLOG, "Subscribed to MQTT topic [%s]", mqtt_context.commands.cmd_topic);
@@ -581,10 +591,9 @@ bool mqtt_discovery_sent(void)
 {
 	bool ret = false;
 
-	if (!mqtt_context.client)
-		return false;
 	MQTT_CLIENT_LOCK;
-		if (mqtt_context.config.discovery_send >= mqtt_context.cmp_count)
+		if (mqtt_context.client &&
+			mqtt_context.config.discovery_send >= mqtt_context.cmp_count)
 			ret = true;
 	MQTT_CLIENTL_UNLOCK;
 
@@ -679,8 +688,8 @@ int mqtt_msg_publish(char *topic, char *message, bool force)
 
 	ret = mqtt_msg_send(topic_str, message);
 	if (!ret) {
-		mqtt_context.data_send = false;
 		MQTT_CLIENT_LOCK;
+			mqtt_context.data_send = false;
 			mqtt_context.last_send = time_ms_since_boot();
 		MQTT_CLIENTL_UNLOCK;
 	}
@@ -703,6 +712,7 @@ int mqtt_msg_component_publish(mqtt_component_t *component, char *message)
 static void mqtt_connect(void)
 {
 	enum mqtt_client_state_t st;
+	mqtt_client_t *clnt = NULL;	
 	ip_resolve_state_t res;
 	uint64_t last_send;
 	uint64_t now;
@@ -787,17 +797,20 @@ static void mqtt_connect(void)
 	MQTT_CLIENT_LOCK;
 		if (mqtt_context.state == MQTT_CLIENT_INIT)
 			hlog_info(MQTTLOG, "Connecting to MQTT server %s (%s) ...", mqtt_context.server_url, inet_ntoa(mqtt_context.server_addr));
-		LWIP_LOCK_START;
-			if (mqtt_context.client) {
-				mqtt_disconnect(mqtt_context.client);
-				mqtt_client_free(mqtt_context.client);
-			}
-			mqtt_context.client = mqtt_client_new();
-		LWIP_LOCK_END;
-		if (!mqtt_context.client) {
-			MQTT_CLIENTL_UNLOCK;
-			return;
+		clnt = mqtt_context.client;
+		mqtt_context.client = NULL;
+	MQTT_CLIENTL_UNLOCK;
+	LWIP_LOCK_START;
+		if (clnt) {
+			mqtt_disconnect(clnt);
+			mqtt_client_free(clnt);
 		}
+		clnt = mqtt_client_new();
+	LWIP_LOCK_END;
+	if (!clnt)
+		return;
+	MQTT_CLIENT_LOCK;		
+		mqtt_context.client = clnt;
 		mqtt_context.state = MQTT_CLIENT_CONNECTING;
 	MQTT_CLIENTL_UNLOCK;
 
@@ -871,20 +884,25 @@ static int mqtt_get_config(void)
 
 void mqtt_reconnect(void)
 {
+	mqtt_client_t *clnt = NULL;
+
 	MQTT_CLIENT_LOCK;
 		if (mqtt_context.state == MQTT_CLIENT_INIT) {
 			MQTT_CLIENTL_UNLOCK;
 			return;
 		}
-		if (mqtt_context.client) {
-			LWIP_LOCK_START;
-				mqtt_disconnect(mqtt_context.client);
-				mqtt_client_free(mqtt_context.client);
-			LWIP_LOCK_END;
-			mqtt_context.client = NULL;
-		}
 		mqtt_context.state = MQTT_CLIENT_DISCONNECTED;
-		mqtt_context.sever_ip_state = IP_NOT_RESOLEVED;
+		mqtt_context.sever_ip_state = IP_NOT_RESOLEVED;		
+		clnt = mqtt_context.client;
+		mqtt_context.client = NULL;
+	MQTT_CLIENTL_UNLOCK;
+	if (clnt) {
+		LWIP_LOCK_START;
+			mqtt_disconnect(clnt);
+			mqtt_client_free(clnt);
+		LWIP_LOCK_END;
+	}
+	MQTT_CLIENT_LOCK;
 		hlog_info(MQTTLOG, "Disconnected form %s", mqtt_context.server_url);
 	MQTT_CLIENTL_UNLOCK;
 }
