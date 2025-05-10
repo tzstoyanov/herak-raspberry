@@ -164,7 +164,7 @@ static void soil_mqtt_send(struct soil_context_t *ctx)
 static void measure_analog(struct soil_context_t *ctx, int id)
 {
 	uint32_t av;
-	int i;
+	int i, pcnt;
 
 	adc_select_input(ctx->sensors[id].analog->adc_id);
 
@@ -176,8 +176,11 @@ static void measure_analog(struct soil_context_t *ctx, int id)
 	av = samples_filter(ctx->sensors[id].analog->samples, SOIL_MEASURE_COUNT, SOIL_MEASURE_DROP);
 	if (ctx->sensors[id].analog->last_analog != av) {
 		ctx->sensors[id].analog->last_analog = av;
-		ctx->sensors[id].analog->percent = 100 - sys_value_to_percent(0, MAX_ANALOG_VALUE, av);
-		ctx->sensors[id].updated = true;
+		pcnt = 100 - sys_value_to_percent(0, MAX_ANALOG_VALUE, av);
+		if (ctx->sensors[id].analog->percent != pcnt) {
+			ctx->sensors[id].analog->percent = pcnt;
+			ctx->sensors[id].updated = true;
+		}
 	}
 }
 
