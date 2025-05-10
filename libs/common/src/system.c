@@ -19,7 +19,7 @@
 extern char __StackLimit, __bss_end__;
 
 #define COMMONSYSLOG	"system"
-#define WATCHDOG_TIMEOUT_MS	30000 /* Reboot on 30s inactivity */
+#define WATCHDOG_TIMEOUT_MS	30000 /* Maximum of 8388, which is approximately 8.3 seconds */
 
 #define LOG_STATUS_HOOKS_COUNT	64
 
