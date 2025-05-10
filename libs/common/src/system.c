@@ -25,7 +25,12 @@ extern char __StackLimit, __bss_end__;
 
 #define PERIODIC_LOG_MS	0
 
-#define MAIN_WAIT_MS	100
+//#define MAIN_WAIT_MS	10
+#ifdef MAIN_WAIT_MS
+#define	BUSY_WAIT		busy_wait_ms(MAIN_WAIT_MS);
+#else
+#define	BUSY_WAIT
+#endif
 #define BLINK_INTERVAL	100
 
 typedef struct {
@@ -248,7 +253,7 @@ void system_common_main(void)
 			LED_ON;
 		system_common_run();
 		LED_OFF;
-		//busy_wait_ms(MAIN_WAIT_MS);
+		BUSY_WAIT;
 	}
 }
 
