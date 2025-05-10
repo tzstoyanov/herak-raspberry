@@ -306,3 +306,94 @@ void log_level_set(uint32_t level)
 {
 	log_context.log_level = level;
 }
+
+#define SYS_LOG	"system"
+void log_sys_health(void)
+{
+	int errs = 0;
+
+#if MEM_STATS
+	if (lwip_stats.mem.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error %s: %d / %d bytes available",
+				 lwip_stats.mem.name, lwip_stats.mem.err, lwip_stats.mem.avail);
+	}
+	for (int i = 0; i < MEMP_MAX; i++) {
+		if (lwip_stats.memp[i]->err) {
+			hlog_err(SYS_LOG, "Error %s: %d / %d bytes available",
+					 lwip_stats.memp[i]->name, lwip_stats.memp[i]->err, lwip_stats.memp[i]->avail);
+		}
+	}
+#endif
+
+#if SYS_STATS
+	if (lwip_stats.sys.mbox.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error SYS MBOX: %d / %d available",
+				 lwip_stats.sys.mbox.err, lwip_stats.sys.mbox.max);
+	}
+	if (lwip_stats.sys.mutex.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error SYS Mutex: %d / %d available",
+				 lwip_stats.sys.mutex.err, lwip_stats.sys.mutex.err);
+	}
+	if (lwip_stats.sys.sem.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error SYS Sem: %d / %d available",
+				 lwip_stats.sys.sem.err, lwip_stats.sys.sem.max);
+	}	
+#endif
+
+#if TCP_STATS
+	if (lwip_stats.tcp.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error TCP: %d", lwip_stats.tcp.err);
+	}
+#endif
+
+#if UDP_STATS
+	if (lwip_stats.udp.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error UDP: %d", lwip_stats.udp.err);
+	}
+#endif
+
+#if ICMP_STATS
+	if (lwip_stats.icmp.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error ICMP: %d", lwip_stats.icmp.err);
+	}
+#endif
+
+#if IP_STATS
+	if (lwip_stats.ip.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error IP: %d", lwip_stats.ip.err);
+	}
+#endif
+
+#if IPFRAG_STATS
+	if (lwip_stats.ip_frag.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error IPfrag: %d", lwip_stats.ip_frag.err);
+	}
+#endif
+
+#if ETHARP_STATS
+	if (lwip_stats.etharp.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error EthArp: %d", lwip_stats.etharp.err);
+	}
+#endif
+
+#if LINK_STATS
+	if (lwip_stats.link.err) {
+		errs++;
+		hlog_err(SYS_LOG, "Error Link: %d", lwip_stats.link.err);
+	}
+#endif
+
+	if (!errs)
+		hlog_info(SYS_LOG, "System is healthy, no errors detected");
+
+}

@@ -148,6 +148,28 @@ out_err:
 	return 0;
 }
 
+#define LSYS_STATUS_STR "\tLow level internals ...\r\n"
+static int debug_log_system(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	UNUSED(cmd);
+	UNUSED(params);
+	UNUSED(user_data);
+
+	if (ctx->type == CMD_CTX_WEB) {
+		weberv_client_send_data(ctx->context.web.client_idx, LSYS_STATUS_STR, strlen(LSYS_STATUS_STR));
+		debug_log_forward(ctx->context.web.client_idx);
+	}
+
+	hlog_info(WDB_MODULE, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
+			  get_uptime(), get_free_heap(), temperature_internal_get());
+	log_sys_health();
+	stats_display();
+
+	if (ctx->type == CMD_CTX_WEB)
+		debug_log_forward(-1);
+	return 0;
+}
+
 #define STATUS_STR "\tGoing to send status ...\r\n"
 #define STATUS_TOO_MANY_STR "\tA client is already receiving logs ...\r\n"
 static int debug_status(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
@@ -258,6 +280,7 @@ static int debug_periodic_log(cmd_run_context_t *ctx, char *cmd, char *params, v
 static app_command_t debug_requests[] = {
 		{"reboot", ":<delay_ms>",	debug_reboot},
 		{"status", NULL,			debug_status},
+		{"log_sys", NULL,			debug_log_system},
 		{"ping", NULL,			debug_ping},
 		{"periodic_log", ":<delay_ms>",	debug_periodic_log},
 		{"log_on", NULL,		debug_log_on},

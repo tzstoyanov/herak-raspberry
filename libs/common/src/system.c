@@ -269,6 +269,7 @@ void system_log_status(void)
 	hlog_info(COMMONSYSLOG, "----------- Status -----------");
 	hlog_info(COMMONSYSLOG, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
 			  get_uptime(), get_free_heap(), temperature_internal_get());
+	log_sys_health();
 	sys_modules_log();
 	sys_context.log_status_progress = 0;
 }
