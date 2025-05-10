@@ -18,7 +18,7 @@
 
 #define SSR_MODULE	"ssr"
 #define MAX_SSR_COUNT GPIO_PIN_MAX+1
-#define MQTT_DELAY_MS 1000
+#define MQTT_DELAY_MS 20000
 
 #define MQTT_DATA_LEN   128
 
@@ -70,7 +70,7 @@ static int ssr_mqtt_data_send(struct ssr_context_t *ctx, int idx, int sens)
 		return -1;
 
 	relay = ctx->relays[idx];
-	if (!relay->mqtt_comp[sens].force && (relay->mqtt_comp[sens].last_send && ((now - relay->mqtt_comp[sens].last_send) < MQTT_DELAY_MS)))
+	if (!relay->mqtt_comp[sens].force && ((now - relay->mqtt_comp[sens].last_send) < MQTT_DELAY_MS))
 		return -1;
 
 	ADD_MQTT_MSG("{");
