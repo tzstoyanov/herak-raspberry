@@ -54,8 +54,19 @@ extern "C" {
 		if ((__end__ - __start__) >= FUNC_TIME_LOG_THRESHOLD_US)\
 			printf(" [%s] took %lld usec\n\r", N, __end__ - __start__);\
 	}
+#define LOOP_RET_FUNC_RUN(N, R, F, args...) {\
+	uint64_t __end__, __start__ = to_us_since_boot(get_absolute_time());\
+		if (FUNC_TIME_LOG_THRESHOLD_US == 0)\
+			printf("\n\r Enter [%s]", N);\
+		(R) = F(args);\
+		__end__ = to_us_since_boot(get_absolute_time()); \
+		wd_update();\
+		if ((__end__ - __start__) >= FUNC_TIME_LOG_THRESHOLD_US)\
+			printf("\n\r\t--->[%s] took %lld usec\n\r", N, __end__ - __start__);\
+	}	
 #else
 #define LOOP_FUNC_RUN(N, F, args...) { F(args); wd_update();}
+#define LOOP_RET_FUNC_RUN(N, F, args...) { (R) = F(args); wd_update();}
 #endif
 typedef struct {
 	app_command_t *hooks;
