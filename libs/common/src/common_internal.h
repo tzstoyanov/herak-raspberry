@@ -46,10 +46,12 @@ extern "C" {
 #ifdef FUNC_TIME_LOG_THRESHOLD_US
 #define LOOP_FUNC_RUN(N, F, args...) {\
 	uint64_t __end__, __start__ = to_us_since_boot(get_absolute_time());\
+		if (FUNC_TIME_LOG_THRESHOLD_US == 0)\
+			printf("\n\r Enter [%s]", N);\
 		F(args);\
 		__end__ = to_us_since_boot(get_absolute_time()); \
 		wd_update();\
-		if (__end__ - __start__ >= FUNC_TIME_LOG_THRESHOLD_US)\
+		if ((__end__ - __start__) >= FUNC_TIME_LOG_THRESHOLD_US)\
 			printf(" [%s] took %lld usec\n\r", N, __end__ - __start__);\
 	}
 #else
