@@ -265,6 +265,11 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 	int  len, p = 0;
 	va_list ap;
 
+	if (severity < 0)
+		severity = HLOG_INFO;
+	if (!topic)
+		topic = "system";
+
 	if (log_context.log_level < severity)
 		return;
 
