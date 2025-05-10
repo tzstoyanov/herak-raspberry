@@ -18,9 +18,9 @@ extern "C" {
 
 #define HTTP_USER_AGENT		"PicoW"
 
-#define LWIP_LOCK_START	cyw43_arch_lwip_begin();
-#define LWIP_LOCK_END	cyw43_arch_lwip_end();
-/*
+//#define LWIP_LOCK_START	cyw43_arch_lwip_begin();
+//#define LWIP_LOCK_END	cyw43_arch_lwip_end();
+
 #define LWIP_LOCK_START { \
 		SYS_ARCH_DECL_PROTECT(__lev__); \
 		SYS_ARCH_PROTECT(__lev__); \
@@ -29,7 +29,7 @@ extern "C" {
 #define LWIP_LOCK_END \
 	cyw43_arch_lwip_end(); \
 	SYS_ARCH_UNPROTECT(__lev__); }
-*/
+
 
 #define SYS_LOCK_START { \
 		SYS_ARCH_DECL_PROTECT(__lev__); \
