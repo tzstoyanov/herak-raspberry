@@ -120,6 +120,7 @@ static void ssr_reset_all(struct ssr_context_t *ssr_ctx)
 		ssr_ctx->relays[i]->time_ms = 0;
 		ssr_ctx->relays[i]->delay_ms = 0;
 		ssr_ctx->relays[i]->last_switch = time_ms_since_boot();
+		ssr_ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].force = true;		
 	}
 }
 
