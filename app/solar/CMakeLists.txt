@@ -14,6 +14,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(ADD_USB true)
 set(DEBUG_BUILD false)
+set(HEAP_SIZE 2048)
 
 set(PROJECT_TOP_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 set(PROJECT_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../include)
@@ -85,6 +86,7 @@ if(${DEBUG_BUILD})
 endif()
 
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
+target_compile_options(${PROJECT_NAME} PRIVATE -DMEM_HEAP_SIZE=${HEAP_SIZE})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${CMAKE_CURRENT_LIST_DIR}

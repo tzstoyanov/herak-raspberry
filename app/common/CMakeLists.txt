@@ -14,6 +14,7 @@ project(${PRJ_NAME} C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(DEBUG_BUILD false)
+set(HEAP_SIZE 8192)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
@@ -62,6 +63,7 @@ if(${DEBUG_BUILD})
 	target_compile_options(${PROJECT_NAME} PRIVATE -DPARAM_ASSERTIONS_ENABLE_ALL=1 -DPICO_CYW43_ARCH_DEBUG_ENABLED)
 endif()
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
+target_compile_options(${PROJECT_NAME} PRIVATE -DMEM_HEAP_SIZE=${HEAP_SIZE})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${CMAKE_CURRENT_LIST_DIR}

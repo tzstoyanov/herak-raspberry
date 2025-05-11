@@ -19,7 +19,11 @@
 #endif
 
 #define MEM_ALIGNMENT				4
+#ifdef MEM_HEAP_SIZE
+#define MEM_SIZE				MEM_HEAP_SIZE
+#else
 #define MEM_SIZE				8192
+#endif
 #define MEMP_NUM_TCP_SEG			32
 #define MEMP_NUM_ARP_QUEUE			5
 #define PBUF_POOL_SIZE				32
