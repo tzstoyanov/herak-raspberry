@@ -76,7 +76,7 @@ static int ssr_mqtt_data_send(struct ssr_context_t *ctx, int idx, int sens)
 	ADD_MQTT_MSG("{");
 	ADD_MQTT_MSG_VAR("\"timestamp\": \"%s\"", get_current_time_str(time_buff, TIME_STR))
 	ADD_MQTT_MSG_VAR(",\"ssr_id\": \"%d\"", idx);
-	ADD_MQTT_MSG_VAR(",\"ssr_state\": \"%d\"", relay->state_actual);
+	ADD_MQTT_MSG_VAR(",\"ssr_state\": \"%d\"", relay->state_actual == ctx->on_state);
 	ADD_MQTT_MSG_VAR(",\"run_time\": \"%d\"", relay->time_remain_ms/1000);
 	ADD_MQTT_MSG_VAR(",\"delay\": \"%d\"", relay->drelay_remain_ms/1000);
 	ADD_MQTT_MSG("}")
@@ -126,19 +126,17 @@ static void ssr_reset_all(struct ssr_context_t *ssr_ctx)
 
 static int ssr_state_set(struct ssr_context_t *context, uint8_t id, bool state, uint32_t time, uint32_t delay)
 {
-	int value = state ? context->on_state : !context->on_state;
-
 	if (id >= MAX_SSR_COUNT || !(context->relays[id]))
 		return -1;
 	if (!delay) {
-		gpio_put(context->relays[id]->gpio_pin, value);
-		if (context->relays[id]->state_actual != value)
+		gpio_put(context->relays[id]->gpio_pin, state);
+		if (context->relays[id]->state_actual != state)
 			context->relays[id]->mqtt_comp[SSR_MQTT_SENSOR_STATE].force = true;
-		context->relays[id]->state_actual = value;
+		context->relays[id]->state_actual = state;
 	}
-	if (context->relays[id]->state_desired != value)
+	if (context->relays[id]->state_desired != state)
 		context->relays[id]->mqtt_comp[SSR_MQTT_SENSOR_STATE].force = true;
-	context->relays[id]->state_desired = value;
+	context->relays[id]->state_desired = state;
 	context->relays[id]->time_ms = time;
 	context->relays[id]->delay_ms = delay;
 	context->relays[id]->last_switch = time_ms_since_boot();
@@ -167,13 +165,13 @@ static bool ssr_log(void *context)
 	int i;
 
 	UNUSED(context);
-
+	hlog_info(SSR_MODULE,"On state: %d", ctx->on_state);
 	for (i = 0; i < MAX_SSR_COUNT; i++) {
 		if (!(ctx->relays[i]))
 			continue;
 		hlog_info(SSR_MODULE, "Relay %d: gpio %d [%s/%s]; delay: %lu/%lu sec, time %lu/%lu sec",
-				  i, ctx->relays[i]->gpio_pin, (ctx->relays[i]->state_desired)?"ON":"OFF",
-				  (ctx->relays[i]->state_actual)?"ON":"OFF",
+				  i, ctx->relays[i]->gpio_pin, (ctx->relays[i]->state_desired==ctx->on_state)?"ON":"OFF",
+				  (ctx->relays[i]->state_actual==ctx->on_state)?"ON":"OFF",
 				  ctx->relays[i]->drelay_remain_ms/1000, ctx->relays[i]->delay_ms/1000,
 				  ctx->relays[i]->time_remain_ms/1000, ctx->relays[i]->time_ms/1000);
 	}
@@ -319,6 +317,8 @@ static bool ssr_init(struct ssr_context_t **ctx)
 		gpio_init((*ctx)->relays[i]->gpio_pin);
 		gpio_set_dir((*ctx)->relays[i]->gpio_pin, GPIO_OUT);
 		gpio_put((*ctx)->relays[i]->gpio_pin, !(*ctx)->on_state);
+		(*ctx)->relays[i]->state_actual = !(*ctx)->on_state;
+		(*ctx)->relays[i]->state_desired = (*ctx)->relays[i]->state_actual;
 	}
 	ssr_mqtt_components_add((*ctx));
 	hlog_info(SSR_MODULE, "Initialise successfully %d relays", (*ctx)->count);
@@ -370,7 +370,7 @@ static int cmd_ssr_set_state(char *cmd, char *params, struct ssr_context_t *cont
 		}
 	}
 
-	return ssr_state_set(context, id, state, time, delay);
+	return ssr_state_set(context, id, state ? context->on_state : !context->on_state, time, delay);
 }
 
 #define SET_OK_STR "\tSSR switched.\r\n"
