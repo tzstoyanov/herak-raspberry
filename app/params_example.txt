@@ -52,7 +52,7 @@ WEBDEBUG	<hex_mask, enable or disable HTTP /debug API>
 #HTTP webhook client
 WEBHOOK_SERVER
 WEBHOOK_PORT
-WEBHOOK_ENDPINT
+WEBHOOK_ENDPOINT
 
 ###### Config, specific to solar and bms application:
 # BMS - Bluethooth <address>:<pin>
