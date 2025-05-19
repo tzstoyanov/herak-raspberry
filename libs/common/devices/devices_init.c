@@ -12,6 +12,7 @@
 
 void devices_register_and_init(void)
 {
+	DEV_REGISTER(sht20_register);
 	DEV_REGISTER(ssr_register);
 	DEV_REGISTER(soil_register);
 	DEV_REGISTER(opentherm_register);
