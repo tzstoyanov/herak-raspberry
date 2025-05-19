@@ -14,20 +14,17 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 - HTTP server.
 - HTTP webhook client.
 - Watchdog.
-- External HD44780 LCD display.
 
-### Sensors:
+### Devices and Sensors:
 - Build-in temperature sensor.
-- Sonar AJ-SR04M.
-- One-wire temperature sensors (Dallas DS18S20).
-- [Soil moisture sensor](docs/Soil_moisture_sensor_module_EN.pdf) with analog and digital inputs.
-
-### Devices:
+- Sonar AJ-SR04M. 
 - Voltronic VM III inverter, over USB using [MAX communication protocol](docs/MAX-Communication-Protocol.pdf).
+- External HD44780 LCD display.
 - [DALY BMS](docs/Daly-Communications-Protocol-V1.2.pdf), over Bluetooth and [HLK-B40 serial interface](docs/HLK-B40.pdf).
+- [OpenTherm](libs/common/devices/opentherm/README.md).
 - [Solid State Relays](libs/common/devices/ssr/README.md).
 - [Soil Moisture Sensor](libs/common/devices/soil/README.md).
-- [OpenTherm](libs/common/devices/opentherm/README.md).
+- [SHT20 temperature and humidity sensor](libs/common/devices/sht20/README.md)
 
 ## Applications:
 Applications are built on top of common library, which provides basic functionality:
