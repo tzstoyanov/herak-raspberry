@@ -160,9 +160,17 @@ static int cmd_set_param_float(cmd_run_context_t *ctx, char *params, void *user_
 
 	switch (id) {
 	case DATA_ID_TSET:
+		if (f > octx->data.dev_config.ch_temperature_setpoint_rangemax)
+			f = octx->data.dev_config.ch_temperature_setpoint_rangemax;
+		else if (f < octx->data.dev_config.ch_temperature_setpoint_rangemin)
+			f = octx->data.dev_config.ch_temperature_setpoint_rangemin;
 		octx->data.param_desired.ch_temperature_setpoint = f;
 		break;
 	case DATA_ID_TDHWSET:
+		if (f > octx->data.dev_config.dhw_temperature_setpoint_rangemax)
+			f = octx->data.dev_config.dhw_temperature_setpoint_rangemax;
+		else if (f < octx->data.dev_config.dhw_temperature_setpoint_rangemin)
+			f = octx->data.dev_config.dhw_temperature_setpoint_rangemin;
 		octx->data.param_desired.dhw_temperature_setpoint = f;
 		break;
 	default:
