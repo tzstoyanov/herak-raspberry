@@ -35,7 +35,7 @@
 #define	WH_PAYLOAD_MAX_SIZE	128
 #define	WH_PAYLOAD_TEMPLATE "{ \"Soil sensor\": %s-%d, \"status\": \"%s\", \"value\": %d }"
 #define WH_SEND_DELAY_MS	5000
-#define MQTT_DATA_LEN   256
+#define MQTT_DATA_LEN   128
 
 static struct {
 	int gp_id;
