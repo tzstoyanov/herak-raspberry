@@ -139,11 +139,10 @@ static void sht20_sensor_check_connected(struct sht20_sensor *sensor)
 // https://github.com/keep1234quiet/IOT_SHT20_STM32_ESP8266/blob/master/Devices/sht20.c
 static void sht20_i2c_init(struct sht20_context_t *ctx)
 {
-	int ret;
 	int i;
 
 	for (i = 0; i < ctx->count; i++) {
-		ret = i2c_init(ctx->sensors[i]->i2c, SHT20_CLOCK);
+		i2c_init(ctx->sensors[i]->i2c, SHT20_CLOCK);
 		gpio_set_function(ctx->sensors[i]->sda_pin, GPIO_FUNC_I2C);
 		gpio_set_function(ctx->sensors[i]->scl_pin, GPIO_FUNC_I2C);
 		gpio_pull_up(ctx->sensors[i]->sda_pin);
