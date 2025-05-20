@@ -315,12 +315,12 @@ void log_sys_health(void)
 #if MEM_STATS
 	if (lwip_stats.mem.err) {
 		errs++;
-		hlog_err(SYS_LOG, "Error %s: %d / %d bytes available",
+		hlog_err(SYS_LOG, "Error %s: %d / %d available",
 				 lwip_stats.mem.name, lwip_stats.mem.err, lwip_stats.mem.avail);
 	}
 	for (int i = 0; i < MEMP_MAX; i++) {
 		if (lwip_stats.memp[i]->err) {
-			hlog_err(SYS_LOG, "Error %s: %d / %d bytes available",
+			hlog_err(SYS_LOG, "Error MEM %s: %d / %d available",
 					 lwip_stats.memp[i]->name, lwip_stats.memp[i]->err, lwip_stats.memp[i]->avail);
 		}
 	}
