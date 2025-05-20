@@ -13,7 +13,7 @@ function write_param() {
         echo "extern const char $2[];" >> $fname.h
         echo "extern const int $2_len;" >> $fname.h
     fi
-    echo -n "const char $2[] = {" >> $fname.c
+    echo -n "const char __in_flash() $2[] = {" >> $fname.c
     cval=$(echo "$3" | tr -d '\r\n' | base64)
     length=${#cval}
     for ((i = 0; i < length; i++)); do
@@ -35,13 +35,15 @@ function write_param_len() {
 LicenseString="// SPDX-License-Identifier: GPL-2.0-or-later"
 CopyStr="// Copyright (C) 2023, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>"
 WarnString="// The file is auto generated at compile time, do not edit manually"
-
+IncludeString="#include \"pico/platform/sections.h\""
 # $1 - file
 function write_header() {
 	echo $LicenseString >> $1
 	echo $CopyStr >> $1
 	echo "" >> $1
 	echo $WarnString >> $1
+   echo "" >> $1
+   echo $IncludeString >> $1
 	echo "" >> $1
 }
 
@@ -59,7 +61,7 @@ echo "#ifndef _PARAMS_H_" >> $fname.h
 echo "#define _PARAMS_H_" >> $fname.h
 echo "" >> $fname.h
 
-write_param false "params" $RANDOM
+write_param false "__params__" $RANDOM
 params=()
 while read -r line || [ -n "$line" ]; do
     if [ -z "$line" ] || [ "${line:0:1}" = "#" ]; then
