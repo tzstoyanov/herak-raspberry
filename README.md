@@ -63,7 +63,21 @@ Apply all mandatory patches, which are not yet released upstream. Run in the top
 
 ### Build
 - Copy [params-example.txt](app/params_example.txt) file as `params.txt` in the `app/common/` directory
-and modify it with your configuration. Optionally, in the `app/common/CMakeLists.txt` file , on the first line, replace the default application name `herak-common` with the name of your application.  
+and modify it with your configuration. 
+- In the `app/common/CMakeLists.txt` file, modify the first lines with the configuration, specific to your application. Name of the project, heap size, select modules that will be compiled and linked to the project:
+```
+set(PROJECT_NAME herak-common)
+set(HEAP_SIZE 8192)
+set(DEBUG_BUILD false)
+
+# Select the modules used in this application. ON / OFF
+option(ADD_SSR "Solid State Relays" ON)		# libs/common/devices/ssr/README.md
+option(ADD_SOIL "Soil sensor" ON)			# libs/common/devices/soil/README.md
+option(ADD_SHT20 "SHT20 sensor" ON)			# libs/common/devices/sht20/README.md
+option(ADD_OPENTHERM "OneTherm device" ON)	# libs/common/devices/opentherm/README.md
+...
+
+```
 - In the `build/common` directory, run `cmake ../../app/common`
 - In the `build/common` directory, run `make`
 

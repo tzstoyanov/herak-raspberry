@@ -1,3 +1,5 @@
+add_compile_definitions(HAVE_SOIL=1)
+
 target_sources(${lib_name} INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/soil.c
 )

@@ -3,7 +3,7 @@
  * Copyright (C) 2025, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
  */
 
-#include "common_lib.h"
+#include "herak_sys.h"
 
 int main(void)
 {
