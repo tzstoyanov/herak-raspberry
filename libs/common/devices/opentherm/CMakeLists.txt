@@ -1,3 +1,5 @@
+add_compile_definitions(HAVE_OPENTHERM=1)
+
 pico_generate_pio_header(${lib_name} ${CMAKE_CURRENT_LIST_DIR}/opentherm_dev.pio)
 
 target_sources(${lib_name} INTERFACE

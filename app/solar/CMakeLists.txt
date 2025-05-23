@@ -6,6 +6,11 @@ set(PROJECT_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../../libs)
 set(ENV{PICO_SDK_PATH} "${PROJECT_LIB_DIR}/pico-sdk")
 set(PICO_BOARD pico_w)
 
+# Select the modules used in this application. ON / OFF
+option(ADD_SSR "Solid State Relays" ON)         # libs/common/devices/ssr/README.md
+option(ADD_SOIL "Soil sensor" ON)               # libs/common/devices/soil/README.md
+option(ADD_SHT20 "SHT20 sensor" ON)             # libs/common/devices/sht20/README.md
+
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 # Set name of project (as PROJECT_NAME) and C/C++ standards
@@ -14,36 +19,25 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(ADD_USB true)
 set(DEBUG_BUILD false)
-set(HEAP_SIZE 2048)
+set(HEAP_SIZE 2000)
 
 set(PROJECT_TOP_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-set(PROJECT_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../include)
-set(PARAMS_FILE params)
-set(PARAMS_TEMPLETE ${PROJECT_TOP_DIR}/app/params_example)
+set(PROJECT_INLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../include)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
-add_custom_target( check-params
-  COMMAND test -e ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.txt ||
-		  echo "File ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.txt does not exist"
-  COMMAND test -e ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.txt ||
-  		echo "Please, copy ${PARAMS_TEMPLETE}.txt as\
-			${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.txt and modify it with your settings."
-  COMMAND test -e ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.txt
-  COMMENT "Checking if ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.txt exists..."
+# Set params file
+set(PARAMS_FILE ${CMAKE_CURRENT_LIST_DIR}/params.txt)
+set(PARAMS_TEMPLETE ${PROJECT_TOP_DIR}/app/params_example.txt)
+if(NOT EXISTS "${PARAMS_FILE}")
+  message(WARNING "File ${PARAMS_FILE} does not exist.")
+  message(FATAL_ERROR
+    "Please, copy ${PARAMS_TEMPLETE} as ${PARAMS_FILE} and modify it with your settings.")
+endif()
+execute_process(
+	COMMAND cp "${PARAMS_FILE}" ${CMAKE_BINARY_DIR}
+	WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
 )
-
-add_custom_target( clear-params
-  COMMAND rm -f "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c" "${PROJECT_INCLUDE_DIR}/${PARAMS_FILE}.h"
-  COMMENT "Removing old ${PARAMS_FILE} artifacts..."
-)
-
-add_custom_command(OUTPUT "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c" "${PROJECT_INCLUDE_DIR}/${PARAMS_FILE}.h"
-    COMMAND "${PROJECT_TOP_DIR}/scripts/params_crypt.sh" "${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}" "${PROJECT_TOP_DIR}/scripts/params_all.txt"
-    COMMAND mv ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.h ${PROJECT_INCLUDE_DIR}/${PARAMS_FILE}.h
-    COMMENT "Generating ${PARAMS_FILE} code ..."
-    DEPENDS check-params clear-params)
-
 
 if(${ADD_USB})
 	set(TINY_USB_HOST tinyusb_host)
@@ -60,7 +54,6 @@ pico_sdk_init()
 
 # Tell CMake where to find the executable source file
 add_executable(${PROJECT_NAME}
-  ${CMAKE_CURRENT_LIST_DIR}/${PARAMS_FILE}.c
   ${CMAKE_CURRENT_LIST_DIR}/bms_daly_proto.c
   ${CMAKE_CURRENT_LIST_DIR}/bms_daly_bt.c
   ${CMAKE_CURRENT_LIST_DIR}/mppt_voltronic_proto.c
@@ -75,10 +68,8 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE PIO_USB_USE_TINYUSB)
 
 
 #build required libraries
-include(${PROJECT_LIB_DIR}/one-wire/CMakeLists.txt)
-include(${PROJECT_LIB_DIR}/hd44780/CMakeLists.txt)
-include(${PROJECT_LIB_DIR}/pio-usb/CMakeLists.txt)
 include(${PROJECT_LIB_DIR}/common/CMakeLists.txt)
+include(${PROJECT_LIB_DIR}/one-wire/CMakeLists.txt)
 
 if(${DEBUG_BUILD})
 	set(CMAKE_BUILD_TYPE "Debug")
