@@ -30,7 +30,11 @@ void devices_register_and_init(void)
 
 #ifdef HAVE_OPENTHERM
 	DEV_REGISTER(opentherm_register);
-#endif /* HAVE_OPENTHERM */	
+#endif /* HAVE_OPENTHERM */
+
+#ifdef HAVE_BMS_JK
+	DEV_REGISTER(bms_jk_register);
+#endif /* HAVE_BMS_JK */	
 
 #ifdef HAVE_LCD
 	DEV_REGISTER(lcd_register);
