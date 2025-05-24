@@ -20,6 +20,10 @@ if(ADD_OPENTHERM)
 include(${CMAKE_CURRENT_LIST_DIR}/opentherm/CMakeLists.txt)
 endif()
 
+if(ADD_BMS_JK)
+include(${CMAKE_CURRENT_LIST_DIR}/bms_jk/CMakeLists.txt)
+endif()
+
 if(ADD_LCD)
 include(${CMAKE_CURRENT_LIST_DIR}/lcd/CMakeLists.txt)
 endif()
