@@ -129,9 +129,6 @@ void sw_out_set(bool state);
 
 void usb_debug_set(uint32_t lvl);
 
-bool lcd_init(void);
-void lcd_refresh(void);
-
 void main_log(void);
 
 void hlog_init(int level);

@@ -29,7 +29,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/sys_utils.c
    ${dir}/system_modules.c
    ${dir}/system_weak.c
-   ${dir}/lcd.cpp
    ${dir}/wifi.c
    ${dir}/mqtt_client.c
    ${dir}/bt.c
@@ -47,22 +46,20 @@ target_sources(${lib_name} INTERFACE
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 target_include_directories(${lib_name} INTERFACE
-                           ${dir}      
+                           ${dir}
+                           ${PROJECT_LIB_DIR}/common/devices
 			   ${CMAKE_CURRENT_LIST_DIR}
 			   ${PROJECT_INLUDE_DIR}
 			   ${PROJECT_LIB_DIR}/pio-usb/src
-			   ${PROJECT_LIB_DIR}/hd44780/api
 			   ${PROJECT_LIB_DIR}/common/api
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/devices/CMakeLists.txt)
 
 add_subdirectory(${PROJECT_LIB_DIR}/pio-usb  ${CMAKE_BINARY_DIR}/pio-usb)
-add_subdirectory(${PROJECT_LIB_DIR}/hd44780  ${CMAKE_BINARY_DIR}/hd44780)
-target_link_libraries(${lib_name} INTERFACE pico_hd44780) 
 target_link_libraries(${lib_name} INTERFACE pico_pio_usb)
 
-target_link_libraries(${lib_name} INTERFACE pico_stdlib hardware_i2c
+target_link_libraries(${lib_name} INTERFACE pico_stdlib
 		      hardware_rtc hardware_adc pico_btstack_base pico_btstack_ble pico_btstack_classic
 		      pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background pico_lwip_sntp
 		      pico_lwip_mqtt)
