@@ -10,6 +10,7 @@ set(PICO_BOARD pico_w)
 option(ADD_SSR "Solid State Relays" ON)         # libs/common/devices/ssr/README.md
 option(ADD_SOIL "Soil sensor" ON)               # libs/common/devices/soil/README.md
 option(ADD_SHT20 "SHT20 sensor" ON)             # libs/common/devices/sht20/README.md
+option(ADD_ONE_WIRE "OneWire" ON)
 
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
@@ -69,7 +70,6 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE PIO_USB_USE_TINYUSB)
 
 #build required libraries
 include(${PROJECT_LIB_DIR}/common/CMakeLists.txt)
-include(${PROJECT_LIB_DIR}/one-wire/CMakeLists.txt)
 
 if(${DEBUG_BUILD})
 	set(CMAKE_BUILD_TYPE "Debug")
@@ -84,7 +84,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${PROJECT_INCLUDE_DIR}
 			   ${INLUDE_USB}
 			   ${PROJECT_LIB_DIR}/pio-usb/src
-			   ${PROJECT_LIB_DIR}/one-wire/api
 			   ${PROJECT_LIB_DIR}/hd44780/api
 			   ${PROJECT_LIB_DIR}/common/api
 )
@@ -96,7 +95,7 @@ target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} ${PICO_
 		      pico_stdlib hardware_i2c hardware_rtc hardware_adc
 		      hardware_dma hardware_pio pico_btstack_base pico_btstack_ble
 		      pico_btstack_classic pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background
-		      pico_lwip_sntp pico_lwip_mqtt pico_hd44780 herak_common pico_one_wire)
+		      pico_lwip_sntp pico_lwip_mqtt pico_hd44780 herak_common)
 
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage)
 

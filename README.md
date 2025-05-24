@@ -25,6 +25,7 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 - [Solid State Relays](libs/common/devices/ssr/README.md).
 - [Soil Moisture Sensor](libs/common/devices/soil/README.md).
 - [SHT20 temperature and humidity sensor](libs/common/devices/sht20/README.md)
+- [One-Wire sensor](libs/common/devices/one_wire/README.md)
 
 ## Applications:
 Applications are built on top of common library, which provides basic functionality:

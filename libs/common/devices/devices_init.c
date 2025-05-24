@@ -12,6 +12,10 @@
 
 void devices_register_and_init(void)
 {
+#ifdef HAVE_ONE_WIRE
+	DEV_REGISTER(one_wire_register);
+#endif /* HAVE_ONE_WIRE */
+
 #ifdef HAVE_SHT20
 	DEV_REGISTER(sht20_register);
 #endif /* HAVE_SHT20 */
