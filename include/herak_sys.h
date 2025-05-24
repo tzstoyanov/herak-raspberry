@@ -6,6 +6,8 @@
 #ifndef _LIB_HERAK_SYS_H_
 #define _LIB_HERAK_SYS_H_
 
+#include "lcd/lcd_api.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -110,12 +110,6 @@ int mqtt_msg_component_publish(mqtt_component_t *component, char *message);
 int mqtt_msg_component_register(mqtt_component_t *component);
 int mqtt_add_commands(char *module, app_command_t *commands, int commands_cont, char *description, void *user_data);
 
-/* LCD API */
-int lcd_set_int(int idx, int row, int column, int num);
-int lcd_set_double(int idx, int row, int column, double num);
-int lcd_set_text(int idx, int row, int column, char *text);
-int lcd_clear_cell(int idx);
-
 /* USB API */
 bool usb_init(void);
 void usb_run(void);

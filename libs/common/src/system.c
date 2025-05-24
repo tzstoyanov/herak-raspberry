@@ -42,7 +42,6 @@ static struct {
 	int sw_out_pin;
 	uint32_t periodic_log_ms;
 	uint32_t last_loop;
-	uint8_t has_lcd:1;
 	uint8_t has_wifi:1;
 	uint8_t has_bt:1;
 	uint8_t has_mqtt:1;
@@ -208,12 +207,6 @@ bool system_common_init(void)
 	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
 	sys_context.has_wifi = wifi_init();
 	wd_update();
-	sys_context.has_lcd = lcd_init();
-	wd_update();
-	if (sys_context.has_lcd)
-		hlog_info(COMMONSYSLOG, "LCD initialized");
-	else
-		hlog_info(COMMONSYSLOG, "no LCD attached");
 	sys_context.has_bt = bt_init();
 	wd_update();
 	sys_context.has_usb = usb_init();
@@ -367,8 +360,6 @@ void wd_update(void)
 void system_common_run(void)
 {
 	sys_context.last_loop = to_ms_since_boot(get_absolute_time());
-	if (sys_context.has_lcd)
-		LOOP_FUNC_RUN("lcd", lcd_refresh);
 	LOOP_FUNC_RUN("hloq", hlog_connect);
 	if (sys_context.has_temp)
 		LOOP_FUNC_RUN("temperature", temperature_measure);

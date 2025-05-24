@@ -84,7 +84,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${PROJECT_INCLUDE_DIR}
 			   ${INLUDE_USB}
 			   ${PROJECT_LIB_DIR}/pio-usb/src
-			   ${PROJECT_LIB_DIR}/hd44780/api
 			   ${PROJECT_LIB_DIR}/common/api
 )
 
@@ -95,7 +94,7 @@ target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} ${PICO_
 		      pico_stdlib hardware_i2c hardware_rtc hardware_adc
 		      hardware_dma hardware_pio pico_btstack_base pico_btstack_ble
 		      pico_btstack_classic pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background
-		      pico_lwip_sntp pico_lwip_mqtt pico_hd44780 herak_common)
+		      pico_lwip_sntp pico_lwip_mqtt herak_common)
 
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage)
 

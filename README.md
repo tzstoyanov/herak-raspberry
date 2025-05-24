@@ -19,7 +19,7 @@ using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating
 - Build-in temperature sensor.
 - Sonar AJ-SR04M. 
 - Voltronic VM III inverter, over USB using [MAX communication protocol](docs/MAX-Communication-Protocol.pdf).
-- External HD44780 LCD display.
+- [HD44780 LCD](libs/common/devices/lcd/README.md) display.
 - [DALY BMS](docs/Daly-Communications-Protocol-V1.2.pdf), over Bluetooth and [HLK-B40 serial interface](docs/HLK-B40.pdf).
 - [OpenTherm](libs/common/devices/opentherm/README.md).
 - [Solid State Relays](libs/common/devices/ssr/README.md).

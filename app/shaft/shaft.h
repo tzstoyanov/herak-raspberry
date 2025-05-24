@@ -7,6 +7,7 @@
 #define _MAIN_SHAFT_H_
 
 #include "common_lib.h"
+#include "herak_sys.h"
 #include "base64.h"
 #include "params.h"
 
