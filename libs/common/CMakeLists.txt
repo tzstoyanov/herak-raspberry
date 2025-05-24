@@ -38,7 +38,7 @@ target_sources(${lib_name} INTERFACE
    ${dir}/webhook.c
    ${dir}/webserv.c
    ${dir}/webdebug.c
-   ${dir}/temperature.cpp
+   ${dir}/temperature.c
    ${dir}/manchester_code.c
    ${CMAKE_BINARY_DIR}/${PARAMS_FILE}.c
    ${COMMON_USB}

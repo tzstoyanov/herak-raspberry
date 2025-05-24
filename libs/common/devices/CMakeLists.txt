@@ -1,5 +1,9 @@
 target_include_directories(${lib_name} INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
+if(ADD_ONE_WIRE)
+   include(${CMAKE_CURRENT_LIST_DIR}/one_wire/CMakeLists.txt)
+endif()
+
 if(ADD_SSR)
    include(${CMAKE_CURRENT_LIST_DIR}/ssr/CMakeLists.txt)
 endif()

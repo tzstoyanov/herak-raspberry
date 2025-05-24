@@ -3,6 +3,7 @@ set(HEAP_SIZE 8192)
 set(DEBUG_BUILD false)
 
 # Select the modules used in this application. ON / OFF
+option(ADD_ONE_WIRE "OneWire" ON)		# # libs/common/devices/one_wire/README.md 
 option(ADD_SSR "Solid State Relays" ON)		# libs/common/devices/ssr/README.md
 option(ADD_SOIL "Soil sensor" ON)		# libs/common/devices/soil/README.md
 option(ADD_SHT20 "SHT20 sensor" ON)		# libs/common/devices/sht20/README.md
@@ -39,17 +40,15 @@ pico_sdk_init()
 
 # build the common library
 include(${PROJECT_LIB_DIR}/common/CMakeLists.txt)
-include(${PROJECT_LIB_DIR}/one-wire/CMakeLists.txt)
 
 # The main source file
 add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_LIST_DIR}/main.c
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_LIB_DIR}/one-wire/api)
 target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INLUDE_DIR})
 target_compile_options(${PROJECT_NAME} PRIVATE -DMEM_HEAP_SIZE=${HEAP_SIZE})
-target_link_libraries(${PROJECT_NAME} PRIVATE pico_stdlib herak_common pico_one_wire)
+target_link_libraries(${PROJECT_NAME} PRIVATE pico_stdlib herak_common)
 
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage)
 

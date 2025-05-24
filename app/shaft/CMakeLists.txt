@@ -12,6 +12,7 @@ include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 option(ADD_SSR "Solid State Relays" ON)         # libs/common/devices/ssr/README.md
 option(ADD_SOIL "Soil sensor" ON)               # libs/common/devices/soil/README.md
 option(ADD_SHT20 "SHT20 sensor" ON)             # libs/common/devices/sht20/README.md
+option(ADD_ONE_WIRE "OneWire" ON)
 
 # Set name of project (as PROJECT_NAME) and C/C++ standards
 project(herak-shaft C CXX ASM)
@@ -44,7 +45,6 @@ pico_sdk_init()
 
 #build required libraries
 include(${PROJECT_LIB_DIR}/common/CMakeLists.txt)
-include(${PROJECT_LIB_DIR}/one-wire/CMakeLists.txt)
 
 # Tell CMake where to find the executable source file
 add_executable(${PROJECT_NAME}
@@ -63,7 +63,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${CMAKE_CURRENT_LIST_DIR}
 			   ${PROJECT_INLUDE_DIR}
 			   ${PROJECT_LIB_DIR}/pio-usb/src
-			   ${PROJECT_LIB_DIR}/one-wire/api
 			   ${PROJECT_LIB_DIR}/hd44780/api
 			   ${PROJECT_LIB_DIR}/common/api
 )
@@ -74,6 +73,6 @@ pico_add_extra_outputs(${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME} pico_stdlib hardware_i2c
 		      hardware_rtc hardware_adc pico_btstack_base pico_btstack_ble pico_btstack_classic
 		      pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background pico_lwip_sntp
-		      pico_lwip_mqtt pico_hd44780 herak_common pico_pio_usb pico_one_wire)
+		      pico_lwip_mqtt pico_hd44780 herak_common pico_pio_usb)
 
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage)
