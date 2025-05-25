@@ -16,10 +16,8 @@
 #include "base64.h"
 #include "params.h"
 
-extern char __StackLimit, __bss_end__;
-
 #define COMMONSYSLOG	"system"
-#define WATCHDOG_TIMEOUT_MS	30000 /* Maximum of 8388, which is approximately 8.3 seconds */
+#define WATCHDOG_TIMEOUT_MS	30000 /* The maximum is 8388ms, which is approximately 8.3 seconds */
 
 #define LOG_STATUS_HOOKS_COUNT	64
 
@@ -39,7 +37,6 @@ typedef struct {
 } log_status_hook_t;
 
 static struct {
-	int sw_out_pin;
 	uint32_t periodic_log_ms;
 	uint32_t last_loop;
 	uint8_t has_wifi:1;
@@ -58,114 +55,6 @@ static struct {
 	int log_status_progress;
 	bool reconnect;
 } sys_context;
-
-uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count)
-{
-	uint32_t all;
-	uint16_t sw;
-	int i, j;
-
-	/* bubble sort */
-	for (i = 0 ; i < total_count - 1; i++) {
-		for (j = 0 ; j < total_count - i - 1; j++) {
-			if (samples[j] > samples[j+1]) {
-				sw  = samples[j];
-				samples[j] = samples[j+1];
-				samples[j+1] = sw;
-			}
-		}
-	}
-	/* filter biggest and smallest */
-	all = 0;
-	for (i = filter_count ; i < total_count - filter_count; i++)
-		all += samples[i];
-	all /= total_count-(2*filter_count);
-
-	return all;
-}
-
-uint32_t get_total_heap(void)
-{
-	static uint32_t mem_total;
-
-	if (!mem_total)
-		mem_total = &__StackLimit  - &__bss_end__;
-
-	return mem_total;
-}
-
-uint32_t get_free_heap(void)
-{
-	struct mallinfo m = mallinfo();
-
-//	return m.fordblks;
-	return get_total_heap() - m.uordblks;
-
-}
-
-#define PRINT_BUF_LEN	32
-static void dump_raw_data(char *topic, char *format, const uint8_t *data, int len)
-{
-	char print_buff[PRINT_BUF_LEN], buf[4];
-	int i = 0, j = 0;
-
-	print_buff[0] = 0;
-	while (i < len) {
-		snprintf(buf, 4, format, data[i++]);
-		if ((j + strlen(buf)) >= PRINT_BUF_LEN) {
-			j = 0;
-			hlog_info(topic, "\t %s", print_buff);
-			print_buff[0] = 0;
-		}
-		strcat(print_buff, buf);
-		j += strlen(buf);
-	}
-	if (j)
-		hlog_info(topic, "\t %s", print_buff);
-}
-
-void dump_hex_data(char *topic, const uint8_t *data, int len)
-{
-	dump_raw_data(topic, "%0.2X ", data, len);
-}
-
-void dump_char_data(char *topic, const uint8_t *data, int len)
-{
-	dump_raw_data(topic, "%c", data, len);
-}
-
-bool sw_out_init(void)
-{
-	char *config = param_get(SW_OUT_PIN);
-	bool ret = false;
-	int pin;
-
-	sys_context.sw_out_pin  = -1;
-	if (!config || strlen(config) < 1)
-		goto out;
-
-	pin = (int)strtol(config, NULL, 10);
-	if (pin < 0 || pin >= 0xFFFF)
-		goto out;
-
-	sys_context.sw_out_pin = pin;
-	gpio_init(sys_context.sw_out_pin);
-	gpio_set_dir(sys_context.sw_out_pin, GPIO_OUT);
-	sw_out_set(false);
-	ret = true;
-
-out:
-	free(config);
-	return ret;
-}
-
-void sw_out_set(bool state)
-{
-	if (state)
-		gpio_put(sys_context.sw_out_pin, 1);
-	else
-		gpio_put(sys_context.sw_out_pin, 0);
-}
 
 static bool base_init(void)
 {
@@ -216,8 +105,6 @@ bool system_common_init(void)
 	sys_context.has_time = ntp_init();
 	wd_update();
 	sys_context.has_temp = temperature_init();
-	wd_update();
-	sys_context.has_swout = sw_out_init();
 	wd_update();
 	sys_context.has_wh = webhook_init();
 	wd_update();
