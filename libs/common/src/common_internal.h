@@ -124,9 +124,6 @@ bool ntp_connected(void);
 bool temperature_init(void);
 void temperature_measure(void);
 
-bool sw_out_init(void);
-void sw_out_set(bool state);
-
 void usb_debug_set(uint32_t lvl);
 
 void main_log(void);
