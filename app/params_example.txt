@@ -3,11 +3,6 @@
 
 DEV_HOSTNAME		<device-hostname>
 
-# LCD connection parameters, separated by ";" in the specified order
-# example:		0x27;400;8;9
-# Leave blank if no LCD is attached
-LCD_CONFIG		<i2c_address_hex>;<i2c_clock>;<i2c_sda_pin>;<i2c_scl_pin>
-
 # List of WiFi networks, separated by ";" - the first successful connection wins.
 # Up to 3 networks are supported. The count of ssd ids and passwords must match.
 WIFI_SSD		<wifi_ssd1>;<wifi_ssd2>...
@@ -19,9 +14,6 @@ MQTT_TOPIC		<topic_srting>
 MQTT_USER		<user_name>;<user_password>
 #filter the rate of MQTT updates - minimum and maximum packets per minute
 MQTT_RATE_PPM		min_ppm;max_ppm
-
-# Pin, used as digital output
-SW_OUT_PIN		<digital_out_pin>
 
 # List of NTP servers, separated by ";". Up to 2 servers are supported.
 NTP_SERVER		<server1_name_or_address>;<server2_name_or_address>...
@@ -35,43 +27,19 @@ SYSLOG_SERVER_ENDPOINT	<server_name_or_address>:<server_port>
 # DP and DM must be sequentially
 USB_PORTS	DP1,DM1;...
 
-###### Config, specific to shaft application:
-#AJ-SR04M sonar sensor, in format ECHO_PIN;TRIGGER_PIN
-SONAR_CONFIG		<sonar_echo_pin>;<sonar_trigger_pin>
-
-#Connected one-wire sensors, such as Dallas DS18S20, DS18B20 and DS1822,
-# Maxim MAX31820 and MAX31826. 
-ONE_WIRE_DEVICES	<sensor_pin>
-
-#HTTP server
+# HTTP server
 WEBSERVER_PORT	<tcp listen port>
-#HTTP debug:
-#for more information, run "curl http://<device ip>:<http server port>/debug?help
-WEBDEBUG	<hex_mask, enable or disable HTTP /debug API>
+
+# HTTP debug, enable http://<device ip>:<http server port>/debug API.
+# 0x0 - Enable the runtime API with disabled boot time debug.
+# <hex_mask> - Enable the the runtime API and set the boot time debug mask to the specified value.
+WEBDEBUG	<hex_mask>
 
 #HTTP webhook client
 WEBHOOK_SERVER
 WEBHOOK_PORT
 WEBHOOK_ENDPOINT
 
-###### Config, specific to solar and bms application:
-# BMS - Bluethooth <address>:<pin>
-BMS_BT		<XX:XX:XX:XX:XX:XX>;<XXXX>
-# Voltron inverter - USB address, <venodr-id>:<device-id>
-MPPT_VOLTRON_USB	<XXXX:XXXX>
-
-# Solid State Relays, in format <relay_id>:<gpio_id>;<relay_id>:<gpio_id>...
-# Relay IDs should be consistent, starts from 0
-SSR	<id1>:<gpio1>;<id2>:<gpio2>...
-# SSR trigger state 0 or 1, the state which turns on the relay
-SSR_TRIGGER <int>
-
-# Soil moisture sensor. Sensor IDs should be consistent, starts from 0.
-# sensor digital input, in format <sensor_id>:<gpio_id>
-SOIL_D		<sensor_id>:<gpio_id>
-# sensor analog input, in format <sensor_id>:<gpio_id>
-# The gpio pin must be one of the ADC inputs
-SOIL_A		<sensor_id>:<gpio_id>
-
-# OpenTherm pins config
-OPENTHERM_PINS <rx_pin>;<tx_pin>
+# Config, specific fot selected mudules
+# Look at libs/common/devices/README.md
+# ...
