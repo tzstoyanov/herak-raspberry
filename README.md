@@ -39,14 +39,6 @@ be used as a template.
 ### Common
 Minimal application - only the system main loop. Uses the system modules, which configuration is defined in `params.txt` file.
 
-### Shaft
-Monitors water level in an underground tank using AJ-SR04M sonar sensor and
-sends the data to a remote MQTT server.
-
-### Solar
-Monitors Voltronic VM III inverter over USB and DALY BMS over Bluetooth and
-sends the data to a remote MQTT server.
-
 ## Try it out
 
 ### Prerequisites
@@ -66,7 +58,7 @@ Apply all mandatory patches, which are not yet released upstream. Run in the top
 ### Build
 - Copy [params-example.txt](app/params_example.txt) file as `params.txt` in the `app/common/` directory
 and modify it with your configuration. 
-- In the `app/common/CMakeLists.txt` file, modify the first lines with the configuration, specific to your application. Name of the project, heap size, select modules that will be compiled and linked to the project:
+- In the `app/common/CMakeLists.txt` file, modify the first lines with the configuration, specific to your application. Name of the project, heap size, select the modules that will be compiled and linked to the project:
 ```
 set(PROJECT_NAME herak-common)
 set(HEAP_SIZE 8192)
@@ -95,12 +87,6 @@ and run the script:
 ./scripts/flash_pico.sh build/common/<application_name>.uf2
 ```
 It automatically reboots the device in bootloader mode and copies the new image.
-
-## Documentation
-- [MAX communication protocol](docs/MAX-Communication-Protocol.pdf).
-- [DALY BMS protocol](docs/Daly-Communications-Protocol-V1.2.pdf).
-- [HLK-B40 serial interface](docs/HLK-B40.pdf).
-- [OpenTherm](docs/Opentherm-Protocol-v2-2.pdf).
 
 ## License
 herak-raspberry is available under the [GPLv2.0 or later license](LICENSE).
