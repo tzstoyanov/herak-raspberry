@@ -13,6 +13,7 @@
 #include "hardware/vreg.h"
 #include "hardware/clocks.h"
 
+#include "herak_sys.h"
 #include "base64.h"
 #include "params.h"
 

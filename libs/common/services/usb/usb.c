@@ -14,7 +14,9 @@
 #include "pio_usb_configuration.h"
 #include "pio_usb.h"
 
+#include "herak_sys.h"
 #include "common_lib.h"
+#include "common_internal.h"
 
 #include "base64.h"
 #include "params.h"

@@ -6,12 +6,13 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "common_internal.h"
 #include "pico/stdlib.h"
 #include "pico/mutex.h"
 #include "lwip/inet.h"
 #include "lwip/altcp.h"
 
+#include "herak_sys.h"
+#include "common_internal.h"
 #include "base64.h"
 #include "params.h"
 

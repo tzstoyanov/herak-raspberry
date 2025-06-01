@@ -5,7 +5,6 @@
 
 #include <stdio.h>
 
-#include "common_internal.h"
 #include "pico/stdlib.h"
 #include "pico/mutex.h"
 #include "pico/cyw43_arch.h"
@@ -14,6 +13,9 @@
 #include "lwip/dns.h"
 #include "lwip/apps/mqtt.h"
 #include "string.h"
+
+#include "herak_sys.h"
+#include "common_internal.h"
 
 #include "base64.h"
 #include "params.h"

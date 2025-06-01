@@ -129,25 +129,6 @@ typedef enum {
 typedef void (*usb_event_handler_t) (int idx, usb_event_t event, const void *data, int deta_len, void *context);
 int usb_add_known_device(uint16_t vid, uint16_t pid, usb_event_handler_t cb, void *context);
 
-/* Log */
-void hlog_any(int severity, const char *topic, const char *fmt, ...);
-enum {
-	HLOG_EMERG	= 0,
-	HLOG_ALERT,
-	HLOG_CRIT,
-	HLOG_ERR,
-	HLOG_WARN,
-	HLOG_NOTICE,
-	HLOG_INFO,
-	HLOG_DEBUG
-};
-bool hlog_remoute(void);
-#define hlog_info(topic, args...) hlog_any(HLOG_INFO, topic, args)
-#define hlog_warning(topic, args...) hlog_any(HLOG_WARN, topic, args)
-#define hlog_err(topic, args...) hlog_any(HLOG_ERR, topic, args)
-#define hlog_dbg(topic, args...) hlog_any(HLOG_DEBUG, topic, args)
-#define hlog_null(topic, args...)
-
 /* manchester code  */
 uint64_t manchester_encode(uint32_t frame, bool invert);
 int manchester_decode(uint64_t mframe, bool invert, uint32_t *value);

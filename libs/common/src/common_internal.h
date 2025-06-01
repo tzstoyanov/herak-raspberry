@@ -125,12 +125,6 @@ void usb_debug_set(uint32_t lvl);
 
 void main_log(void);
 
-void hlog_init(int level);
-void hlog_connect(void);
-void hlog_reconnect(void);
-void hlog_web_enable(bool set);
-void log_level_set(uint32_t level);
-void log_debug_set(uint32_t dbg);
 void log_sys_health(void);
 
 void system_log_status(void);
