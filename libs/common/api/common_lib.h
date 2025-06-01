@@ -154,7 +154,6 @@ int manchester_decode(uint64_t mframe, bool invert, uint32_t *value);
 
 typedef bool (*log_status_cb_t) (void *context);
 int add_status_callback(log_status_cb_t cb, void *user_context);
-void debug_log_forward(int client_idx);
 
 /* WebHook API */
 typedef void (*webhook_reply_t) (int idx, int http_code, void *context);

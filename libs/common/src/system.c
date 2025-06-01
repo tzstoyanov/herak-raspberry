@@ -108,7 +108,6 @@ bool system_common_init(void)
 	wd_update();
 	sys_context.has_websrv = webserv_init();
 	wd_update();
-	webdebug_init();
 	wd_update();
 	sys_modules_init();
 	wd_update();
@@ -265,7 +264,6 @@ void system_common_run(void)
 		do_system_reconnect();
 		sys_context.reconnect = false;
 	}
-	LOOP_FUNC_RUN("webdebug", webdebug_run);
 	LOOP_FUNC_RUN("slog", system_log_run);
 	sys_modules_run();
 	if (sys_context.periodic_log_ms > 0) {

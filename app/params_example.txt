@@ -30,10 +30,10 @@ USB_PORTS	DP1,DM1;...
 # HTTP server
 WEBSERVER_PORT	<tcp listen port>
 
-# HTTP debug, enable http://<device ip>:<http server port>/debug API.
+# HTTP debug, enable http://<device ip>:<http server port>/sys API.
 # 0x0 - Enable the runtime API with disabled boot time debug.
 # <hex_mask> - Enable the the runtime API and set the boot time debug mask to the specified value.
-WEBDEBUG	<hex_mask>
+SYS_CMD_DEBUG	<hex_mask>
 
 #HTTP webhook client
 WEBHOOK_SERVER
@@ -43,3 +43,4 @@ WEBHOOK_ENDPOINT
 # Config, specific fot selected mudules
 # Look at libs/common/devices/README.md
 # ...
+

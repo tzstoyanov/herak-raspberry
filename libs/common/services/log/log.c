@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "common_internal.h"
 #include "pico/stdlib.h"
 #include "pico/mutex.h"
 #include "hardware/rtc.h"
@@ -14,6 +13,8 @@
 #include "lwip/udp.h"
 #include "lwip/dns.h"
 
+#include "herak_sys.h"
+#include "common_internal.h"
 #include "base64.h"
 #include "params.h"
 
@@ -291,7 +292,7 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 			slog_send(log_buff);
 		/* http */
 		if (log_context.http_log) {
-			if (webdebug_log_send(log_buff) < 0)
+			if (syscmd_log_send(log_buff) < 0)
 				log_context.http_log = false;
 		}
 	LOG_UNLOCK;
