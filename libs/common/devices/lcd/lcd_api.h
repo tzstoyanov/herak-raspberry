@@ -6,10 +6,18 @@
 #ifndef _LIB_LCD_API_H_
 #define _LIB_LCD_API_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int lcd_clear_cell(int cell);
 int lcd_set_text(int cell, int row, int column, char *text);
 int lcd_set_double(int cell, int row, int column, double num);
 int lcd_set_int(int cell, int row, int column, int num);
 
-#endif /* _LIB_LCD_API_H_*/
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* _LIB_LCD_API_H_ */
 
