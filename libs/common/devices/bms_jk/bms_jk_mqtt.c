@@ -159,7 +159,7 @@ void bms_jk_mqtt_send(bms_context_t *ctx)
 	uint64_t now = time_ms_since_boot();
 	int ret;
 
-	if (!mqtt_discovery_sent())
+	if (!mqtt_is_discovery_sent())
 		return;
 
 	if (ctx->cell_info.cell_v_force)

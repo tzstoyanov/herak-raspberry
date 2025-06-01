@@ -1,6 +1,7 @@
 add_compile_definitions(HAVE_BMS_JK=1)
 
 option(ADD_BT_STACK "Bluetoth Stack" ON)
+option(ADD_MQTT_CLIENT "MQTT Client" ON)
 
 target_sources(${lib_name} INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/bms_jk.c
