@@ -4,7 +4,7 @@ add_library(${lib_name} INTERFACE)
 set(dir ${CMAKE_CURRENT_LIST_DIR}/src)
 
 if(${ADD_USB})
-        set(COMMON_USB ${dir}/usb.c)
+        set(COMMON_USB ${dir}/../services/usb/usb.c)
 endif()
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
@@ -29,14 +29,14 @@ target_sources(${lib_name} INTERFACE
    ${dir}/sys_utils.c
    ${dir}/system_modules.c
    ${dir}/system_weak.c
-   ${dir}/wifi.c
-   ${dir}/mqtt_client.c
-   ${dir}/bt.c
-   ${dir}/log.c
+   ${dir}/../services/wifi/wifi.c
+   ${dir}/../services/mqtt/mqtt_client.c
+   ${dir}/../services/bt/bt.c
+   ${dir}/../services/log/log.c
    ${dir}/time.c
-   ${dir}/webhook.c
-   ${dir}/webserv.c
-   ${dir}/webdebug.c
+   ${dir}/../services/webhook/webhook.c
+   ${dir}/../services/webserver/webserv.c
+   ${dir}/../services/syscmd/syscmd.c
    ${dir}/temperature.c
    ${dir}/manchester_code.c
    ${CMAKE_BINARY_DIR}/${PARAMS_FILE}.c
