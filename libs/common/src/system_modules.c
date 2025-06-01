@@ -92,6 +92,7 @@ void sys_modules_init(void)
 	int ret;
 	int i;
 
+	systems_register_and_init();
 	devices_register_and_init();
 
 	for (i = 0; i < sys_modules_context.modules_count; i++) {
