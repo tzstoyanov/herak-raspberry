@@ -13,6 +13,7 @@
 #include "pico/util/datetime.h"
 #include "pico/mutex.h"
 
+#include "herak_sys.h"
 #include "base64.h"
 #include "common_internal.h"
 #include "params.h"

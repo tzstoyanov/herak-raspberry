@@ -7,6 +7,7 @@ if(${ADD_USB})
         set(COMMON_USB ${dir}/../services/usb/usb.c)
 endif()
 
+option(ADD_SYS_LOG "System Log" ON)
 option(ADD_SYS_COMMANDS "System Commands" ON)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
@@ -33,7 +34,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/system_weak.c
    ${dir}/../services/wifi/wifi.c
    ${dir}/../services/mqtt/mqtt_client.c
-   ${dir}/../services/log/log.c
    ${dir}/time.c
    ${dir}/../services/webhook/webhook.c
    ${dir}/../services/webserver/webserv.c

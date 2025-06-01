@@ -1,5 +1,9 @@
 target_include_directories(${lib_name} INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
+if(ADD_SYS_LOG)
+   include(${CMAKE_CURRENT_LIST_DIR}/log/CMakeLists.txt)
+endif()
+
 if(ADD_BT_STACK)
    include(${CMAKE_CURRENT_LIST_DIR}/bt/CMakeLists.txt)
 endif()

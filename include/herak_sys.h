@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2023, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+ * Copyright (C) 2025, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
  */
 
 #ifndef _LIB_HERAK_SYS_H_
@@ -12,6 +12,7 @@
 
 #include "common_lib.h"
 
+#include "log/log_api.h"
 #include "lcd/lcd_api.h"
 #include "bt/bt_api.h"
 #include "syscmd/syscmd_api.h"

@@ -80,7 +80,6 @@ bool system_common_init(void)
 
 	watchdog_enable(WATCHDOG_TIMEOUT_MS, true);
 
-	hlog_init(HLOG_INFO);
 	hlog_info(COMMONSYSLOG, "Booting ... %d", watchdog_enable_caused_reboot());
 	hlog_info(COMMONSYSLOG, "RAM: %d total / %d free bytes", get_total_heap(), get_free_heap());
 
@@ -89,9 +88,9 @@ bool system_common_init(void)
 
 	wd_update();
 	LED_ON;
+
 	sys_context.log_status_count = 0;
 	sys_context.log_status_progress = -1;
-
 	sys_context.force_reboot = false;
 	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
 	sys_context.has_wifi = wifi_init();
@@ -214,7 +213,6 @@ static void do_system_reconnect(void)
 		LOOP_FUNC_RUN("webhook reconnect", webhook_reconnect);
 	if (sys_context.has_websrv)
 		LOOP_FUNC_RUN("websrc reconnect", webserv_reconnect);
-	LOOP_FUNC_RUN("hlog reconnect", hlog_reconnect);
 	sys_modules_reconnect();
 }
 
@@ -244,7 +242,6 @@ void wd_update(void)
 void system_common_run(void)
 {
 	sys_context.last_loop = to_ms_since_boot(get_absolute_time());
-	LOOP_FUNC_RUN("hloq", hlog_connect);
 	if (sys_context.has_temp)
 		LOOP_FUNC_RUN("temperature", temperature_measure);
 	if (sys_context.has_wifi)

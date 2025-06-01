@@ -7,6 +7,7 @@
 #define _OPENTHER_H_
 
 #include "hardware/pio.h"
+#include "herak_sys.h"
 #include "common_lib.h"
 #include "common_internal.h"
 #include "base64.h"
