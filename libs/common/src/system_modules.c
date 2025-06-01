@@ -151,8 +151,19 @@ void sys_modules_reconnect(void)
 		if (!sys_modules_context.modules[i]->reconnect)
 			continue;
 		LOOP_FUNC_RUN(sys_modules_context.modules[i]->name,
-			      sys_modules_context.modules[i]->reconnect,
-  			      sys_modules_context.modules[i]->context);
+					  sys_modules_context.modules[i]->reconnect,
+					  sys_modules_context.modules[i]->context);
+	}
+}
+
+void sys_modules_debug_set(int debug)
+{
+	int i;
+
+	for (i = 0; i < sys_modules_context.modules_count; i++) {
+		if (!sys_modules_context.modules[i]->debug)
+			continue;
+		sys_modules_context.modules[i]->debug(debug, sys_modules_context.modules[i]->context);
 	}
 }
 
@@ -164,7 +175,7 @@ void sys_modules_run(void)
 		if (!sys_modules_context.modules[i]->run)
 			continue;
 		LOOP_FUNC_RUN(sys_modules_context.modules[i]->name,
- 			     sys_modules_context.modules[i]->run,
-			     sys_modules_context.modules[i]->context);
+					  sys_modules_context.modules[i]->run,
+					  sys_modules_context.modules[i]->context);
 	}
 }
