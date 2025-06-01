@@ -46,15 +46,16 @@ target_sources(${lib_name} INTERFACE
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 target_include_directories(${lib_name} INTERFACE
-                           ${dir}
-                           ${PROJECT_LIB_DIR}/common/devices
-			   ${CMAKE_CURRENT_LIST_DIR}
-			   ${PROJECT_INLUDE_DIR}
-			   ${PROJECT_LIB_DIR}/pio-usb/src
-			   ${PROJECT_LIB_DIR}/common/api
+							${dir}
+							${CMAKE_CURRENT_LIST_DIR}
+							${PROJECT_INLUDE_DIR}
+							${CMAKE_CURRENT_LIST_DIR}/devices
+							${CMAKE_CURRENT_LIST_DIR}/services
+							${CMAKE_CURRENT_LIST_DIR}/api
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/devices/CMakeLists.txt)
+include(${CMAKE_CURRENT_LIST_DIR}/services/CMakeLists.txt)
 
 add_subdirectory(${PROJECT_LIB_DIR}/pio-usb  ${CMAKE_BINARY_DIR}/pio-usb)
 target_link_libraries(${lib_name} INTERFACE pico_pio_usb)
