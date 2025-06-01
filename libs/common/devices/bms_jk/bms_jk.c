@@ -12,9 +12,6 @@
 #include "pico/platform/sections.h"
 #include "pico/util/datetime.h"
 
-#include "common_lib.h"
-#include "common_internal.h"
-
 #include "base64.h"
 #include "params.h"
 #include "bms_jk.h"

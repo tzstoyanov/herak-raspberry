@@ -113,10 +113,6 @@ bool mqtt_discovery_sent(void);
 void mqtt_reconnect(void);
 void mqtt_debug_set(uint32_t lvl);
 
-bool bt_init(void);
-void bt_run(void);
-void bt_debug_set(uint32_t lvl);
-
 bool ntp_init(void);
 void ntp_connect(void);
 bool ntp_connected(void);

@@ -31,7 +31,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/system_weak.c
    ${dir}/../services/wifi/wifi.c
    ${dir}/../services/mqtt/mqtt_client.c
-   ${dir}/../services/bt/bt.c
    ${dir}/../services/log/log.c
    ${dir}/time.c
    ${dir}/../services/webhook/webhook.c
@@ -61,8 +60,8 @@ add_subdirectory(${PROJECT_LIB_DIR}/pio-usb  ${CMAKE_BINARY_DIR}/pio-usb)
 target_link_libraries(${lib_name} INTERFACE pico_pio_usb)
 
 target_link_libraries(${lib_name} INTERFACE pico_stdlib
-		      hardware_rtc hardware_adc pico_btstack_base pico_btstack_ble pico_btstack_classic
-		      pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background pico_lwip_sntp
+		      hardware_rtc hardware_adc
+		      pico_cyw43_arch_lwip_threadsafe_background pico_lwip_sntp
 		      pico_lwip_mqtt)
 
 # enable all warnings

@@ -6,7 +6,14 @@
 #ifndef _LIB_HERAK_SYS_H_
 #define _LIB_HERAK_SYS_H_
 
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "common_lib.h"
+
 #include "lcd/lcd_api.h"
+#include "bt/bt_api.h"
 
 #ifdef __cplusplus
 extern "C" {

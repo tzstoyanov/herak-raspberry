@@ -11,6 +11,10 @@
 #define SYS_REGISTER(F) { extern void F(void); F(); wd_update(); }
 
 void systems_register_and_init(void)
-{ 
+{
+
+#ifdef HAVE_SYS_BT
+	SYS_REGISTER(sys_bt_register);
+#endif /* HAVE_SYS_BT */
 
 }
