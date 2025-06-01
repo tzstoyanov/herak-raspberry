@@ -14,6 +14,7 @@
 
 #include "lcd/lcd_api.h"
 #include "bt/bt_api.h"
+#include "syscmd/syscmd_api.h"
 
 #ifdef __cplusplus
 extern "C" {

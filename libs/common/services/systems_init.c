@@ -17,4 +17,8 @@ void systems_register_and_init(void)
 	SYS_REGISTER(sys_bt_register);
 #endif /* HAVE_SYS_BT */
 
+#ifdef HAVE_SYS_COMMANDS
+	SYS_REGISTER(sys_commands_register);
+#endif /* HAVE_SYS_COMMANDS */
+
 }

@@ -7,6 +7,8 @@ if(${ADD_USB})
         set(COMMON_USB ${dir}/../services/usb/usb.c)
 endif()
 
+option(ADD_SYS_COMMANDS "System Commands" ON)
+
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
 set(PARAMS_FILE params)
@@ -35,7 +37,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/time.c
    ${dir}/../services/webhook/webhook.c
    ${dir}/../services/webserver/webserv.c
-   ${dir}/../services/syscmd/syscmd.c
    ${dir}/temperature.c
    ${dir}/manchester_code.c
    ${CMAKE_BINARY_DIR}/${PARAMS_FILE}.c

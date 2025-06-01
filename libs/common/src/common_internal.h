@@ -92,6 +92,7 @@ void sys_modules_init(void);
 void sys_modules_run(void);
 void sys_modules_log(void);
 void sys_modules_reconnect(void);
+void sys_modules_debug_set(int debug);
 
 void system_reconnect(void);
 void system_set_periodic_log_ms(uint32_t ms);
@@ -148,10 +149,6 @@ void webserv_run(void);
 int webserv_port(void);
 void webserv_reconnect(void);
 int weberv_client_close(int client_idx);
-
-bool webdebug_init(void);
-void webdebug_run(void);
-int webdebug_log_send(char *logbuff);
 
 #ifdef __cplusplus
 }
