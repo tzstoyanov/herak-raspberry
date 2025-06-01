@@ -33,7 +33,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/system_modules.c
    ${dir}/system_weak.c
    ${dir}/../services/wifi/wifi.c
-   ${dir}/../services/mqtt/mqtt_client.c
    ${dir}/time.c
    ${dir}/../services/webhook/webhook.c
    ${dir}/../services/webserver/webserv.c
@@ -62,8 +61,7 @@ target_link_libraries(${lib_name} INTERFACE pico_pio_usb)
 
 target_link_libraries(${lib_name} INTERFACE pico_stdlib
 		      hardware_rtc hardware_adc
-		      pico_cyw43_arch_lwip_threadsafe_background pico_lwip_sntp
-		      pico_lwip_mqtt)
+		      pico_cyw43_arch_lwip_threadsafe_background pico_lwip_sntp)
 
 # enable all warnings
 target_compile_options(${lib_name} INTERFACE -Wall -Wextra)

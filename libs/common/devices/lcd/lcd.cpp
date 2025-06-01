@@ -235,6 +235,7 @@ static void lcd_refresh(void *context)
 
 	}
 
+#ifdef HAVE_SYS_MQTT
 	if (mqtt_is_connected()) {
 		if (!ctx->mqttOn)
 			ctx->refresh = true;
@@ -245,6 +246,7 @@ static void lcd_refresh(void *context)
 			ctx->refresh = true;
 		}
 	}
+#endif  /* HAVE_SYS_MQTT */
 
 	blinik_count++;
 

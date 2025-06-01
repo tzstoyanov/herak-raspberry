@@ -8,6 +8,11 @@ if(ADD_BT_STACK)
    include(${CMAKE_CURRENT_LIST_DIR}/bt/CMakeLists.txt)
 endif()
 
+if(ADD_MQTT_CLIENT)
+   include(${CMAKE_CURRENT_LIST_DIR}/mqtt/CMakeLists.txt)
+endif()
+
+
 if(ADD_SYS_COMMANDS)
    include(${CMAKE_CURRENT_LIST_DIR}/syscmd/CMakeLists.txt)
 endif()

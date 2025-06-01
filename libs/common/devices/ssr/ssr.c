@@ -89,7 +89,7 @@ static void ssr_mqtt_send(struct ssr_context_t *ctx)
 {
 	static int midx;
 
-	if (!mqtt_discovery_sent())
+	if (!mqtt_is_discovery_sent())
 		return;
 
 	while (true) {

@@ -107,12 +107,14 @@ void sys_modules_init(void)
 				hlog_warning(SYSMODLOG, "WEB Failed to register commands for module %s",
 							 sys_modules_context.modules[i]->name);
 
+#ifdef HAVE_SYS_MQTT
 			ret = mqtt_add_commands(sys_modules_context.modules[i]->name,
 					  sys_modules_context.modules[i]->commands.hooks, sys_modules_context.modules[i]->commands.count,
 					  sys_modules_context.modules[i]->commands.description, sys_modules_context.modules[i]->context);
 			if (ret < 0)
 				hlog_warning(SYSMODLOG, "MQTT Failed to register commands for module %s",
 							 sys_modules_context.modules[i]->name);
+#endif /* HAVE_SYS_MQTT */
 		}
 		if (sys_modules_context.modules[i]->log || sys_modules_context.modules[i]->debug) {
 			ret = webserv_add_commands(sys_modules_context.modules[i]->name,
@@ -122,6 +124,7 @@ void sys_modules_init(void)
 				hlog_warning(SYSMODLOG, "WEB Failed to register common commands for module %s",
 							 sys_modules_context.modules[i]->name);
 
+#ifdef HAVE_SYS_MQTT
 			ret = mqtt_add_commands(sys_modules_context.modules[i]->name,
 					  module_common_requests, ARRAY_SIZE(module_common_requests),
 					  CMD_COMMON_DESC, sys_modules_context.modules[i]);
@@ -129,6 +132,7 @@ void sys_modules_init(void)
 				hlog_warning(SYSMODLOG, "MQTT Failed to register common commands for module %s",
 							 sys_modules_context.modules[i]->name);
 		}
+#endif /* HAVE_SYS_MQTT */
 		if (sys_modules_context.modules[i]->log) {
 			ret = add_status_callback(sys_modules_context.modules[i]->log, sys_modules_context.modules[i]->context);
 			if (ret < 0)

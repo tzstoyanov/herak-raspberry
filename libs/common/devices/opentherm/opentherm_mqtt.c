@@ -132,7 +132,7 @@ void opentherm_mqtt_send(opentherm_context_t *ctx)
 	if (ctx->data.errors.force)
 		ctx->mqtt.errors->force = true;
 
-	if (!mqtt_discovery_sent())
+	if (!mqtt_is_discovery_sent())
 		return;
 
 	if (ctx->mqtt.data->force) {

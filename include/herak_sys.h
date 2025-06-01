@@ -15,6 +15,7 @@
 #include "log/log_api.h"
 #include "lcd/lcd_api.h"
 #include "bt/bt_api.h"
+#include "mqtt/mqtt_api.h"
 #include "syscmd/syscmd_api.h"
 
 #ifdef __cplusplus
