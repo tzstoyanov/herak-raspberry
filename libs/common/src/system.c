@@ -7,12 +7,13 @@
 #include <stdarg.h>
 #include <malloc.h>
 
-#include "common_internal.h"
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "hardware/clocks.h"
 #include "hardware/watchdog.h"
 
+#include "herak_sys.h"
+#include "common_internal.h"
 #include "base64.h"
 #include "params.h"
 
@@ -40,7 +41,6 @@ static struct {
 	uint32_t periodic_log_ms;
 	uint32_t last_loop;
 	uint8_t has_wifi:1;
-	uint8_t has_bt:1;
 	uint8_t has_mqtt:1;
 	uint8_t has_time:1;
 	uint8_t has_swout:1;
@@ -95,8 +95,6 @@ bool system_common_init(void)
 	sys_context.force_reboot = false;
 	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
 	sys_context.has_wifi = wifi_init();
-	wd_update();
-	sys_context.has_bt = bt_init();
 	wd_update();
 	sys_context.has_usb = usb_init();
 	wd_update();
@@ -252,8 +250,6 @@ void system_common_run(void)
 		LOOP_FUNC_RUN("temperature", temperature_measure);
 	if (sys_context.has_wifi)
 		LOOP_FUNC_RUN("wifi", wifi_connect);
-	if (sys_context.has_bt)
-		LOOP_FUNC_RUN("bt", bt_run);
 	if (sys_context.has_mqtt)
 		LOOP_FUNC_RUN("mqtt", mqtt_run);
 	if (sys_context.has_time)

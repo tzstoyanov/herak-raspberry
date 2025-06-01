@@ -7,6 +7,7 @@ set(ENV{PICO_SDK_PATH} "${PROJECT_LIB_DIR}/pico-sdk")
 set(PICO_BOARD pico_w)
 
 # Select the modules used in this application. ON / OFF
+option(ADD_BT_STACK "Bluetoth Stack" ON)
 option(ADD_SSR "Solid State Relays" ON)         # libs/common/devices/ssr/README.md
 option(ADD_SOIL "Soil sensor" ON)               # libs/common/devices/soil/README.md
 option(ADD_SHT20 "SHT20 sensor" ON)             # libs/common/devices/sht20/README.md
@@ -92,8 +93,8 @@ pico_add_extra_outputs(${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} ${PICO_PIO_USB}
 		      pico_stdlib hardware_i2c hardware_rtc hardware_adc
-		      hardware_dma hardware_pio pico_btstack_base pico_btstack_ble
-		      pico_btstack_classic pico_btstack_cyw43 pico_cyw43_arch_lwip_threadsafe_background
+		      hardware_dma hardware_pio
+		      pico_cyw43_arch_lwip_threadsafe_background
 		      pico_lwip_sntp pico_lwip_mqtt herak_common)
 
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage)

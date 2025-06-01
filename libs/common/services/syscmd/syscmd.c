@@ -20,7 +20,6 @@
 #define DEBUG_USB	0x01
 #define DEBUG_LOG	0x02
 #define DEBUG_MQTT	0x04
-#define DEBUG_BT	0x08
 
 static struct {
 	int hindex;
@@ -81,8 +80,6 @@ static int debug_verbose(cmd_run_context_t *ctx, char *cmd, char *params, void *
 			what |= DEBUG_MQTT;
 		else if (!strcmp(tok, "log"))
 			what |= DEBUG_LOG;
-		else if (!strcmp(tok, "bt"))
-			what |= DEBUG_BT;
 	}
 
 	if (!what)
@@ -94,8 +91,6 @@ static int debug_verbose(cmd_run_context_t *ctx, char *cmd, char *params, void *
 		mqtt_debug_set(lvl);
 	if (what & DEBUG_USB)
 		usb_debug_set(lvl);
-	if (what & DEBUG_BT)
-		bt_debug_set(lvl);
 
 	WEB_CLIENT_REPLY(ctx, VERBOSE_STR);
 	return 0;
@@ -256,7 +251,6 @@ static int debug_reset(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	log_debug_set(0);
 	usb_debug_set(0);
 	mqtt_debug_set(0);
-	bt_debug_set(0);
 	return 0;
 }
 
