@@ -54,6 +54,8 @@ static void opentherm_data_init(opentherm_data_t *data)
 	data->status.otc_active = false;
 	data->param_desired.ch_temperature_setpoint = 25.0;
 	data->param_desired.dhw_temperature_setpoint = 40.0;
+	data->param_desired.ch_max = 40.0;
+	data->param_desired.dhw_max = 60.0;
 }
 
 static int opentherm_config_get(opentherm_context_t **ctx)
