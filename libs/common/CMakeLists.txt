@@ -31,7 +31,7 @@ target_sources(${lib_name} INTERFACE
    ${dir}/sys_utils.c
    ${dir}/system_modules.c
    ${dir}/time.c
-   ${dir}/temperature.c
+   ${dir}/../devices/temperature/temperature.c
    ${dir}/manchester_code.c
    ${CMAKE_BINARY_DIR}/${PARAMS_FILE}.c
 )
