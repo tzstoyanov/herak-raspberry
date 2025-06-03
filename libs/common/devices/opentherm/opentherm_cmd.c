@@ -224,8 +224,10 @@ static int cmd_scan_all(cmd_run_context_t *ctx, char *cmd, char *params, void *u
 		hlog_info(OTHM_MODULE, "WEB scan all command.");
 
 	if (ctx->type == CMD_CTX_WEB) {
-		weberv_client_send(ctx->context.web.client_idx, SCANN_STR, strlen(SCANN_STR), HTTP_RESP_OK);
+#ifdef HAVE_SYS_WEBSERVER
+		webserv_client_send(ctx->context.web.client_idx, SCANN_STR, strlen(SCANN_STR), HTTP_RESP_OK);
 		debug_log_forward(ctx->context.web.client_idx);
+#endif
 	}
 	opentherm_dev_scan_all(octx);
 

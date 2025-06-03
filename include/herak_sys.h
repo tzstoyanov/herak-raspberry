@@ -19,6 +19,7 @@
 #include "mqtt/mqtt_api.h"
 #include "usb/usb_api.h"
 #include "webhook/webhook_api.h"
+#include "webserver/webserver_api.h"
 #include "syscmd/syscmd_api.h"
 
 #ifdef __cplusplus

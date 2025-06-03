@@ -70,16 +70,21 @@ static int cmd_module_status(cmd_run_context_t *ctx, char *cmd, char *params, vo
 		goto out;
 
 	if (ctx->type == CMD_CTX_WEB) {
-		weberv_client_send_data(ctx->context.web.client_idx, STATUS_STR, strlen(STATUS_STR));
+#ifdef HAVE_SYS_WEBSERVER
+		webserv_client_send_data(ctx->context.web.client_idx, STATUS_STR, strlen(STATUS_STR));
+#endif /* HAVE_SYS_WEBSERVER */
+#ifdef HAVE_SYS_COMMANDS
 		debug_log_forward(ctx->context.web.client_idx);
+#endif /* HAVE_SYS_COMMANDS */
 	}
 
 	do {
 		ret = mod->log(mod->context);
 	} while (!ret);
-
+#ifdef HAVE_SYS_COMMANDS
 	if (ctx->type == CMD_CTX_WEB)
 		debug_log_forward(-1);
+#endif /* HAVE_SYS_COMMANDS */
 out:
 	return 0;
 }
@@ -100,12 +105,14 @@ void sys_modules_init(void)
 
 	for (i = 0; i < sys_modules_context.modules_count; i++) {
 		if (sys_modules_context.modules[i]->commands.hooks)	{
+#ifdef HAVE_SYS_WEBSERVER
 			ret = webserv_add_commands(sys_modules_context.modules[i]->name,
 					 sys_modules_context.modules[i]->commands.hooks, sys_modules_context.modules[i]->commands.count,
 					 sys_modules_context.modules[i]->commands.description, sys_modules_context.modules[i]->context);
 			if (ret < 0)
 				hlog_warning(SYSMODLOG, "WEB Failed to register commands for module %s",
 							 sys_modules_context.modules[i]->name);
+#endif /* HAVE_SYS_WEBSERVER */
 
 #ifdef HAVE_SYS_MQTT
 			ret = mqtt_add_commands(sys_modules_context.modules[i]->name,
@@ -117,12 +124,14 @@ void sys_modules_init(void)
 #endif /* HAVE_SYS_MQTT */
 		}
 		if (sys_modules_context.modules[i]->log || sys_modules_context.modules[i]->debug) {
+#ifdef HAVE_SYS_WEBSERVER
 			ret = webserv_add_commands(sys_modules_context.modules[i]->name,
 					 module_common_requests, ARRAY_SIZE(module_common_requests),
 					 CMD_COMMON_DESC, sys_modules_context.modules[i]);
 			if (ret < 0)
 				hlog_warning(SYSMODLOG, "WEB Failed to register common commands for module %s",
 							 sys_modules_context.modules[i]->name);
+#endif /* HAVE_SYS_WEBSERVER */
 
 #ifdef HAVE_SYS_MQTT
 			ret = mqtt_add_commands(sys_modules_context.modules[i]->name,

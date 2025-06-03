@@ -18,7 +18,7 @@
 
 #pragma GCC diagnostic ignored "-Wstringop-truncation"
 
-#define WSLOG		"webserv"
+#define WS_MODULE	"webserv"
 #define HELP_CMD	"help"
 #define HELP_URL	"/help"
 // #define WS_DEBUG
@@ -52,12 +52,15 @@ struct http_responses_t {
 		{429, "Too Many Requests"},		// HTTP_RESP_TOO_MANY_ERROR
 };
 
+struct werbserv_context_t;
+
 struct webcmd_t {
 	int count;
 	int web_handler;
 	char *description;
 	void *user_data;
 	app_command_t *commands;
+	struct werbserv_context_t *ctx;
 };
 
 struct webhandler_t {
@@ -78,52 +81,65 @@ struct webclient_t {
 	int buff_len;
 	uint32_t last_send;
 	struct altcp_pcb *tcp_client;
+	struct werbserv_context_t *ctx;
 };
 
-static struct {
-	struct webcmd_t commands[MAX_HANDLERS];
+struct werbserv_context_t {
+	sys_module_t mod;
+	struct webcmd_t *web_commands[MAX_HANDLERS];
 	int wcmd_count;
-	struct webhandler_t handle[MAX_HANDLERS];
+	struct webhandler_t *handle[MAX_HANDLERS];
 	int wh_count;
 	struct webclient_t client[MAX_CLIENTS];
 	uint32_t port;
 	bool init;
 	mutex_t slock;
 	struct altcp_pcb *tcp_srv;
-} werbserv_context;
+	uint32_t debug;
+};
 
-static int webserv_add_handler(char *url, webserv_request_cb_t user_cb, void *user_data)
+static struct werbserv_context_t *__werbserv_context;
+
+static struct werbserv_context_t *webserv_get_context(void)
+{
+	return __werbserv_context;
+}
+
+static int webserv_add_handler(struct werbserv_context_t *ctx, char *url, webserv_request_cb_t user_cb, void *user_data)
 {
 	int i;
 
-	if (!werbserv_context.port)
-		return -1;
 
-	WS_LOCK(&werbserv_context);
+	WS_LOCK(ctx);
 		for (i = 0; i < MAX_HANDLERS; i++) {
-			if (!werbserv_context.handle[i].user_cb)
+			if (!ctx->handle[i])
 				break;
 		}
-	WS_UNLOCK(&werbserv_context);
+	WS_UNLOCK(ctx);
 
 	if (i >= MAX_HANDLERS)
 		return -1;
 
-	WS_LOCK(&werbserv_context);
-		werbserv_context.handle[i].user_cb = user_cb;
-		werbserv_context.handle[i].user_data = user_data;
-		if (url[0] != '/') {
-			werbserv_context.handle[i].url[0] = '/';
-			strncpy(werbserv_context.handle[i].url + 1, url, HTTP_URL_LEN - 1);
-		} else {
-			strncpy(werbserv_context.handle[i].url, url, HTTP_URL_LEN);
+	WS_LOCK(ctx);
+		ctx->handle[i] = (struct webhandler_t *)calloc(1, sizeof(struct webhandler_t));
+		if (!ctx->handle[i]) {
+			WS_UNLOCK(ctx);
+			return -1;
 		}
-		werbserv_context.handle[i].url[HTTP_URL_LEN - 1] = 0;
-		mutex_init(&werbserv_context.handle[i].h_lock);
-		werbserv_context.wh_count++;
-	WS_UNLOCK(&werbserv_context);
+		ctx->handle[i]->user_cb = user_cb;
+		ctx->handle[i]->user_data = user_data;
+		if (url[0] != '/') {
+			ctx->handle[i]->url[0] = '/';
+			strncpy(ctx->handle[i]->url + 1, url, HTTP_URL_LEN - 1);
+		} else {
+			strncpy(ctx->handle[i]->url, url, HTTP_URL_LEN);
+		}
+		ctx->handle[i]->url[HTTP_URL_LEN - 1] = 0;
+		mutex_init(&ctx->handle[i]->h_lock);
+		ctx->wh_count++;
+	WS_UNLOCK(ctx);
 
-	hlog_info(WSLOG, "New Web Handler added [%s]", url);
+	hlog_info(WS_MODULE, "New Web Handler added [%s]", url);
 	return i;
 }
 
@@ -133,14 +149,14 @@ static void commands_help(int client_idx, struct webcmd_t *handlers)
 	char help[HELP_SIZE];
 	int i;
 
-	if (handlers->web_handler >= werbserv_context.wh_count)
+	if (handlers->web_handler >= handlers->ctx->wh_count)
 		return;
 
 	for (i = 0; i < handlers->count; i++) {
 		snprintf(help, HELP_SIZE, "\t%s?%s%s\r\n",
-				werbserv_context.handle[handlers->web_handler].url,
+				handlers->ctx->handle[handlers->web_handler]->url,
 				handlers->commands[i].command, handlers->commands[i].help ? handlers->commands[i].help : "");
-		weberv_client_send_data(client_idx, help, strlen(help));
+		webserv_client_send_data(client_idx, help, strlen(help));
 	}
 }
 
@@ -164,8 +180,8 @@ static enum http_response_id commands_handler(run_context_web_t *wctx, char *cmd
 	if (request) {
 		len = strlen(request);
 		if (len >= strlen(HELP_CMD) && !strncmp(request + 1, HELP_CMD, strlen(HELP_CMD))) {
-			weberv_client_send_data(wctx->client_idx, handlers->description, strlen(handlers->description));
-			weberv_client_send_data(wctx->client_idx, ":\n\r", strlen(":\n\r"));
+			webserv_client_send_data(wctx->client_idx, handlers->description, strlen(handlers->description));
+			webserv_client_send_data(wctx->client_idx, ":\n\r", strlen(":\n\r"));
 			commands_help(wctx->client_idx, handlers);
 			ret = HTTP_RESP_OK;
 			r_ctx.context.web.hret = 0;
@@ -195,21 +211,26 @@ out:
 
 int webserv_add_commands(char *url, app_command_t *commands, int commands_cont, char *description, void *user_data)
 {
+	struct werbserv_context_t *ctx = webserv_get_context();
 	struct webcmd_t *cmd;
 
-	if (werbserv_context.wcmd_count >= MAX_HANDLERS)
+	if (!ctx || ctx->wcmd_count >= MAX_HANDLERS)
 		return -1;
-	cmd = &(werbserv_context.commands[werbserv_context.wcmd_count]);
-	cmd->web_handler = webserv_add_handler(url, commands_handler, cmd);
+	ctx->web_commands[ctx->wcmd_count] = (struct webcmd_t *)calloc(1, sizeof(struct webcmd_t));
+	if (!ctx->web_commands[ctx->wcmd_count])
+		return -1;
+	cmd = ctx->web_commands[ctx->wcmd_count];
+	cmd->web_handler = webserv_add_handler(ctx, url, commands_handler, cmd);
 	if (cmd->web_handler < 0)
 		return -1;
 	cmd->commands = commands;
 	cmd->count = commands_cont;
 	cmd->user_data = user_data;
 	cmd->description = description;
+	cmd->ctx = ctx;
 
-	werbserv_context.wcmd_count++;
-	return werbserv_context.wcmd_count-1;
+	ctx->wcmd_count++;
+	return ctx->wcmd_count-1;
 }
 
 static void ws_tcp_send(struct webclient_t *client, struct altcp_pcb *tpcb)
@@ -318,9 +339,9 @@ static enum http_response_id client_parse_incoming(struct webclient_t *client, s
 	{
 		struct pbuf *bp = p;
 
-		hlog_info(WSLOG, "Received %d bytes from %d:", p->tot_len, client->idx);
+		hlog_info(WS_MODULE, "Received %d bytes from %d:", p->tot_len, client->idx);
 		while (bp) {
-			dump_char_data(WSLOG, bp->payload, bp->len);
+			dump_char_data(WS_MODULE, bp->payload, bp->len);
 			bp = bp->next;
 		}
 	}
@@ -328,16 +349,15 @@ static enum http_response_id client_parse_incoming(struct webclient_t *client, s
 	wctx.client_idx = client->idx;
 	wctx.keep_open = false;
 	wctx.keep_silent = false;
-	weberv_client_send(client->idx, WEB_CMD_NR, strlen(WEB_CMD_NR), HTTP_RESP_OK);
+	webserv_client_send(client->idx, WEB_CMD_NR, strlen(WEB_CMD_NR), HTTP_RESP_OK);
 	if (parse_http_request(p, cmd, HTTP_CMD_LEN, url, HTTP_URL_LEN)) {
 		cmd[HTTP_CMD_LEN - 1] = 0;
 		url[HTTP_URL_LEN - 1] = 0;
 		for (i = 0; i < MAX_HANDLERS; i++) {
-			if (!werbserv_context.handle[i].user_cb)
+			if (!client->ctx->handle[i])
 				continue;
-			if (!strncmp(url, werbserv_context.handle[i].url, strlen(werbserv_context.handle[i].url))) {
-				resp = werbserv_context.handle[i].user_cb(&wctx, cmd, url,
-														  werbserv_context.handle[i].user_data);
+			if (!strncmp(url, client->ctx->handle[i]->url, strlen(client->ctx->handle[i]->url))) {
+				resp = client->ctx->handle[i]->user_cb(&wctx, cmd, url, client->ctx->handle[i]->user_data);
 				if (resp == HTTP_RESP_OK)
 					handled++;
 			}
@@ -350,18 +370,18 @@ static enum http_response_id client_parse_incoming(struct webclient_t *client, s
 		resp = HTTP_RESP_INTERNAL_ERROR;
 	}
 	if (!wctx.keep_silent) {
-		weberv_client_send_data(client->idx, WEB_CMD_NR, strlen(WEB_CMD_NR));
+		webserv_client_send_data(client->idx, WEB_CMD_NR, strlen(WEB_CMD_NR));
 		if (wctx.hret)
-			weberv_client_send(client->idx, CMD_FAIL_STR, strlen(CMD_FAIL_STR), HTTP_RESP_BAD);
+			webserv_client_send(client->idx, CMD_FAIL_STR, strlen(CMD_FAIL_STR), HTTP_RESP_BAD);
 		else if (resp == HTTP_RESP_OK)
-			weberv_client_send(client->idx, CMD_OK_STR, strlen(CMD_OK_STR), HTTP_RESP_OK);
+			webserv_client_send(client->idx, CMD_OK_STR, strlen(CMD_OK_STR), HTTP_RESP_OK);
 		else if (resp == HTTP_RESP_NOT_FOUND)
-			weberv_client_send(client->idx, CMD_NOT_FOUND_STR, strlen(CMD_NOT_FOUND_STR), HTTP_RESP_NOT_FOUND);
+			webserv_client_send(client->idx, CMD_NOT_FOUND_STR, strlen(CMD_NOT_FOUND_STR), HTTP_RESP_NOT_FOUND);
 		else
-			weberv_client_send(client->idx, CMD_WRONG_STR, strlen(CMD_WRONG_STR), HTTP_RESP_INTERNAL_ERROR);
+			webserv_client_send(client->idx, CMD_WRONG_STR, strlen(CMD_WRONG_STR), HTTP_RESP_INTERNAL_ERROR);
 	}
 	if (!wctx.keep_open)
-		weberv_client_close(client->idx);
+		webserv_client_close(client->idx);
 
 	return resp;
 }
@@ -372,7 +392,7 @@ static void webclient_disconnect(struct webclient_t *client, char *reason)
 		return;
 
 #ifdef WS_DEBUG
-	hlog_info(WSLOG, "Closed connection to client %d: [%s]", client->idx, reason);
+	hlog_info(WS_MODULE, "Closed connection to client %d: [%s]", client->idx, reason);
 #else
 	UNUSED(reason);
 #endif
@@ -419,7 +439,7 @@ static err_t ws_tcp_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *p, er
 	ret = client_parse_incoming(client, p);
 	pbuf_free(p);
 	if (ret != HTTP_RESP_OK)
-		weberv_client_close(client->idx);
+		webserv_client_close(client->idx);
 
 	return ERR_OK;
 }
@@ -436,28 +456,31 @@ static void ws_tcp_err_cb(void *arg, err_t err)
 	webclient_disconnect(client, "tcp error");
 }
 
-int weberv_client_close(int client_idx)
+int webserv_client_close(int client_idx)
 {
-	if (client_idx >= MAX_CLIENTS || !werbserv_context.client[client_idx].tcp_client)
+	struct werbserv_context_t *ctx = webserv_get_context();
+
+	if (!ctx || client_idx >= MAX_CLIENTS || !ctx->client[client_idx].tcp_client)
 		return -1;
-	WC_LOCK(&(werbserv_context.client[client_idx]));
-		werbserv_context.client[client_idx].close = true;
-	WC_UNLOCK(&(werbserv_context.client[client_idx]));
+	WC_LOCK(&(ctx->client[client_idx]));
+		ctx->client[client_idx].close = true;
+	WC_UNLOCK(&(ctx->client[client_idx]));
 	return 0;
 }
 
-int weberv_client_send(int client_idx, char *data, int datalen, enum http_response_id rep)
+int webserv_client_send(int client_idx, char *data, int datalen, enum http_response_id rep)
 {
+	struct werbserv_context_t *ctx = webserv_get_context();
 	struct webclient_t *client;
 	char date[32];
 	uint32_t now;
 
-	if (client_idx >= MAX_CLIENTS || !werbserv_context.client[client_idx].tcp_client)
+	if (!ctx || client_idx >= MAX_CLIENTS || !ctx->client[client_idx].tcp_client)
 		return -1;
 	if (rep >= HTTP_RESP_MAX)
 		return -1;
 
-	client = &werbserv_context.client[client_idx];
+	client = &ctx->client[client_idx];
 	now = to_ms_since_boot(get_absolute_time());
 	WC_LOCK(client);
 		if (client->sending)
@@ -485,17 +508,18 @@ out_err:
 	return -1;
 }
 
-int weberv_client_send_data(int client_idx, char *data, int datalen)
+int webserv_client_send_data(int client_idx, char *data, int datalen)
 {
+	struct werbserv_context_t *ctx = webserv_get_context();
 	struct webclient_t *client;
 	uint32_t now;
 	int len;
 
-	if (client_idx >= MAX_CLIENTS ||
-		!werbserv_context.client[client_idx].tcp_client || !data || !datalen)
+	if (!ctx || client_idx >= MAX_CLIENTS ||
+		!ctx->client[client_idx].tcp_client || !data || !datalen)
 		return -1;
 
-	client = &werbserv_context.client[client_idx];
+	client = &ctx->client[client_idx];
 	now = to_ms_since_boot(get_absolute_time());
 	WC_LOCK(client);
 		if (client->sending)
@@ -515,7 +539,7 @@ out_err:
 	return -1;
 }
 
-static void webclient_close_check(void)
+static void webclient_close_check(struct werbserv_context_t *ctx)
 {
 	uint32_t now;
 	bool close;
@@ -523,60 +547,60 @@ static void webclient_close_check(void)
 
 	now = to_ms_since_boot(get_absolute_time());
 	for (i = 0; i < MAX_CLIENTS; i++) {
-		if (!werbserv_context.client[i].init)
+		if (!ctx->client[i].init)
 			continue;
-		WC_LOCK(&(werbserv_context.client[i]));
-			close = werbserv_context.client[i].close;
-			if (werbserv_context.client[i].sending &&
-			   (now - werbserv_context.client[i].last_send) > IP_TIMEOUT_MS) {
+		WC_LOCK(&(ctx->client[i]));
+			close = ctx->client[i].close;
+			if (ctx->client[i].sending &&
+			   (now - ctx->client[i].last_send) > IP_TIMEOUT_MS) {
 				close = true;
 			}
-		WC_UNLOCK(&(werbserv_context.client[i]));
+		WC_UNLOCK(&(ctx->client[i]));
 		if (close)
-			webclient_disconnect(&(werbserv_context.client[i]), "normal timeout");
+			webclient_disconnect(&(ctx->client[i]), "normal timeout");
 	}
 }
 
-static bool webserv_log_status(void *context)
+static bool sys_webserv_log_status(void *context)
 {
+	struct werbserv_context_t *ctx = (struct werbserv_context_t *)context;
 	int i, cnt;
 
-	UNUSED(context);
-
-	if (!werbserv_context.wh_count)
+	if (!ctx->wh_count)
 		return true;
 
-	if (!werbserv_context.init) {
-		hlog_info(WSLOG, "Web server at port %d not init yet", werbserv_context.port);
+	if (!ctx->init) {
+		hlog_info(WS_MODULE, "Web server at port %d not init yet", ctx->port);
 	} else {
 		cnt = 0;
 		for (i = 0; i < MAX_CLIENTS; i++) {
-			if (werbserv_context.client[i].tcp_client)
+			if (ctx->client[i].tcp_client)
 				cnt++;
 		}
-		hlog_info(WSLOG, "Web server is running at port %d, %d clients attached",
-						 werbserv_context.port, cnt);
+		hlog_info(WS_MODULE, "Web server is running at port %d, %d clients attached",
+						 ctx->port, cnt);
 	}
-	hlog_info(WSLOG, "  %d hook(s) registered", werbserv_context.wh_count);
+	hlog_info(WS_MODULE, "  %d hook(s) registered", ctx->wh_count);
 	for (i = 0; i < MAX_HANDLERS; i++) {
-		if (werbserv_context.handle[i].user_cb)
-			hlog_info(WSLOG, "    [%s]", werbserv_context.handle[i].url);
+		if (ctx->handle[i])
+			hlog_info(WS_MODULE, "    [%s]", ctx->handle[i]->url);
 	}
 
 	return true;
 }
 
-void webserv_reconnect(void)
+static void sys_webserv_reconnect(void *context)
 {
+	struct werbserv_context_t *ctx = (struct werbserv_context_t *)context;
 	int i;
 
-	WS_LOCK(&werbserv_context);
+	WS_LOCK(ctx);
 		for (i = 0; i < MAX_CLIENTS; i++)
-			webclient_disconnect(&(werbserv_context.client[i]), "reconnect");
-	WS_UNLOCK(&werbserv_context);
+			webclient_disconnect(&(ctx->client[i]), "reconnect");
+	WS_UNLOCK(ctx);
 }
 
-static bool webserv_read_config(void)
+static bool webserv_read_config(struct werbserv_context_t **ctx)
 {
 	char *str;
 	int port;
@@ -584,48 +608,55 @@ static bool webserv_read_config(void)
 	if (WEBSERVER_PORT_len <= 0)
 		return false;
 	str = param_get(WEBSERVER_PORT);
-	port = (int)strtol(str, NULL, 10);
+	port = (int)strtol(str, NULL, 0);
 	free(str);
+
 	if (port <= 0 || port > 0xFFFF)
 		return false;
-	werbserv_context.port = port;
+
+	(*ctx) = (struct werbserv_context_t *)calloc(1, sizeof(struct werbserv_context_t));
+	if (!(*ctx))
+		return false;
+	(*ctx)->port = port;
+
 	return true;
 }
 
 static err_t webserv_accept(void *arg, struct altcp_pcb *pcb, err_t err)
 {
+	struct werbserv_context_t *ctx = (struct werbserv_context_t *)arg;
 	int i;
 
-	UNUSED(arg);
 	if (err != ERR_OK || pcb == NULL)
 		return ERR_VAL;
 	for (i = 0; i < MAX_CLIENTS; i++)
-		if (!werbserv_context.client[i].tcp_client)
+		if (!ctx->client[i].tcp_client)
 			break;
 #ifdef WS_DEBUG
-	hlog_info(WSLOG, "Accepted new client %d / %d", i, MAX_CLIENTS);
+	hlog_info(WS_MODULE, "Accepted new client %d / %d", i, MAX_CLIENTS);
 #endif
 	if (i >= MAX_CLIENTS)
 		return ERR_MEM;
-	if (!werbserv_context.client[i].init) {
-		mutex_init(&(werbserv_context.client[i].cl_lock));
-		werbserv_context.client[i].idx = i;
-		werbserv_context.client[i].init = true;
+	if (!ctx->client[i].init) {
+		mutex_init(&(ctx->client[i].cl_lock));
+		ctx->client[i].idx = i;
+		ctx->client[i].ctx = ctx;
+		ctx->client[i].init = true;
 	}
 
 	LWIP_LOCK_START;
 		altcp_setprio(pcb, WEBSRV_PRIO);
-		altcp_arg(pcb, &(werbserv_context.client[i]));
+		altcp_arg(pcb, &(ctx->client[i]));
 		altcp_recv(pcb, ws_tcp_recv_cb);
 		altcp_err(pcb, ws_tcp_err_cb);
 	LWIP_LOCK_END;
-	werbserv_context.client[i].tcp_client = pcb;
+	ctx->client[i].tcp_client = pcb;
 	return ERR_OK;
 }
 
 static enum http_response_id webserv_help_cb(run_context_web_t *wctx, char *cmd, char *url, void *context)
 {
-	struct webcmd_t *web_cmd;
+	struct werbserv_context_t *ctx = (struct werbserv_context_t *)context;
 	char help[HELP_SIZE];
 	int i;
 
@@ -633,36 +664,34 @@ static enum http_response_id webserv_help_cb(run_context_web_t *wctx, char *cmd,
 	UNUSED(cmd);
 	UNUSED(url);
 
-	weberv_client_send_data(wctx->client_idx, "\n\r", strlen("\n\r"));
-	for (i = 0; i < werbserv_context.wcmd_count; i++) {
-		web_cmd = &werbserv_context.commands[i];
-		if (web_cmd->web_handler >= werbserv_context.wh_count)
+	webserv_client_send_data(wctx->client_idx, "\n\r", strlen("\n\r"));
+	for (i = 0; i < ctx->wcmd_count; i++) {
+		if (!ctx->web_commands[i])
+			continue;
+		if (ctx->web_commands[i]->web_handler >= ctx->wh_count)
 			continue;
 		snprintf(help, HELP_SIZE, "  %s     [%s]\n\r",
-				 werbserv_context.handle[web_cmd->web_handler].url,  web_cmd->description);
-		weberv_client_send_data(wctx->client_idx, help, strlen(help));
-		commands_help(wctx->client_idx, web_cmd);
+				 ctx->handle[ctx->web_commands[i]->web_handler]->url,  ctx->web_commands[i]->description);
+		webserv_client_send_data(wctx->client_idx, help, strlen(help));
+		commands_help(wctx->client_idx, ctx->web_commands[i]);
 	}
 
 	return HTTP_RESP_OK;
 }
 
-bool webserv_init(void)
+static bool sys_webserv_init(struct werbserv_context_t **ctx)
 {
-	bool ret;
+	if (!webserv_read_config(ctx))
+		return false;
 
-	memset(&werbserv_context, 0, sizeof(werbserv_context));
-	mutex_init(&werbserv_context.slock);
-	ret = webserv_read_config();
-	if (ret)
-		webserv_add_handler(HELP_URL, webserv_help_cb, NULL);
+	mutex_init(&((*ctx)->slock));
+	__werbserv_context = (*ctx);
+	webserv_add_handler(*ctx, HELP_URL, webserv_help_cb, *ctx);
 
-	add_status_callback(webserv_log_status, NULL);
-
-	return ret;
+	return true;
 }
 
-static bool webserv_open(void)
+static bool webserv_open(struct werbserv_context_t *ctx)
 {
 	struct altcp_pcb *pcb = NULL;
 	bool ret = false;
@@ -674,8 +703,9 @@ static bool webserv_open(void)
 		return false;
 
 	LWIP_LOCK_START;
+		altcp_arg(pcb, ctx);
 		altcp_setprio(pcb, WEBSRV_PRIO);
-		if (altcp_bind(pcb, IP_ANY_TYPE, werbserv_context.port) == ERR_OK) {
+		if (altcp_bind(pcb, IP_ANY_TYPE, ctx->port) == ERR_OK) {
 			pcb = altcp_listen(pcb);
 			if (pcb) {
 				altcp_accept(pcb, webserv_accept);
@@ -690,57 +720,86 @@ static bool webserv_open(void)
 		pcb = NULL;
 	}
 
-	werbserv_context.tcp_srv = pcb;
+	ctx->tcp_srv = pcb;
 	return ret;
 }
 
-static void webclient_send_poll(void)
+static void webclient_send_poll(struct werbserv_context_t *ctx)
 {
 	bool send;
 	int i;
 
 	for (i = 0; i < MAX_CLIENTS; i++) {
-		if (!werbserv_context.client[i].init)
+		if (!ctx->client[i].init)
 			continue;
 		send = false;
-		WC_LOCK(&(werbserv_context.client[i]));
-			if (werbserv_context.client[i].tcp_client &&
-				!werbserv_context.client[i].sending &&
-				(werbserv_context.client[i].buff_len - werbserv_context.client[i].buff_p) > 0)
+		WC_LOCK(&(ctx->client[i]));
+			if (ctx->client[i].tcp_client &&
+				!ctx->client[i].sending &&
+				(ctx->client[i].buff_len - ctx->client[i].buff_p) > 0)
 				send = true;
-		WC_UNLOCK(&(werbserv_context.client[i]));
+		WC_UNLOCK(&(ctx->client[i]));
 		if (send)
-			ws_tcp_send(&(werbserv_context.client[i]), werbserv_context.client[i].tcp_client);
+			ws_tcp_send(&(ctx->client[i]), ctx->client[i].tcp_client);
 	}
 }
 
-void webserv_run(void)
+static void sys_webhook_run(void *context)
 {
+	struct werbserv_context_t *ctx = (struct werbserv_context_t *)context;
 	static bool connected;
 
-	if (!werbserv_context.wh_count)
+	if (!ctx->wh_count)
 		return;
 
-	if (!werbserv_context.init) {
-		werbserv_context.init = webserv_open();
-		if (!werbserv_context.init)
+	if (!ctx->init) {
+		ctx->init = webserv_open(ctx);
+		if (!ctx->init)
 			return;
 	}
 
 	if (!wifi_is_connected()) {
 		if (connected) {
-			webserv_reconnect();
+			sys_webserv_reconnect(ctx);
 			connected = false;
 		}
 		return;
 	}
 
 	connected = true;
-	webclient_close_check();
-	webclient_send_poll();
+	webclient_close_check(ctx);
+	webclient_send_poll(ctx);
 }
 
 int webserv_port(void)
 {
-	return werbserv_context.port;
+	struct werbserv_context_t *ctx = webserv_get_context();
+
+	if (!ctx)
+		return 0;
+
+	return ctx->port;
+}
+
+static void sys_webserv_debug_set(uint32_t lvl, void *context)
+{
+	struct werbserv_context_t *ctx = (struct werbserv_context_t *)context;
+
+	ctx->debug = lvl;
+}
+
+void sys_webserver_register(void)
+{
+	struct werbserv_context_t *ctx = NULL;
+
+	if (!sys_webserv_init(&ctx))
+		return;
+
+	ctx->mod.name = WS_MODULE;
+	ctx->mod.run = sys_webhook_run;
+	ctx->mod.log = sys_webserv_log_status;
+	ctx->mod.debug = sys_webserv_debug_set;
+	ctx->mod.reconnect = sys_webserv_reconnect;
+	ctx->mod.context = ctx;
+	sys_module_register(&ctx->mod);
 }
