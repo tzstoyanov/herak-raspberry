@@ -8,7 +8,7 @@
 
 #include "common_internal.h"
 
-#define DEV_REGISTER(F) {extern void F(void); F(); wd_update();}
+#define DEV_REGISTER(F) { extern void F(void); F(); wd_update(); }
 
 void devices_register_and_init(void)
 {
@@ -34,7 +34,7 @@ void devices_register_and_init(void)
 
 #ifdef HAVE_BMS_JK
 	DEV_REGISTER(bms_jk_register);
-#endif /* HAVE_BMS_JK */	
+#endif /* HAVE_BMS_JK */
 
 #ifdef HAVE_LCD
 	DEV_REGISTER(lcd_register);

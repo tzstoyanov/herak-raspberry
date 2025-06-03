@@ -273,7 +273,11 @@ static void lcd_debug_set(uint32_t debug, void *context)
 		ctx->debug = debug;
 }
 
-extern "C" int lcd_set_int(int cell, int row, int column, int num)
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int lcd_set_int(int cell, int row, int column, int num)
 {
 	lcd_cell *cellp = lcd_get_cell(cell, row, column);
 
@@ -286,10 +290,6 @@ extern "C" int lcd_set_int(int cell, int row, int column, int num)
 
 	return 0;
 }
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 int lcd_set_double(int cell, int row, int column, double num)
 {

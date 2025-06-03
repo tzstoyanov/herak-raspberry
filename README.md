@@ -3,7 +3,7 @@
 ## Overview
 Raspberry Pico applications for monitoring and controlling devices in my house. The code is written
 using Raspberry C SDK and runs directly on Raspberry Pico W without an operating system.  
-Support fot all services, devices and sensors is implemented as modules. Modules can be easily selected and combined together into a single application, depending on the use cases and available hardware resources.
+Support for all services, devices and sensors is implemented as modules. Modules can be easily selected and combined together into a single application, depending on the use cases and available hardware resources.
 
 ### Services:
 - [Internet](libs/common/services/wifi/README.md)
@@ -61,7 +61,7 @@ and modify it with your configuration.
 - In the `app/common/CMakeLists.txt` file, modify the first lines with the configuration, specific to your application. Name of the project, heap size, select the modules that will be compiled and linked to the project:
 ```
 set(PROJECT_NAME herak-common)
-set(HEAP_SIZE 8192)
+set(HEAP_SIZE 32768)
 set(DEBUG_BUILD false)
 
 # Select the modules used in this application. ON / OFF

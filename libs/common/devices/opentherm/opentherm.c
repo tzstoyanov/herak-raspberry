@@ -110,7 +110,7 @@ out_err:
 void opentherm_register(void)
 {
 	opentherm_context_t *ctx = NULL;
-	
+
 	if (!opentherm_init(&ctx))
 		return;
 
