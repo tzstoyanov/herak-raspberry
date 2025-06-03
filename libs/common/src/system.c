@@ -41,7 +41,6 @@ static struct {
 	uint32_t periodic_log_ms;
 	uint32_t last_loop;
 	uint8_t has_swout:1;
-	uint8_t has_temp:1;
 	uint8_t force_reboot:1;
 
 	log_status_hook_t log_status[LOG_STATUS_HOOKS_COUNT];
@@ -87,8 +86,7 @@ bool system_common_init(void)
 	sys_context.log_status_progress = -1;
 	sys_context.force_reboot = false;
 	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
-	sys_context.has_temp = temperature_init();
-	wd_update();
+
 	wd_update();
 	sys_modules_init();
 	wd_update();
@@ -131,7 +129,13 @@ void system_log_status(void)
 
 	hlog_info(COMMONSYSLOG, "----------- Status -----------");
 	hlog_info(COMMONSYSLOG, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
-			  get_uptime(), get_free_heap(), temperature_internal_get());
+			  get_uptime(), get_free_heap(),
+#ifdef HAVE_CHIP_TEMP
+			  temperature_internal_get()
+#else
+			  0
+#endif
+			  );
 	log_sys_health();
 	sys_modules_log();
 	sys_context.log_status_progress = 0;
@@ -217,8 +221,6 @@ void wd_update(void)
 void system_common_run(void)
 {
 	sys_context.last_loop = to_ms_since_boot(get_absolute_time());
-	if (sys_context.has_temp)
-		LOOP_FUNC_RUN("temperature", temperature_measure);
 	LOOP_FUNC_RUN("log WD boot", log_wd_boot);
 	if (sys_context.reconnect) {
 		do_system_reconnect();
