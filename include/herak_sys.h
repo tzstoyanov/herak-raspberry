@@ -13,6 +13,7 @@
 #include "common_lib.h"
 
 #include "log/log_api.h"
+#include "wifi/wifi_api.h"
 #include "lcd/lcd_api.h"
 #include "bt/bt_api.h"
 #include "mqtt/mqtt_api.h"
