@@ -40,7 +40,6 @@ typedef struct {
 static struct {
 	uint32_t periodic_log_ms;
 	uint32_t last_loop;
-	uint8_t has_time:1;
 	uint8_t has_swout:1;
 	uint8_t has_temp:1;
 	uint8_t force_reboot:1;
@@ -88,8 +87,6 @@ bool system_common_init(void)
 	sys_context.log_status_progress = -1;
 	sys_context.force_reboot = false;
 	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
-	sys_context.has_time = ntp_init();
-	wd_update();
 	sys_context.has_temp = temperature_init();
 	wd_update();
 	wd_update();
@@ -222,8 +219,6 @@ void system_common_run(void)
 	sys_context.last_loop = to_ms_since_boot(get_absolute_time());
 	if (sys_context.has_temp)
 		LOOP_FUNC_RUN("temperature", temperature_measure);
-	if (sys_context.has_time)
-		LOOP_FUNC_RUN("ntp", ntp_connect);
 	LOOP_FUNC_RUN("log WD boot", log_wd_boot);
 	if (sys_context.reconnect) {
 		do_system_reconnect();

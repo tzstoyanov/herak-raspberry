@@ -33,6 +33,10 @@ void systems_register_and_init(void)
 	SYS_REGISTER(sys_usb_register);
 #endif /* HAVE_SYS_USB */
 
+#ifdef HAVE_SYS_NTP
+	SYS_REGISTER(sys_ntp_register);
+#endif /* HAVE_SYS_NTP */
+
 #ifdef HAVE_SYS_WEBSERVER
 	SYS_REGISTER(sys_webserver_register);
 #endif /* HAVE_SYS_WEBSERVER */

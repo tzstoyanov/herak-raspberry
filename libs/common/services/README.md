@@ -1,5 +1,6 @@
 # Services:
 - [Internet](wifi/README.md)
+- [NTP client](ntp/README.md)
 - [Bluetooth](bt/README.md)
 - [USB Host](usb/README.md)
 - [Logs](log/README.md)

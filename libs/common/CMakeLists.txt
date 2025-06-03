@@ -5,6 +5,7 @@ set(dir ${CMAKE_CURRENT_LIST_DIR}/src)
 
 option(ADD_SYS_LOG "System Log" ON)
 option(ADD_SYS_WIFI "WIFI" ON)
+option(ADD_NTP "NTP Client" ON)
 option(ADD_WEBSERVER "Web Server" ON)
 option(ADD_SYS_COMMANDS "System Commands" ON)
 
@@ -51,7 +52,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/services/CMakeLists.txt)
 
 target_link_libraries(${lib_name} INTERFACE pico_stdlib
 		      hardware_rtc hardware_adc
-		      pico_cyw43_arch_lwip_threadsafe_background pico_lwip_sntp)
+		      pico_cyw43_arch_lwip_threadsafe_background)
 
 # enable all warnings
 target_compile_options(${lib_name} INTERFACE -Wall -Wextra)
