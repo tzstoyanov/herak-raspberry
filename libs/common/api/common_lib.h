@@ -73,12 +73,6 @@ typedef struct {
 	run_context_t	context;
 } cmd_run_context_t;
 
-// C - cmd_run_context_t; S - log string
-#define WEB_CLIENT_REPLY(C, S)\
-	do {if ((C)->type == CMD_CTX_WEB) {\
-		weberv_client_send_data((C)->context.web.client_idx, (S), strlen((S)));\
-	}} while (0)
-
 typedef int (*app_command_cb_t) (cmd_run_context_t *ctx, char *cmd, char *params, void *user_data);
 typedef struct {
 	char *command;
@@ -93,22 +87,6 @@ int manchester_decode(uint64_t mframe, bool invert, uint32_t *value);
 typedef bool (*log_status_cb_t) (void *context);
 int add_status_callback(log_status_cb_t cb, void *user_context);
 
-/* WebServer API */
-enum http_response_id {
-	HTTP_RESP_OK = 0,
-	HTTP_RESP_BAD,
-	HTTP_RESP_NOT_FOUND,
-	HTTP_RESP_INTERNAL_ERROR,
-	HTTP_RESP_TOO_MANY_ERROR,
-	HTTP_RESP_MAX
-};
-typedef enum http_response_id (*webserv_request_cb_t) (run_context_web_t *wctx, char *cmd, char *url, void *context);
-int weberv_client_send(int client_idx, char *data, int datalen, enum http_response_id rep);
-int weberv_client_send_data(int client_idx, char *data, int datalen);
-
-#define WEB_CMD_NR   "\r\n"
-/* Web commands API */
-int webserv_add_commands(char *url, app_command_t *commands, int commands_cont, char *description, void *user_data);
 
 #ifdef __cplusplus
 }

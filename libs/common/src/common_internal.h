@@ -121,12 +121,6 @@ char *get_uptime(void);
 uint32_t get_free_heap(void);
 uint32_t get_total_heap(void);
 
-bool webserv_init(void);
-void webserv_run(void);
-int webserv_port(void);
-void webserv_reconnect(void);
-int weberv_client_close(int client_idx);
-
 #ifdef __cplusplus
 }
 #endif

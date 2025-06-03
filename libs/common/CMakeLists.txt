@@ -5,6 +5,7 @@ set(dir ${CMAKE_CURRENT_LIST_DIR}/src)
 
 option(ADD_SYS_LOG "System Log" ON)
 option(ADD_SYS_WIFI "WIFI" ON)
+option(ADD_WEBSERVER "Web Server" ON)
 option(ADD_SYS_COMMANDS "System Commands" ON)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
@@ -29,7 +30,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/sys_utils.c
    ${dir}/system_modules.c
    ${dir}/time.c
-   ${dir}/../services/webserver/webserv.c
    ${dir}/temperature.c
    ${dir}/manchester_code.c
    ${CMAKE_BINARY_DIR}/${PARAMS_FILE}.c
