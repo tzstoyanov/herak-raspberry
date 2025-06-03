@@ -22,6 +22,7 @@
 #include "webhook/webhook_api.h"
 #include "webserver/webserver_api.h"
 #include "syscmd/syscmd_api.h"
+#include "temperature/temperature_api.h"
 
 #ifdef __cplusplus
 extern "C" {

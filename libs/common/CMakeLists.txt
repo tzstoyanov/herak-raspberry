@@ -8,6 +8,7 @@ option(ADD_SYS_WIFI "WIFI" ON)
 option(ADD_NTP "NTP Client" ON)
 option(ADD_WEBSERVER "Web Server" ON)
 option(ADD_SYS_COMMANDS "System Commands" ON)
+option(ADD_CHIP_TEMPERATURE "Internal Chip Temperature" ON) 
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
@@ -31,7 +32,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/sys_utils.c
    ${dir}/system_modules.c
    ${dir}/time.c
-   ${dir}/../devices/temperature/temperature.c
    ${dir}/manchester_code.c
    ${CMAKE_BINARY_DIR}/${PARAMS_FILE}.c
 )
@@ -50,9 +50,11 @@ target_include_directories(${lib_name} INTERFACE
 include(${CMAKE_CURRENT_LIST_DIR}/devices/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/services/CMakeLists.txt)
 
-target_link_libraries(${lib_name} INTERFACE pico_stdlib
-		      hardware_rtc hardware_adc
-		      pico_cyw43_arch_lwip_threadsafe_background)
+target_link_libraries(${lib_name} INTERFACE
+						pico_stdlib
+						hardware_rtc
+					 	pico_cyw43_arch_lwip_threadsafe_background
+					 )
 
 # enable all warnings
 target_compile_options(${lib_name} INTERFACE -Wall -Wextra)
