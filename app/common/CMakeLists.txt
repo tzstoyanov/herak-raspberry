@@ -10,6 +10,7 @@ option(ADD_SHT20 "SHT20 sensor" ON)		# libs/common/devices/sht20/README.md
 option(ADD_OPENTHERM "OneTherm device" ON)	# libs/common/devices/opentherm/README.md
 option(ADD_LCD "LCD HD44780" ON)		# libs/common/devices/lcd/README.md
 option(ADD_BMS_JK "JK BMS" ON)			# libs/common/devices/bms_jk/README.md
+option(ADD_SONAR "AJ-SR04M sonar sensor" ON)			# libs/common/devices/sonar/README.md
 
 # CMake settings
 set(CMAKE_C_STANDARD 11)
