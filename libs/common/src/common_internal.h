@@ -103,10 +103,6 @@ typedef enum {
 	IP_RESOLVED
 } ip_resolve_state_t;
 
-bool ntp_init(void);
-void ntp_connect(void);
-bool ntp_connected(void);
-
 bool temperature_init(void);
 void temperature_measure(void);
 

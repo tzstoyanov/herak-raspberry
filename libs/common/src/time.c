@@ -18,95 +18,10 @@
 #include "common_internal.h"
 #include "params.h"
 
-#define NTPLOG	"ntp"
-#define CONNECT_TIMEOUT_MS 5000
-
-#define TIME_LOCK	mutex_enter_blocking(&ntp_context.lock);
-#define TIME_UNLOCK	mutex_exit(&ntp_context.lock);
-
-static struct {
-	char *ntp_servers[SNTP_MAX_SERVERS];
-	bool init;
-	bool in_progress;
-	absolute_time_t connect_time;
-	absolute_time_t reolve_time;
-	ip_addr_t server_addr;
-	datetime_t datetime;
-	bool time_synched;
-	mutex_t lock;
-} ntp_context;
-
-bool ntp_connected(void)
-{
-	return ntp_context.init;
-}
-
-static const char * const mnames[] = {
+static const char * const __in_flash() mnames[] = {
 	"Ukn", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
-
-void get_ntp_servers(void)
-{
-	char *rest;
-	char *tok;
-	int idx;
-
-	if (NTP_SERVERS_len < 1)
-		return;
-
-	idx = 0;
-	rest = param_get(NTP_SERVERS);
-	while ((tok = strtok_r(rest, ";", &rest)) && idx < SNTP_MAX_SERVERS)
-		ntp_context.ntp_servers[idx++] = tok;
-}
-
-bool ntp_init(void)
-{
-	int i = 0;
-
-	memset(&ntp_context, 0, sizeof(ntp_context));
-	mutex_init(&ntp_context.lock);
-	get_ntp_servers();
-	while (i < SNTP_MAX_SERVERS && ntp_context.ntp_servers[i])
-		i++;
-	if (!i)
-		return false;
-	hlog_info(NTPLOG, "Got %d NTP servers", i, SNTP_MAX_SERVERS);
-	rtc_init();
-	sntp_setoperatingmode(SNTP_OPMODE_POLL);
-	sntp_servermode_dhcp(1);
-	i = 0;
-	while (ntp_context.ntp_servers[i] && i < SNTP_MAX_SERVERS) {
-		sntp_setservername(i, ntp_context.ntp_servers[i]);
-		hlog_info(NTPLOG, "  [%s]", ntp_context.ntp_servers[i]);
-		i++;
-	}
-	return true;
-}
-
-void ntp_connect(void)
-{
-	static char buff[64];
-
-	if (ntp_context.init) {
-		TIME_LOCK;
-			if (ntp_context.time_synched) {
-				ntp_context.time_synched = false;
-				datetime_to_str(buff, 64, &ntp_context.datetime);
-				hlog_info(NTPLOG, "Time synched to [%s] UTC", buff);
-				system_log_status();
-			}
-		TIME_UNLOCK;
-		return;
-	}
-	if (!wifi_is_connected())
-		return;
-	LWIP_LOCK_START;
-		sntp_init();
-	LWIP_LOCK_END;
-	ntp_context.init = true;
-}
 
 uint64_t time_ms_since_boot(void)
 {
@@ -257,6 +172,7 @@ bool tz_datetime_get(datetime_t *date)
 
 char *get_current_time_str(char *buf, int buflen)
 {
+#ifdef HAVE_SYS_NTP
 	datetime_t date;
 
 	if (ntp_connected() && tz_datetime_get(&date)) {
@@ -271,38 +187,9 @@ char *get_current_time_str(char *buf, int buflen)
 	} else {
 		snprintf(buf, buflen, "%s 0 %lld", mnames[0], time_ms_since_boot());
 	}
+#else /* !HAVE_SYS_NTP */
+	snprintf(buf, buflen, "%s 0 %lld", mnames[0], time_ms_since_boot());
+#endif /* HAVE_SYS_NTP */
 
 	return buf;
 }
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void herak_set_system_time(uint32_t sec)
-{
-	time_t epoch = sec;
-	struct tm time;
-
-	gmtime_r(&epoch, &time);
-	ntp_context.datetime.year = (int16_t) (1900 + time.tm_year);
-	ntp_context.datetime.month = (int8_t) (time.tm_mon + 1);
-	ntp_context.datetime.day = (int8_t) time.tm_mday;
-	ntp_context.datetime.dotw = (int8_t) time.tm_wday;
-	ntp_context.datetime.hour = (int8_t) time.tm_hour;
-	ntp_context.datetime.min = (int8_t) time.tm_min;
-	ntp_context.datetime.sec = (int8_t) time.tm_sec;
-
-	/* Set time in UTC */
-	SYS_LOCK_START;
-		rtc_set_datetime(&(ntp_context.datetime));
-	SYS_LOCK_END;
-
-	TIME_LOCK;
-		ntp_context.time_synched = true;
-	TIME_UNLOCK;
-}
-
-#ifdef __cplusplus
-}
-#endif
