@@ -2,42 +2,42 @@
 
 ## Overview
 Raspberry Pico applications for monitoring and controlling devices in my house. The code is written
-using Raspberry C SDK and runs directly on Raspberry Pico W without an Operating System.
+using Raspberry C SDK and runs directly on Raspberry Pico W without an operating system.  
+Support fot all services, devices and sensors is implemented as modules. Modules can be easily selected and combined together into a single application, depending on the use cases and available hardware resources.
 
-### Features:
-- Internet connection, using the build-in WiFi module and the lwIP stack.
-- Bluetooth connection to devices, using the build-in Bluetooth module.
-- USB in host mode.
-- NTP client for time synchronization.
-- Logging to a remote rsyslog server.
-- MQTT client.
-- HTTP server.
-- HTTP webhook client.
-- Watchdog.
+### Services:
+- [Internet](libs/common/services/wifi/README.md)
+- [NTP client](libs/common/services/ntp/README.md)
+- [Bluetooth](libs/common/services/bt/README.md)
+- [USB Host](libs/common/services/usb/README.md)
+- [Logs](libs/common/services/log/README.md)
+- [MQTT client](libs/common/services/mqtt/README.md)
+- [HTTP server](libs/common/services/webserver/README.md)
+- [Webhooks](libs/common/services/webhook/README.md)
+- [Commands](libs/common/services/syscmd/README.md)
+- Watchdog
 
 ### Devices and Sensors:
-- Build-in temperature sensor
-- Sonar AJ-SR04M
-- Voltronic VM III inverter, over USB using [MAX communication protocol](docs/MAX-Communication-Protocol.pdf)
-- [HD44780 LCD](libs/common/devices/lcd/README.md) display
-- [DALY BMS](docs/Daly-Communications-Protocol-V1.2.pdf), over Bluetooth and [HLK-B40 serial interface](docs/HLK-B40.pdf)
-- [JK BMS](docs/jk-bms-manual-1520084771.pdf), over Bluetooth and [HLK-B40 serial interface](docs/HLK-B40.pdf)
+- [HD44780](libs/common/devices/lcd/README.md) LCD display
+- [JK BMS](libs/common/devices/bms_jk/README.md)
 - [OpenTherm](libs/common/devices/opentherm/README.md)
 - [Solid State Relays](libs/common/devices/ssr/README.md)
 - [Soil Moisture Sensor](libs/common/devices/soil/README.md)
 - [SHT20 temperature and humidity sensor](libs/common/devices/sht20/README.md)
+- [AJ-SR04M sonar sensor](libs/common/devices/sonar/README.md)
 - [One-Wire sensor](libs/common/devices/one_wire/README.md)
+- [DALY BMS](docs/Daly-Communications-Protocol-V1.2.pdf), over Bluetooth and [HLK-B40 serial interface](docs/HLK-B40.pdf)
+- Voltronic VM III inverter, over USB using [MAX communication protocol](docs/MAX-Communication-Protocol.pdf)
+- Build-in temperature sensor
 
 ## Applications:
-Applications are built on top of common library, which provides basic functionality:
-Internet over WiFi, Bluetooth, remote logging, time synchronization, MQTT client, HTTP client
-and server, watchdog, USB in host mode, encrypted key-value store.
-All user specific parameters are defined in `params.txt` file which must be available at
-build time in the application directory. The [params-example.txt](app/params_example.txt) file can
-be used as a template.
+Applications are built on top of common library, that provides support for services, devices, sensors and
+encrypted key-value store. All user specific parameters are defined in `params.txt` file that must
+be available at build time in the application directory. The [params-example.txt](app/params_example.txt)
+file can be used as a template.
 
-### Common
-Minimal application - only the system main loop. Uses the system modules, which configuration is defined in `params.txt` file.
+### [Common](app/common/main.c)
+Minimal application - only the system main loop. Uses the system modules defined in `params.txt` file.
 
 ## Try it out
 
