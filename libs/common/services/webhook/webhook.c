@@ -19,12 +19,12 @@
 #include "base64.h"
 #include "params.h"
 
-#define WHLOG	"webhook"
+#define WH_MODULE	"webhook"
 
 //#define WH_DEBUG
 
 #define WH_HTTP_HEAD		"%s %s HTTP/1.1\r\nHost: %s:%d\r\nContent-Length: %d\r\n%sUser-Agent: %s\r\nContent-Type: %s\r\n\r\n"
-#define MAX_HOOKS			3
+#define MAX_HOOKS			5
 #define PACKET_BUFF_SIZE	512
 
 #define HTTP_CONNECTION_CLOSE	"Connection: close\r\n"
@@ -32,12 +32,15 @@
 #define IP_TIMEOUT_MS	20000
 #define WH_LOCK(W)		mutex_enter_blocking(&((W)->lock))
 #define WH_UNLOCK(W)	mutex_exit(&((W)->lock))
+#define IS_DEBUG(C)	((C)->debug != 0)
 
 enum tcp_state_t {
 	TCP_DISCONNECTED = 0,
 	TCP_CONNECTING,
 	TCP_CONNECTED
 };
+
+struct wh_context_t;
 
 struct webhook_t {
 	int idx;
@@ -63,28 +66,40 @@ struct webhook_t {
 	webhook_reply_t user_cb;
 	void *user_data;
 	mutex_t lock;
+	struct wh_context_t *ctx;
 };
 
-static struct {
-	struct webhook_t whooks[MAX_HOOKS];
+struct wh_context_t {
+	sys_module_t mod;
+	struct webhook_t *whooks[MAX_HOOKS];
 	int wh_count;
-} wh_context;
+	uint32_t debug;
+};
+
+static struct wh_context_t *__wh_context;
+
+static struct wh_context_t *webhook_context_get(void)
+{
+	return __wh_context;
+}
 
 int webhook_state(int idx, bool *connected, bool *sending)
 {
-	if (idx < 0 || idx >= wh_context.wh_count)
+	struct wh_context_t *ctx = webhook_context_get();
+
+	if (!ctx || idx < 0 || idx >= MAX_HOOKS || !ctx->whooks[idx])
 		return -1;
 
-	WH_LOCK(&(wh_context.whooks[idx]));
+	WH_LOCK(ctx->whooks[idx]);
 		if (connected) {
-			if (wh_context.whooks[idx].tcp_state == TCP_CONNECTED)
+			if (ctx->whooks[idx]->tcp_state == TCP_CONNECTED)
 				*connected = true;
 			else
 				*connected = false;
 		}
 		if (sending)
-			*sending = wh_context.whooks[idx].sending;
-	WH_UNLOCK(&(wh_context.whooks[idx]));
+			*sending = ctx->whooks[idx]->sending;
+	WH_UNLOCK(ctx->whooks[idx]);
 
 	return 0;
 }
@@ -92,31 +107,38 @@ int webhook_state(int idx, bool *connected, bool *sending)
 int webhook_add(char *addr, int port, char *content_type, char *endpoint, char *http_command,
 				bool keep_open, webhook_reply_t user_cb, void *user_data)
 {
+	struct wh_context_t *ctx = webhook_context_get();
 	int i;
 
+	if (!ctx)
+		return -1;
+
 	for (i = 0; i < MAX_HOOKS; i++) {
-		if (!wh_context.whooks[i].addr_str)
+		if (!ctx->whooks[i])
 			break;
 	}
 	if (i >= MAX_HOOKS)
 		return -1;
+	ctx->whooks[i] = (struct webhook_t *)calloc(1, sizeof(struct webhook_t));
+	if (!ctx->whooks[i])
+		return -1;
+	ctx->whooks[i]->idx = i;
+	ctx->whooks[i]->addr_str = strdup(addr);
+	ctx->whooks[i]->port = port;
+	ctx->whooks[i]->content_type = strdup(content_type);
+	ctx->whooks[i]->endpoint = strdup(endpoint);
+	ctx->whooks[i]->http_command = strdup(http_command);
+	ctx->whooks[i]->ip_resolve = IP_NOT_RESOLEVED;
+	ctx->whooks[i]->tcp_state = TCP_DISCONNECTED;
+	ctx->whooks[i]->keep_open = keep_open;
+	ctx->whooks[i]->last_reply = -1;
+	ctx->whooks[i]->user_cb = user_cb;
+	ctx->whooks[i]->user_data = user_data;
+	ctx->whooks[i]->ctx = ctx;
+	mutex_init(&ctx->whooks[i]->lock);
+	ctx->wh_count++;
 
-	wh_context.whooks[i].idx = i;
-	wh_context.whooks[i].addr_str = strdup(addr);
-	wh_context.whooks[i].port = port;
-	wh_context.whooks[i].content_type = strdup(content_type);
-	wh_context.whooks[i].endpoint = strdup(endpoint);
-	wh_context.whooks[i].http_command = strdup(http_command);
-	wh_context.whooks[i].ip_resolve = IP_NOT_RESOLEVED;
-	wh_context.whooks[i].tcp_state = TCP_DISCONNECTED;
-	wh_context.whooks[i].keep_open = keep_open;
-	wh_context.whooks[i].last_reply = -1;
-	wh_context.whooks[i].user_cb = user_cb;
-	wh_context.whooks[i].user_data = user_data;
-	mutex_init(&wh_context.whooks[i].lock);
-	wh_context.wh_count++;
-
-	hlog_info(WHLOG, "New WH added %s:%d%s", addr, port, endpoint);
+	hlog_info(WH_MODULE, "New WH added %s:%d%s", addr, port, endpoint);
 	return i;
 }
 
@@ -185,7 +207,7 @@ static void webhook_disconnect(struct webhook_t *wh)
 		wh->tcp_state = TCP_DISCONNECTED;
 		wh->ip_resolve = IP_NOT_RESOLEVED;
 		if (!wh->keep_open)
-			hlog_info(WHLOG, "Disconnected form %s:%d", wh->addr_str, wh->port);
+			hlog_info(WH_MODULE, "Disconnected form %s:%d", wh->addr_str, wh->port);
 	WH_UNLOCK(wh);
 }
 
@@ -238,17 +260,17 @@ static int wh_parse_incoming(struct webhook_t *wh, struct pbuf *p)
 	WH_LOCK(wh);
 		wh->recv_count++;
 	WH_UNLOCK(wh);
-#ifdef WH_DEBUG
-	{
+
+	if (IS_DEBUG(wh->ctx))	{
 		struct pbuf *bp = p;
 
-		hlog_info(WHLOG, "Received %d bytes from %s:", p->tot_len, wh->addr_str);
+		hlog_info(WH_MODULE, "Received %d bytes from %s:", p->tot_len, wh->addr_str);
 		while (bp) {
-			dump_char_data(WHLOG, bp->payload, bp->len);
+			dump_char_data(WH_MODULE, bp->payload, bp->len);
 			bp = bp->next;
 		}
 	}
-#else
+
 	hcode = wh_parse_http_reply(p);
 	if (hcode >= 0) {
 		WH_LOCK(wh);
@@ -257,7 +279,6 @@ static int wh_parse_incoming(struct webhook_t *wh, struct pbuf *p)
 				wh->user_cb(wh->idx, hcode, wh->user_data);
 		WH_UNLOCK(wh);
 	}
-#endif
 
 	return 0;
 }
@@ -317,7 +338,7 @@ static err_t wh_tcp_connect_cb(void *arg, struct altcp_pcb *tpcb, err_t err)
 		wh->conn_count++;
 		wh->last_send = to_ms_since_boot(get_absolute_time());
 		if (!wh->keep_open)
-			hlog_info(WHLOG, "Connected to %s:%d", wh->addr_str, wh->port);
+			hlog_info(WH_MODULE, "Connected to %s:%d", wh->addr_str, wh->port);
 	WH_UNLOCK(wh);
 
 	return ERR_OK;
@@ -372,14 +393,15 @@ static void webhook_connect(struct webhook_t *wh)
 
 int webhook_send(int idx, char *data, int datalen)
 {
+	struct wh_context_t *ctx = webhook_context_get();
 	struct webhook_t *wh;
 	enum tcp_state_t st;
 	uint32_t now;
 
-	if (idx >= MAX_HOOKS || !wh_context.whooks[idx].addr_str)
+	if (!ctx || idx >= MAX_HOOKS || !ctx->whooks[idx])
 		return -1;
 
-	wh = &wh_context.whooks[idx];
+	wh = ctx->whooks[idx];
 	now = to_ms_since_boot(get_absolute_time());
 	WH_LOCK(wh);
 		if (wh->sending)
@@ -428,41 +450,41 @@ static void wh_server_found(const char *hostname, const ip_addr_t *ipaddr, void 
 	WH_UNLOCK(wh);
 }
 
-static void webhook_resolve(void)
+static void webhook_resolve(struct wh_context_t *ctx)
 {
 	uint32_t last, now;
 	int st, i;
 	int ret;
 
 	now = to_ms_since_boot(get_absolute_time());
-	for (i = 0; i < wh_context.wh_count; i++) {
-		WH_LOCK(&wh_context.whooks[i]);
-			st = wh_context.whooks[i].ip_resolve;
-			last = wh_context.whooks[i].last_send;
-		WH_UNLOCK(&wh_context.whooks[i]);
+	for (i = 0; i < ctx->wh_count; i++) {
+		WH_LOCK(ctx->whooks[i]);
+			st = ctx->whooks[i]->ip_resolve;
+			last = ctx->whooks[i]->last_send;
+		WH_UNLOCK(ctx->whooks[i]);
 		switch (st) {
 		case IP_NOT_RESOLEVED:
 			LWIP_LOCK_START;
-				ret = dns_gethostbyname(wh_context.whooks[i].addr_str, &wh_context.whooks[i].addr,
-										wh_server_found, &wh_context.whooks[i]);
+				ret = dns_gethostbyname(ctx->whooks[i]->addr_str, &ctx->whooks[i]->addr,
+										wh_server_found, ctx->whooks[i]);
 			LWIP_LOCK_END;
 			if (ret == ERR_INPROGRESS) {
-				hlog_info(WHLOG, "Resolving %s ...", wh_context.whooks[i].addr_str);
-				WH_LOCK(&wh_context.whooks[i]);
-					wh_context.whooks[i].last_send = to_ms_since_boot(get_absolute_time());
-					wh_context.whooks[i].ip_resolve = IP_RESOLVING;
-				WH_UNLOCK(&wh_context.whooks[i]);
+				hlog_info(WH_MODULE, "Resolving %s ...", ctx->whooks[i]->addr_str);
+				WH_LOCK(ctx->whooks[i]);
+					ctx->whooks[i]->last_send = to_ms_since_boot(get_absolute_time());
+					ctx->whooks[i]->ip_resolve = IP_RESOLVING;
+				WH_UNLOCK(ctx->whooks[i]);
 			} else if (ret == ERR_OK) {
-				WH_LOCK(&wh_context.whooks[i]);
-					wh_context.whooks[i].ip_resolve = IP_RESOLVED;
-				WH_UNLOCK(&wh_context.whooks[i]);
+				WH_LOCK(ctx->whooks[i]);
+					ctx->whooks[i]->ip_resolve = IP_RESOLVED;
+				WH_UNLOCK(ctx->whooks[i]);
 			}
 			break;
 		case IP_RESOLVING:
 			if ((now - last) > IP_TIMEOUT_MS) {
-				WH_LOCK(&wh_context.whooks[i]);
-					wh_context.whooks[i].ip_resolve = IP_NOT_RESOLEVED;
-				WH_UNLOCK(&wh_context.whooks[i]);
+				WH_LOCK(ctx->whooks[i]);
+					ctx->whooks[i]->ip_resolve = IP_NOT_RESOLEVED;
+				WH_UNLOCK(ctx->whooks[i]);
 			}
 			break;
 		case IP_RESOLVED:
@@ -472,54 +494,53 @@ static void webhook_resolve(void)
 	}
 }
 
-static void webhook_connect_all(void)
+static void webhook_connect_all(struct wh_context_t *ctx)
 {
 	int i;
 
-	for (i = 0; i < wh_context.wh_count; i++) {
-		if (wh_context.whooks[i].keep_open)
-			webhook_connect(&(wh_context.whooks[i]));
+	for (i = 0; i < ctx->wh_count; i++) {
+		if (ctx->whooks[i]->keep_open)
+			webhook_connect(ctx->whooks[i]);
 	}
 }
 
-void webhook_timeot_check(void)
+void webhook_timeot_check(struct wh_context_t *ctx)
 {
 	uint32_t now;
 	int i;
 
 	now = to_ms_since_boot(get_absolute_time());
-	for (i = 0; i < wh_context.wh_count; i++) {
-		WH_LOCK(&(wh_context.whooks[i]));
-			if (wh_context.whooks[i].sending &&
-			   (now - wh_context.whooks[i].last_send) > IP_TIMEOUT_MS) {
-				wh_context.whooks[i].sending = false;
-				wh_context.whooks[i].buff_len = 0;
-				wh_context.whooks[i].buff_p = 0;
-				wh_context.whooks[i].last_reply = 0;
-				if (wh_context.whooks[i].user_cb)
-					wh_context.whooks[i].user_cb(i, 0, wh_context.whooks[i].user_data);
+	for (i = 0; i < ctx->wh_count; i++) {
+		WH_LOCK(ctx->whooks[i]);
+			if (ctx->whooks[i]->sending &&
+			   (now - ctx->whooks[i]->last_send) > IP_TIMEOUT_MS) {
+				ctx->whooks[i]->sending = false;
+				ctx->whooks[i]->buff_len = 0;
+				ctx->whooks[i]->buff_p = 0;
+				ctx->whooks[i]->last_reply = 0;
+				if (ctx->whooks[i]->user_cb)
+					ctx->whooks[i]->user_cb(i, 0, ctx->whooks[i]->user_data);
 			}
-		WH_UNLOCK(&(wh_context.whooks[i]));
+		WH_UNLOCK(ctx->whooks[i]);
 	}
 }
 
-static bool webhook_log_status(void *context)
+static bool sys_webhook_log_status(void *context)
 {
+	struct wh_context_t *ctx = (struct wh_context_t *)context;
 	struct webhook_t *wh;
 	int i;
 
-	UNUSED(context);
-
-	for (i = 0; i < wh_context.wh_count; i++) {
-		wh = &(wh_context.whooks[i]);
+	for (i = 0; i < ctx->wh_count; i++) {
+		wh = ctx->whooks[i];
 		WH_LOCK(wh);
-		hlog_info(WHLOG, "[%s:%d%s], %s, %s", wh->addr_str, wh->port, wh->endpoint,
+		hlog_info(WH_MODULE, "[%s:%d%s], %s, %s", wh->addr_str, wh->port, wh->endpoint,
 				  wh->ip_resolve == IP_RESOLVED ? "resolved" : "not resolved",
 				  wh->tcp_state == TCP_CONNECTED ? "connected" : "not connected");
-		hlog_info(WHLOG, "   server [%s], [%s], data [%s], http [%s]",
+		hlog_info(WH_MODULE, "   server [%s], [%s], data [%s], http [%s]",
 				  inet_ntoa(wh->addr), wh->keep_open ? "permanent" : "one time",
 				  wh->content_type, wh->http_command);
-		hlog_info(WHLOG, "   stats: connected %d, send %d, received %d, last http [%d]",
+		hlog_info(WH_MODULE, "   stats: connected %d, send %d, received %d, last http [%d]",
 				  wh->conn_count, wh->send_count, wh->recv_count, wh->last_reply);
 		WH_UNLOCK(wh);
 	}
@@ -527,36 +548,62 @@ static bool webhook_log_status(void *context)
 	return true;
 }
 
-void webhook_reconnect(void)
+static void sys_webhook_reconnect(void *context)
 {
+	struct wh_context_t *ctx = (struct wh_context_t *)context;
 	int i;
 
-	for (i = 0; i < wh_context.wh_count; i++)
-		webhook_disconnect(&(wh_context.whooks[i]));
+	for (i = 0; i < ctx->wh_count; i++)
+		webhook_disconnect(ctx->whooks[i]);
 }
 
-bool webhook_init(void)
+bool sys_webhook_init(struct wh_context_t **ctx)
 {
-	memset(&wh_context, 0, sizeof(wh_context));
-	add_status_callback(webhook_log_status, NULL);
-
+	(*ctx) = calloc(1, sizeof(struct wh_context_t));
+	if (!(*ctx))
+		return false;
+	__wh_context = (*ctx);
 	return true;
 }
 
-void webhook_run(void)
+static void sys_webhook_run(void *context)
 {
+	struct wh_context_t *ctx = (struct wh_context_t *)context;
 	static bool connected;
 
 	if (!wifi_is_connected()) {
 		if (connected) {
-			webhook_reconnect();
+			sys_webhook_reconnect(ctx);
 			connected = false;
 		}
 		return;
 	}
 
 	connected = true;
-	webhook_resolve();
-	webhook_connect_all();
-	webhook_timeot_check();
+	webhook_resolve(ctx);
+	webhook_connect_all(ctx);
+	webhook_timeot_check(ctx);
+}
+
+static void sys_webhook_debug_set(uint32_t lvl, void *context)
+{
+	struct wh_context_t *ctx = (struct wh_context_t *)context;
+
+	ctx->debug = lvl;
+}
+
+void sys_webhook_register(void)
+{
+	struct wh_context_t *ctx = NULL;
+
+	if (!sys_webhook_init(&ctx))
+		return;
+
+	ctx->mod.name = WH_MODULE;
+	ctx->mod.run = sys_webhook_run;
+	ctx->mod.log = sys_webhook_log_status;
+	ctx->mod.debug = sys_webhook_debug_set;
+	ctx->mod.reconnect = sys_webhook_reconnect;
+	ctx->mod.context = ctx;
+	sys_module_register(&ctx->mod);
 }

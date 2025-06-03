@@ -29,7 +29,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/sys_utils.c
    ${dir}/system_modules.c
    ${dir}/time.c
-   ${dir}/../services/webhook/webhook.c
    ${dir}/../services/webserver/webserv.c
    ${dir}/temperature.c
    ${dir}/manchester_code.c

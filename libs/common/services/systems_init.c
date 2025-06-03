@@ -37,4 +37,7 @@ void systems_register_and_init(void)
 	SYS_REGISTER(sys_commands_register);
 #endif /* HAVE_SYS_COMMANDS */
 
+#ifdef HAVE_SYS_WEBHOOK
+	SYS_REGISTER(sys_webhook_register);
+#endif /* HAVE_SYS_WEBHOOK */
 }

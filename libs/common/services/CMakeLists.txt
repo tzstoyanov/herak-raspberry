@@ -20,6 +20,10 @@ if(ADD_USB_HOST)
    include(${CMAKE_CURRENT_LIST_DIR}/usb/CMakeLists.txt)
 endif()
 
+if(ADD_WEBHOOK)
+   include(${CMAKE_CURRENT_LIST_DIR}/webhook/CMakeLists.txt)
+endif()
+
 if(ADD_SYS_COMMANDS)
    include(${CMAKE_CURRENT_LIST_DIR}/syscmd/CMakeLists.txt)
 endif()

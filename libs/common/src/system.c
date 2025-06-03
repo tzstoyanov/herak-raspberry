@@ -43,7 +43,6 @@ static struct {
 	uint8_t has_time:1;
 	uint8_t has_swout:1;
 	uint8_t has_temp:1;
-	uint8_t has_wh:1;
 	uint8_t has_websrv:1;
 	uint8_t force_reboot:1;
 
@@ -93,8 +92,6 @@ bool system_common_init(void)
 	sys_context.has_time = ntp_init();
 	wd_update();
 	sys_context.has_temp = temperature_init();
-	wd_update();
-	sys_context.has_wh = webhook_init();
 	wd_update();
 	sys_context.has_websrv = webserv_init();
 	wd_update();
@@ -198,8 +195,6 @@ static void do_system_reconnect(void)
 {
 	hlog_info(COMMONSYSLOG, "Reconnecting ...");
 
-	if (sys_context.has_wh)
-		LOOP_FUNC_RUN("webhook reconnect", webhook_reconnect);
 	if (sys_context.has_websrv)
 		LOOP_FUNC_RUN("websrc reconnect", webserv_reconnect);
 	sys_modules_reconnect();
@@ -235,8 +230,6 @@ void system_common_run(void)
 		LOOP_FUNC_RUN("temperature", temperature_measure);
 	if (sys_context.has_time)
 		LOOP_FUNC_RUN("ntp", ntp_connect);
-	if (sys_context.has_wh)
-		LOOP_FUNC_RUN("webhook", webhook_run);
 	if (sys_context.has_websrv)
 		LOOP_FUNC_RUN("websrc", webserv_run);
 	LOOP_FUNC_RUN("log WD boot", log_wd_boot);

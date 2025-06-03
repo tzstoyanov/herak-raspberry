@@ -93,13 +93,6 @@ int manchester_decode(uint64_t mframe, bool invert, uint32_t *value);
 typedef bool (*log_status_cb_t) (void *context);
 int add_status_callback(log_status_cb_t cb, void *user_context);
 
-/* WebHook API */
-typedef void (*webhook_reply_t) (int idx, int http_code, void *context);
-int webhook_state(int idx, bool *connected, bool *sending);
-int webhook_send(int idx, char *data, int datalen);
-int webhook_add(char *addr, int port, char *content_type, char *endpoint, char *http_command,
-				bool keep_open, webhook_reply_t user_cb, void *user_data);
-
 /* WebServer API */
 enum http_response_id {
 	HTTP_RESP_OK = 0,

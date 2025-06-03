@@ -10,10 +10,7 @@ set(PICO_BOARD pico_w)
 option(ADD_BT_STACK "Bluetoth Stack" ON)
 option(ADD_USB_HOST "Pico USB Host" ON)
 option(ADD_MQTT_CLIENT "MQTT Client" ON) 
-option(ADD_SSR "Solid State Relays" ON)         # libs/common/devices/ssr/README.md
-option(ADD_SOIL "Soil sensor" ON)               # libs/common/devices/soil/README.md
-option(ADD_SHT20 "SHT20 sensor" ON)             # libs/common/devices/sht20/README.md
-option(ADD_ONE_WIRE "OneWire" ON)
+option(ADD_WEBHOOK "WebHook service" ON)
 
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
