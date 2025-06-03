@@ -12,6 +12,9 @@ if(ADD_MQTT_CLIENT)
    include(${CMAKE_CURRENT_LIST_DIR}/mqtt/CMakeLists.txt)
 endif()
 
+if(ADD_USB_HOST)
+   include(${CMAKE_CURRENT_LIST_DIR}/usb/CMakeLists.txt)
+endif()
 
 if(ADD_SYS_COMMANDS)
    include(${CMAKE_CURRENT_LIST_DIR}/syscmd/CMakeLists.txt)

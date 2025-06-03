@@ -8,6 +8,7 @@ set(PICO_BOARD pico_w)
 
 # Select the modules used in this application. ON / OFF
 option(ADD_BT_STACK "Bluetoth Stack" ON)
+option(ADD_USB_HOST "Pico USB Host" ON)
 option(ADD_MQTT_CLIENT "MQTT Client" ON) 
 option(ADD_SSR "Solid State Relays" ON)         # libs/common/devices/ssr/README.md
 option(ADD_SOIL "Soil sensor" ON)               # libs/common/devices/soil/README.md
@@ -83,7 +84,6 @@ target_compile_options(${PROJECT_NAME} PRIVATE -DMEM_HEAP_SIZE=${HEAP_SIZE})
 target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${CMAKE_CURRENT_LIST_DIR}
 			   ${PROJECT_INCLUDE_DIR}
-			   ${INLUDE_USB}
 			   ${PROJECT_LIB_DIR}/pio-usb/src
 			   ${PROJECT_LIB_DIR}/common/api
 )

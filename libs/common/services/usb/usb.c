@@ -21,9 +21,9 @@
 #include "base64.h"
 #include "params.h"
 
-#define USBLOG	"usb"
+#define USB_MODULE	"usb"
 
-#define IS_DEBUG	(usb_context.debug != 0)
+#define IS_DEBUG(C)	(!(C) || ((C) && (C)->debug != 0))
 
 #define RAW_INTERFACE
 //#define CDC_INTERFACE
@@ -36,8 +36,11 @@
 #define MAX_USB_DEVICES	2
 #define USB_RCV_REUQEST_PING_MS	200
 
-#define USB_LOCK	mutex_enter_blocking(&usb_context.lock)
-#define USB_UNLOCK	mutex_exit(&usb_context.lock)
+//#define USB_LOCK(C)	mutex_enter_blocking(&((C)->lock))
+//#define USB_UNLOCK(C)	mutex_exit(&((C)->lock))
+
+#define USB_LOCK(C)		{ (void)(C); }
+#define USB_UNLOCK(C)	{ (void)(C); }
 
 struct usb_port_t {
 	int pin_dp;
@@ -57,7 +60,8 @@ struct usb_dev_t {
 	usb_event_handler_t user_cb;
 };
 
-static struct {
+struct usb_context_t {
+	sys_module_t mod;
 	struct usb_dev_t	devices[MAX_USB_DEVICES];
 	int			dev_count;
 	struct usb_port_t	ports[PIO_USB_DEVICE_CNT];
@@ -69,15 +73,22 @@ static struct {
 	uint8_t buf_owner[BUF_COUNT]; // device address that owns buffer
 	tusb_desc_device_t desc_device;
 	uint32_t debug;
-} usb_context;
+};
 
-static struct usb_dev_t *get_usb_device_by_vidpid(uint16_t vid, uint16_t pid)
+static struct usb_context_t *__usb_context;
+
+struct usb_context_t *usb_context_get(void)
+{
+	return __usb_context;
+}
+
+static struct usb_dev_t *get_usb_device_by_vidpid(struct usb_context_t *ctx, uint16_t vid, uint16_t pid)
 {
 	int i;
 
-	for (i = 0; i < usb_context.dev_count; i++) {
-		if (usb_context.devices[i].desc.vid == vid && usb_context.devices[i].desc.pid == pid)
-			return &usb_context.devices[i];
+	for (i = 0; i < ctx->dev_count; i++) {
+		if (ctx->devices[i].desc.vid == vid && ctx->devices[i].desc.pid == pid)
+			return &ctx->devices[i];
 	}
 
 	return NULL;
@@ -85,31 +96,35 @@ static struct usb_dev_t *get_usb_device_by_vidpid(uint16_t vid, uint16_t pid)
 
 int usb_add_known_device(uint16_t vid, uint16_t pid, usb_event_handler_t cb, void *context)
 {
+	struct usb_context_t *ctx = usb_context_get();
 	int i = 0;
 
-	USB_LOCK;
+	if (!ctx)
+		return -1;
+
+	USB_LOCK(ctx);
 		if (vid) {
 			for (i = 0; i < MAX_USB_DEVICES; i++) {
-				if (!usb_context.devices[i].desc.vid && !usb_context.devices[i].desc.pid) {
-					usb_context.devices[i].index = i;
-					usb_context.devices[i].desc.vid = vid;
-					usb_context.devices[i].desc.pid = pid;
-					usb_context.devices[i].user_cb = cb;
-					usb_context.devices[i].user_context = context;
-					usb_context.dev_count++;
-					if (IS_DEBUG)
-						hlog_info(USBLOG, "New known device added: %0.4X:%0.4X", vid, pid);
+				if (!ctx->devices[i].desc.vid && !ctx->devices[i].desc.pid) {
+					ctx->devices[i].index = i;
+					ctx->devices[i].desc.vid = vid;
+					ctx->devices[i].desc.pid = pid;
+					ctx->devices[i].user_cb = cb;
+					ctx->devices[i].user_context = context;
+					ctx->dev_count++;
+					if (IS_DEBUG(ctx))
+						hlog_info(USB_MODULE, "New known device added: %0.4X:%0.4X", vid, pid);
 					break;
 				}
 			}
 		} else {
-			usb_context.force_init = true;
+			ctx->force_init = true;
 		}
-	USB_UNLOCK;
+	USB_UNLOCK(ctx);
 
 	if (i >= MAX_USB_DEVICES) {
-		if (IS_DEBUG)
-			hlog_info(USBLOG, "Cannot add new known device %0.4X:%0.4X, limit reached", vid, pid);
+		if (IS_DEBUG(ctx))
+			hlog_info(USB_MODULE, "Cannot add new known device %0.4X:%0.4X, limit reached", vid, pid);
 		i = -1;
 	}
 
@@ -118,23 +133,27 @@ int usb_add_known_device(uint16_t vid, uint16_t pid, usb_event_handler_t cb, voi
 
 int usb_send_to_device(int idx, char *buf, int len)
 {
+	struct usb_context_t *ctx = usb_context_get();
 	int ret;
 
-	if (idx < 0 || idx >= usb_context.dev_count)
-		return -1;
-	if (!usb_context.devices[idx].hid_mount)
+	if (!ctx)
 		return -1;
 
-	USB_LOCK;
+	if (idx < 0 || idx >= ctx->dev_count)
+		return -1;
+	if (!ctx->devices[idx].hid_mount)
+		return -1;
+
+	USB_LOCK(ctx);
 
 //		report_id = 0, report_type = HID_REPORT_TYPE_OUTPUT, report = led bitmask (1 for each LED), len = 1
-		ret = tuh_hid_set_report(usb_context.devices[idx].dev_addr, usb_context.devices[idx].instance, 0, HID_REPORT_TYPE_OUTPUT, buf, len);
-//		ret = tuh_cdc_write(usb_context.devices[idx].cdc_index, buf, len);
-//		tuh_cdc_write_flush(usb_context.devices[idx].cdc_index);
-	USB_UNLOCK;
-	if (IS_DEBUG)
-		hlog_info(USBLOG, "Sent %d bytes to device %0.4X:%0.4X: %d",
-				  len, usb_context.devices[idx].desc.vid, usb_context.devices[idx].desc.pid, ret);
+		ret = tuh_hid_set_report(ctx->devices[idx].dev_addr, ctx->devices[idx].instance, 0, HID_REPORT_TYPE_OUTPUT, buf, len);
+//		ret = tuh_cdc_write(ctx->devices[idx].cdc_index, buf, len);
+//		tuh_cdc_write_flush(ctx->devices[idx].cdc_index);
+	USB_UNLOCK(ctx);
+	if (IS_DEBUG(ctx))
+		hlog_info(USB_MODULE, "Sent %d bytes to device %0.4X:%0.4X: %d",
+				  len, ctx->devices[idx].desc.vid, ctx->devices[idx].desc.pid, ret);
 	if (ret)
 		return 0;
 	return -1;
@@ -142,87 +161,97 @@ int usb_send_to_device(int idx, char *buf, int len)
 
 static bool usb_log_status(void *context)
 {
+	struct usb_context_t *ctx = (struct usb_context_t *)context;
 	bool mounted;
 	int i;
 
-	UNUSED(context);
-
-	USB_LOCK;
-		hlog_info(USBLOG, "Initialized on %d, USB ports:", BOARD_TUH_RHPORT);
-		hlog_info(USBLOG, "Status 0: %d %d", hcd_port_connect_status(0), hcd_port_speed_get(0));
-		hlog_info(USBLOG, "Status 1: %d %d", hcd_port_connect_status(1), hcd_port_speed_get(1));
-		for (i = 0; i < usb_context.port_count; i++)
-			hlog_info(USBLOG, "\t%d,%d", usb_context.ports[i].pin_dp, usb_context.ports[i].pin_dm);
-		for (i = 0; i < usb_context.dev_count; i++) {
-			mounted = tuh_hid_mounted(usb_context.devices[i].dev_addr, usb_context.devices[i].instance);
-			if (usb_context.devices[i].hid_mount || usb_context.devices[i].cdc_mount)
-				hlog_info(USBLOG, "Connected to %s device %0.4X:%0.4X, mounted %d, connect count %d",
-						  usb_context.devices[i].hid_mount?"HID":"CDC",
-						  usb_context.devices[i].desc.vid, usb_context.devices[i].desc.pid, mounted,
-						  usb_context.devices[i].connect_count);
+	USB_LOCK(ctx);
+		hlog_info(USB_MODULE, "Initialized on %d, USB ports:", BOARD_TUH_RHPORT);
+		hlog_info(USB_MODULE, "Status 0: %d %d", hcd_port_connect_status(0), hcd_port_speed_get(0));
+		hlog_info(USB_MODULE, "Status 1: %d %d", hcd_port_connect_status(1), hcd_port_speed_get(1));
+		for (i = 0; i < ctx->port_count; i++)
+			hlog_info(USB_MODULE, "\t%d,%d", ctx->ports[i].pin_dp, ctx->ports[i].pin_dm);
+		for (i = 0; i < ctx->dev_count; i++) {
+			mounted = tuh_hid_mounted(ctx->devices[i].dev_addr, ctx->devices[i].instance);
+			if (ctx->devices[i].hid_mount || ctx->devices[i].cdc_mount)
+				hlog_info(USB_MODULE, "Connected to %s device %0.4X:%0.4X, mounted %d, connect count %d",
+						  ctx->devices[i].hid_mount?"HID":"CDC",
+						  ctx->devices[i].desc.vid, ctx->devices[i].desc.pid, mounted,
+						  ctx->devices[i].connect_count);
 			else
-				hlog_info(USBLOG, "Looking for %0.4X:%0.4X ... connect count %d",
-						 usb_context.devices[i].desc.vid, usb_context.devices[i].desc.pid,
-						 usb_context.devices[i].connect_count);
+				hlog_info(USB_MODULE, "Looking for %0.4X:%0.4X ... connect count %d",
+						 ctx->devices[i].desc.vid, ctx->devices[i].desc.pid,
+						 ctx->devices[i].connect_count);
 		}
-	USB_UNLOCK;
+	USB_UNLOCK(ctx);
 
 	return true;
 }
 
-void usb_debug_set(uint32_t lvl)
+void usb_debug_set(uint32_t lvl,  void *context)
 {
-	usb_context.debug = lvl;
+	struct usb_context_t *ctx = (struct usb_context_t *)context;
+
+	ctx->debug = lvl;
 }
 
-static void usb_read_config(void)
+static bool usb_read_config(struct usb_context_t  **ctx)
 {
 	char *str, *rest, *tok, *tok1;
 	int i;
 
+	(*ctx) =  NULL;
+
 	if (USB_PORTS_len < 1)
-		return;
+		return false;
+
+	(*ctx) = (struct usb_context_t *)calloc(1, sizeof(struct usb_context_t));
+	if (!(*ctx))
+		return false;
 	str = param_get(USB_PORTS);
 	rest = str;
-	usb_context.port_count = 0;
-	while ((tok = strtok_r(rest, ";", &rest)) && usb_context.port_count < PIO_USB_DEVICE_CNT) {
+	while ((tok = strtok_r(rest, ";", &rest)) && (*ctx)->port_count < PIO_USB_DEVICE_CNT) {
 		i = 0;
 		while (i < 2 && (tok1 = strtok_r(tok, ",", &tok))) {
 			if (i == 0)
-				usb_context.ports[usb_context.port_count].pin_dp = atoi(tok1);
+				(*ctx)->ports[(*ctx)->port_count].pin_dp = atoi(tok1);
 			else if (i == 1)
-				usb_context.ports[usb_context.port_count].pin_dm = atoi(tok1);
+				(*ctx)->ports[(*ctx)->port_count].pin_dm = atoi(tok1);
 			i++;
 		}
-		usb_context.port_count++;
+		(*ctx)->port_count++;
 	}
 	free(str);
-	if (!usb_context.port_count)
-		return;
-	for (i = 0; i < usb_context.port_count; i++)
-		hlog_info(USBLOG, "Got port %d,%d", usb_context.ports[i].pin_dp, usb_context.ports[i].pin_dm);
+	if (!(*ctx)->port_count)
+		return false;
+
+	for (i = 0; i < (*ctx)->port_count; i++)
+		hlog_info(USB_MODULE, "Got port %d,%d", (*ctx)->ports[i].pin_dp, (*ctx)->ports[i].pin_dm);
+
+	return true;
 }
 
 void usb_bus_restart(void)
 {
+	struct usb_context_t *ctx =  usb_context_get();
 
 	tuh_rhport_reset_bus(BOARD_TUH_RHPORT, true);
 	sleep_ms(50);
 	tuh_rhport_reset_bus(BOARD_TUH_RHPORT, false);
 
-	if (IS_DEBUG)
-		hlog_info(USBLOG, "BUS restarted.");
+	if (IS_DEBUG(ctx))
+		hlog_info(USB_MODULE, "BUS restarted.");
 }
 
-static bool usb_stack_init(void)
+static bool usb_stack_init(struct usb_context_t *ctx)
 {
 	static pio_usb_configuration_t config = PIO_USB_DEFAULT_CONFIG;
 	int i;
 
 	board_init();
-	if (usb_context.port_count)
-		config.pin_dp = usb_context.ports[0].pin_dp;
-	if (usb_context.ports[0].pin_dm > usb_context.ports[0].pin_dp)
+	if (ctx->port_count)
+		config.pin_dp = ctx->ports[0].pin_dp;
+	if (ctx->ports[0].pin_dm > ctx->ports[0].pin_dp)
 		config.pinout = PIO_USB_PINOUT_DPDM;
 	else
 		config.pinout = PIO_USB_PINOUT_DMDP;
@@ -230,51 +259,76 @@ static bool usb_stack_init(void)
 		goto err;
 	if (!tuh_init(BOARD_TUH_RHPORT))
 		goto err;
-	for (i = 1; i < usb_context.port_count; i++) {
-		if (usb_context.ports[i].pin_dm > usb_context.ports[i].pin_dp)
-			pio_usb_host_add_port(usb_context.ports[i].pin_dp, PIO_USB_PINOUT_DPDM);
+	for (i = 1; i < ctx->port_count; i++) {
+		if (ctx->ports[i].pin_dm > ctx->ports[i].pin_dp)
+			pio_usb_host_add_port(ctx->ports[i].pin_dp, PIO_USB_PINOUT_DPDM);
 		else
-			pio_usb_host_add_port(usb_context.ports[i].pin_dp, PIO_USB_PINOUT_DMDP);
+			pio_usb_host_add_port(ctx->ports[i].pin_dp, PIO_USB_PINOUT_DMDP);
 	}
 
-	hlog_info(USBLOG, "USB initialized, looking for %d known devices", usb_context.dev_count);
-	for (i = 0; i < usb_context.dev_count; i++)
-		hlog_info(USBLOG, "\t%0.4X:%0.4X", usb_context.devices[i].desc.vid, usb_context.devices[i].desc.pid);
+	hlog_info(USB_MODULE, "USB initialized, looking for %d known devices", ctx->dev_count);
+	for (i = 0; i < ctx->dev_count; i++)
+		hlog_info(USB_MODULE, "\t%0.4X:%0.4X", ctx->devices[i].desc.vid, ctx->devices[i].desc.pid);
 	return true;
 err:
-	hlog_warning(USBLOG, "Failed to init USB subsystem");
+	hlog_warning(USB_MODULE, "Failed to init USB subsystem");
 	return false;
 }
 
-bool usb_init(void)
+static bool sys_usb_init(struct usb_context_t **ctx)
 {
-	memset(&usb_context, 0, sizeof(usb_context));
-	mutex_init(&usb_context.lock);
-	usb_read_config();
-	add_status_callback(usb_log_status, NULL);
-	return usb_stack_init();
+	if (!usb_read_config(ctx))
+		goto out_err;
+	if (!usb_stack_init(*ctx))
+		goto out_err;
+
+	mutex_init(&((*ctx)->lock));
+	__usb_context = (*ctx);
+
+	return true;
+
+out_err:
+	free(*ctx);
+	(*ctx) =  NULL;
+	return false;
 }
 
-void usb_run(void)
+static void sys_usb_run(void *context)
 {
+	struct usb_context_t *ctx = (struct usb_context_t *)context;
 	static uint32_t last;
 	uint32_t now;
 	int i;
 
-	if (!usb_context.dev_count && !usb_context.force_init)
+	if (!ctx->dev_count && !ctx->force_init)
 		return;
 
 	now = to_ms_since_boot(get_absolute_time());
 	if ((now - last) >= USB_RCV_REUQEST_PING_MS) {
 		last = now;
-		USB_LOCK;
-			for (i = 0; i < usb_context.dev_count; i++) {
-				if (usb_context.devices[i].hid_mount)
-					tuh_hid_receive_report(usb_context.devices[i].dev_addr, usb_context.devices[i].instance);
+		USB_LOCK(ctx);
+			for (i = 0; i < ctx->dev_count; i++) {
+				if (ctx->devices[i].hid_mount)
+					tuh_hid_receive_report(ctx->devices[i].dev_addr, ctx->devices[i].instance);
 			}
-		USB_UNLOCK;
+		USB_UNLOCK(ctx);
 	}
 	tuh_task();
+}
+
+void sys_usb_register(void)
+{
+	struct usb_context_t  *ctx = NULL;
+
+	if (!sys_usb_init(&ctx))
+		return;
+
+	ctx->mod.name = USB_MODULE;
+	ctx->mod.run = sys_usb_run;
+	ctx->mod.log = usb_log_status;
+	ctx->mod.debug = usb_debug_set;
+	ctx->mod.context = ctx;
+	sys_module_register(&ctx->mod);
 }
 
 #ifdef RAW_INTERFACE
@@ -372,9 +426,9 @@ static void hid_report_received(tuh_xfer_t *xfer)
 	uint8_t *buf = (uint8_t *) xfer->user_data;
 
 	if (xfer->result == XFER_RESULT_SUCCESS) {
-		hlog_info(USBLOG, "[dev %u: ep %02x] HID Report:", xfer->daddr, xfer->ep_addr);
+		hlog_info(USB_MODULE, "[dev %u: ep %02x] HID Report:", xfer->daddr, xfer->ep_addr);
 		for (uint32_t i = 0; i < xfer->actual_len; i++)
-			hlog_info(USBLOG, "%02X ", buf[i]);
+			hlog_info(USB_MODULE, "%02X ", buf[i]);
 	}
 
 	// continue to submit transfer, with updated buffer
@@ -390,12 +444,12 @@ static void hid_report_received(tuh_xfer_t *xfer)
 //--------------------------------------------------------------------+
 
 // get an buffer from pool
-uint8_t *get_hid_buf(uint8_t daddr)
+static uint8_t *get_hid_buf(struct usb_context_t *ctx, uint8_t daddr)
 {
 	for (size_t i = 0; i < BUF_COUNT; i++) {
-		if (usb_context.buf_owner[i] == 0) {
-			usb_context.buf_owner[i] = daddr;
-			return usb_context.buf_pool[i];
+		if (ctx->buf_owner[i] == 0) {
+			ctx->buf_owner[i] = daddr;
+			return ctx->buf_pool[i];
 		}
 	}
 
@@ -406,12 +460,16 @@ uint8_t *get_hid_buf(uint8_t daddr)
 // free all buffer owned by device
 void free_hid_buf(uint8_t daddr)
 {
+	struct usb_context_t *ctx =  usb_context_get();
+	if (!ctx)
+		return;
+
 	for (size_t i = 0; i < BUF_COUNT; i++)
-		if (usb_context.buf_owner[i] == daddr)
-			usb_context.buf_owner[i] = 0;
+		if (ctx->buf_owner[i] == daddr)
+			ctx->buf_owner[i] = 0;
 }
 
-static void open_hid_interface(uint8_t daddr, tusb_desc_interface_t const *desc_itf, uint16_t max_len)
+static void open_hid_interface(struct usb_context_t *ctx, uint8_t daddr, tusb_desc_interface_t const *desc_itf, uint16_t max_len)
 {
 	uint8_t const *p_desc = (uint8_t const *) desc_itf;
 	uint16_t drv_len;
@@ -444,7 +502,7 @@ static void open_hid_interface(uint8_t daddr, tusb_desc_interface_t const *desc_
 			if (!tuh_edpt_open(daddr, desc_ep))
 				return;
 
-			uint8_t *buf = get_hid_buf(daddr);
+			uint8_t *buf = get_hid_buf(ctx, daddr);
 
 			if (!buf)
 				return; // out of memory
@@ -461,7 +519,7 @@ static void open_hid_interface(uint8_t daddr, tusb_desc_interface_t const *desc_
 			// submit transfer for this EP
 			tuh_edpt_xfer(&xfer);
 
-			hlog_info(USBLOG, "Listen to [dev %u: ep %02x]\r\n", daddr, desc_ep->bEndpointAddress);
+			hlog_info(USB_MODULE, "Listen to [dev %u: ep %02x]\r\n", daddr, desc_ep->bEndpointAddress);
 		}
 
 		p_desc = tu_desc_next(p_desc);
@@ -470,7 +528,7 @@ static void open_hid_interface(uint8_t daddr, tusb_desc_interface_t const *desc_
 }
 
 // simple configuration parser to open and listen to HID Endpoint IN
-void parse_config_descriptor(uint8_t dev_addr, tusb_desc_configuration_t const *desc_cfg)
+void parse_config_descriptor(struct usb_context_t *ctx, uint8_t dev_addr, tusb_desc_configuration_t const *desc_cfg)
 {
 	uint8_t const *desc_end	= ((uint8_t const *) desc_cfg) + tu_le16toh(desc_cfg->wTotalLength);
 	uint8_t const *p_desc	= tu_desc_next(desc_cfg);
@@ -499,7 +557,7 @@ void parse_config_descriptor(uint8_t dev_addr, tusb_desc_configuration_t const *
 
 		// only open and listen to HID endpoint IN
 		if (desc_itf->bInterfaceClass == TUSB_CLASS_HID)
-			open_hid_interface(dev_addr, desc_itf, drv_len);
+			open_hid_interface(ctx, dev_addr, desc_itf, drv_len);
 
 		// next Interface or IAD descriptor
 		p_desc += drv_len;
@@ -508,55 +566,59 @@ void parse_config_descriptor(uint8_t dev_addr, tusb_desc_configuration_t const *
 
 static void print_device_descriptor(tuh_xfer_t *xfer)
 {
+	struct usb_context_t *ctx = (struct usb_context_t *)xfer->user_data;
 	uint8_t const daddr = xfer->daddr;
 	uint16_t temp_buf[128];
 
 	if (xfer->result != XFER_RESULT_SUCCESS) {
-		hlog_info(USBLOG, "Failed to get device descriptor");
+		hlog_info(USB_MODULE, "Failed to get device descriptor");
 		return;
 	}
 
-	hlog_info(USBLOG, "Device %u: ID %04x:%04x\r\n", daddr, usb_context.desc_device.idVendor, usb_context.desc_device.idProduct);
-	hlog_info(USBLOG, "Device Descriptor:\r\n");
-	hlog_info(USBLOG, "  bLength             %u\r\n",	usb_context.desc_device.bLength);
-	hlog_info(USBLOG, "  bDescriptorType     %u\r\n",	usb_context.desc_device.bDescriptorType);
-	hlog_info(USBLOG, "  bcdUSB              %04x\r\n",	usb_context.desc_device.bcdUSB);
-	hlog_info(USBLOG, "  bDeviceClass        %u\r\n",	usb_context.desc_device.bDeviceClass);
-	hlog_info(USBLOG, "  bDeviceSubClass     %u\r\n",	usb_context.desc_device.bDeviceSubClass);
-	hlog_info(USBLOG, "  bDeviceProtocol     %u\r\n",	usb_context.desc_device.bDeviceProtocol);
-	hlog_info(USBLOG, "  bMaxPacketSize0     %u\r\n",	usb_context.desc_device.bMaxPacketSize0);
-	hlog_info(USBLOG, "  idVendor            0x%04x\r\n",	usb_context.desc_device.idVendor);
-	hlog_info(USBLOG, "  idProduct           0x%04x\r\n",	usb_context.desc_device.idProduct);
-	hlog_info(USBLOG, "  bcdDevice           %04x\r\n",	usb_context.desc_device.bcdDevice);
+	hlog_info(USB_MODULE, "Device %u: ID %04x:%04x\r\n", daddr, ctx->desc_device.idVendor, ctx->desc_device.idProduct);
+	hlog_info(USB_MODULE, "Device Descriptor:\r\n");
+	hlog_info(USB_MODULE, "  bLength             %u\r\n",	ctx->desc_device.bLength);
+	hlog_info(USB_MODULE, "  bDescriptorType     %u\r\n",	ctx->desc_device.bDescriptorType);
+	hlog_info(USB_MODULE, "  bcdUSB              %04x\r\n",	ctx->desc_device.bcdUSB);
+	hlog_info(USB_MODULE, "  bDeviceClass        %u\r\n",	ctx->desc_device.bDeviceClass);
+	hlog_info(USB_MODULE, "  bDeviceSubClass     %u\r\n",	ctx->desc_device.bDeviceSubClass);
+	hlog_info(USB_MODULE, "  bDeviceProtocol     %u\r\n",	ctx->desc_device.bDeviceProtocol);
+	hlog_info(USB_MODULE, "  bMaxPacketSize0     %u\r\n",	ctx->desc_device.bMaxPacketSize0);
+	hlog_info(USB_MODULE, "  idVendor            0x%04x\r\n",	ctx->desc_device.idVendor);
+	hlog_info(USB_MODULE, "  idProduct           0x%04x\r\n",	ctx->desc_device.idProduct);
+	hlog_info(USB_MODULE, "  bcdDevice           %04x\r\n",	ctx->desc_device.bcdDevice);
 
 	// Get String descriptor using Sync API
-	hlog_info(USBLOG, "  iManufacturer       %u     ", usb_context.desc_device.iManufacturer);
+	hlog_info(USB_MODULE, "  iManufacturer       %u     ", ctx->desc_device.iManufacturer);
 	if (tuh_descriptor_get_manufacturer_string_sync(daddr, LANGUAGE_ID, temp_buf, sizeof(temp_buf)) == XFER_RESULT_SUCCESS)
 		print_utf16(temp_buf, TU_ARRAY_SIZE(temp_buf));
 
-	hlog_info(USBLOG, "  iProduct            %u     ", usb_context.desc_device.iProduct);
+	hlog_info(USB_MODULE, "  iProduct            %u     ", ctx->desc_device.iProduct);
 	if (tuh_descriptor_get_product_string_sync(daddr, LANGUAGE_ID, temp_buf, sizeof(temp_buf)) == XFER_RESULT_SUCCESS)
 		print_utf16(temp_buf, TU_ARRAY_SIZE(temp_buf));
 
-	hlog_info(USBLOG, "  iSerialNumber       %u     ", usb_context.desc_device.iSerialNumber);
+	hlog_info(USB_MODULE, "  iSerialNumber       %u     ", ctx->desc_device.iSerialNumber);
 	if (tuh_descriptor_get_serial_string_sync(daddr, LANGUAGE_ID, temp_buf, sizeof(temp_buf)) == XFER_RESULT_SUCCESS)
 		print_utf16(temp_buf, TU_ARRAY_SIZE(temp_buf));
 
-	hlog_info(USBLOG, "  bNumConfigurations  %u\r\n", usb_context.desc_device.bNumConfigurations);
+	hlog_info(USB_MODULE, "  bNumConfigurations  %u\r\n", ctx->desc_device.bNumConfigurations);
 
 	// Get configuration descriptor with sync API
 	if (tuh_descriptor_get_configuration_sync(daddr, 0, temp_buf, sizeof(temp_buf)) == XFER_RESULT_SUCCESS)
-		parse_config_descriptor(daddr, (tusb_desc_configuration_t *) temp_buf);
+		parse_config_descriptor(ctx, daddr, (tusb_desc_configuration_t *) temp_buf);
 }
 
 // Invoked when device is mounted (configured)
 void tuh_mount_cb(uint8_t daddr)
 {
-	hlog_info(USBLOG, "RAW Device attached, address = %d\r\n", daddr);
+	struct usb_context_t *ctx =  usb_context_get();
+	hlog_info(USB_MODULE, "RAW Device attached, address = %d\r\n", daddr);
 
-	// Get Device Descriptor
+	if (!ctx)
+		return;
+	// Get Device Descriptorusb_context.
 	// TODO: invoking control transfer now has issue with mounting hub with multiple devices attached, fix later
-	tuh_descriptor_get_device(daddr, &usb_context.desc_device, 18, print_device_descriptor, 0);
+	tuh_descriptor_get_device(daddr, &ctx->desc_device, 18, print_device_descriptor, (uintptr_t)ctx);
 }
 #endif /* RAW_INTERFACE */
 
@@ -580,19 +642,23 @@ static struct
 // therefore report_desc = NULL, desc_len = 0
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_report, uint16_t desc_len)
 {
+	struct usb_context_t *ctx =  usb_context_get();
 	struct usb_dev_t *dev = NULL;
 	uint8_t itf_protocol;
 	uint16_t vid, pid;
 
+	if (!ctx)
+		return;
+
 	tuh_vid_pid_get(dev_addr, &vid, &pid);
 	itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
-	if (IS_DEBUG)
-		hlog_info(USBLOG, "hid_mount_cb HID device %0.4X:%0.4X is mounted: address = %X, instance = %d, proto %d",
+	if (IS_DEBUG(ctx))
+		hlog_info(USB_MODULE, "hid_mount_cb HID device %0.4X:%0.4X is mounted: address = %X, instance = %d, proto %d",
 				  vid, pid, dev_addr, instance, itf_protocol);
 
-	USB_LOCK;
-		dev = get_usb_device_by_vidpid(vid, pid);
+	USB_LOCK(ctx);
+		dev = get_usb_device_by_vidpid(ctx, vid, pid);
 		if (dev) {
 			dev->dev_addr = dev_addr;
 			dev->instance = instance;
@@ -602,7 +668,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 		}
 		if (dev->user_cb)
 			dev->user_cb(dev->index, HID_MOUNT, &(dev->desc), sizeof(dev->desc), dev->user_context);
-	USB_UNLOCK;
+	USB_UNLOCK(ctx);
 
 	if (!dev) {
 		uint8_t pr, inst;
@@ -610,7 +676,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 		pr = tuh_hid_get_protocol(dev_addr, instance);
 		inst = tuh_hid_instance_count(dev_addr);
 
-		hlog_info(USBLOG, "Unknown HID device %0.4X:%0.4X is mounted: address = %X, instance = %d, proto %d, pr %d, inst %d",
+		hlog_info(USB_MODULE, "Unknown HID device %0.4X:%0.4X is mounted: address = %X, instance = %d, proto %d, pr %d, inst %d",
 				  vid, pid, dev_addr, instance, itf_protocol, pr, inst);
 	}
 
@@ -618,62 +684,70 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 	// Therefore for this simple example, we only need to parse generic report descriptor (with built-in parser)
 	if (itf_protocol == HID_ITF_PROTOCOL_NONE) {
 		hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
-		hlog_info(USBLOG, "HID has %u reports, desc len %d", hid_info[instance].report_count, desc_len);
+		hlog_info(USB_MODULE, "HID has %u reports, desc len %d", hid_info[instance].report_count, desc_len);
 	}
 
 	// request to receive report
 	// tuh_hid_report_received_cb() will be invoked when report is available
 	if (!tuh_hid_receive_report(dev_addr, instance))
-		hlog_info(USBLOG, "Error: cannot request to receive report");
+		hlog_info(USB_MODULE, "Error: cannot request to receive report");
 }
 
 // Invoked when device with hid interface is un-mounted
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 {
+	struct usb_context_t *ctx =  usb_context_get();
 	struct usb_dev_t *dev = NULL;
 	uint16_t vid, pid;
 
+	if (!ctx)
+		return;
+
 	tuh_vid_pid_get(dev_addr, &vid, &pid);
 
-	if (IS_DEBUG)
-		hlog_info(USBLOG, "hid_unmount_cb HID device %0.4X:%0.4X is mounted: address = %X, instance = %d",
+	if (IS_DEBUG(ctx))
+		hlog_info(USB_MODULE, "hid_unmount_cb HID device %0.4X:%0.4X is mounted: address = %X, instance = %d",
 				  vid, pid, dev_addr, instance);
-	USB_LOCK;
-		dev = get_usb_device_by_vidpid(vid, pid);
+	USB_LOCK(ctx);
+		dev = get_usb_device_by_vidpid(ctx, vid, pid);
 		if (dev)
 			dev->hid_mount = false;
 		if (dev->user_cb)
 			dev->user_cb(dev->index, HID_UNMOUNT, &(dev->desc), sizeof(dev->desc), dev->user_context);
-	USB_UNLOCK;
+	USB_UNLOCK(ctx);
 
 	if (!dev)
-		hlog_info(USBLOG, "Unknown HID device %0.4X:%0.4X is unmounted: address = %X, instance = %d",
+		hlog_info(USB_MODULE, "Unknown HID device %0.4X:%0.4X is unmounted: address = %X, instance = %d",
 				  vid, pid, dev_addr, instance);
 }
 
 // Invoked when received report from device via interrupt endpoint
 void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len)
 {
+	struct usb_context_t *ctx =  usb_context_get();
 	struct usb_dev_t *dev = NULL;
 	uint16_t vid, pid;
 
+	if (!ctx)
+		return;
+
 	tuh_vid_pid_get(dev_addr, &vid, &pid);
 
-	if (IS_DEBUG)
-		hlog_info(USBLOG, "hid_report_received_cb HID device %0.4X:%0.4X is mounted: address = %X, instance = %d",
+	if (IS_DEBUG(ctx))
+		hlog_info(USB_MODULE, "hid_report_received_cb HID device %0.4X:%0.4X is mounted: address = %X, instance = %d",
 				  vid, pid, dev_addr, instance);
 
-	USB_LOCK;
-		dev = get_usb_device_by_vidpid(vid, pid);
+	USB_LOCK(ctx);
+		dev = get_usb_device_by_vidpid(ctx, vid, pid);
 		if (dev->user_cb)
 			dev->user_cb(dev->index, HID_REPORT, report, len, dev->user_context);
-	USB_UNLOCK;
+	USB_UNLOCK(ctx);
 
 	if (!dev) {
 		char print_buff[32], buf[4];
 		int i = 0, j = 0;
 
-		hlog_info(USBLOG, "Got HID report from unknown device (%0.4X:%0.4X): address %X instance = %d, report len %d",
+		hlog_info(USB_MODULE, "Got HID report from unknown device (%0.4X:%0.4X): address %X instance = %d, report len %d",
 				  vid, pid, dev_addr, instance, len);
 		print_buff[0] = 0;
 		while (i < len) {
@@ -681,7 +755,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 			strcat(print_buff, buf);
 			j += 4;
 			if (j >= 32 || i >= len) {
-				hlog_info(USBLOG, "\t %s", print_buff);
+				hlog_info(USB_MODULE, "\t %s", print_buff);
 				j = 0;
 				print_buff[0] = 0;
 			}
@@ -690,7 +764,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 
 	// continue to request to receive report
 	if (!tuh_hid_receive_report(dev_addr, instance))
-		hlog_info(USBLOG, "Error: cannot request to receive report");
+		hlog_info(USB_MODULE, "Error: cannot request to receive report");
 }
 
 #ifdef CDC_INTERFACE
@@ -700,7 +774,7 @@ void tuh_cdc_mount_cb(uint8_t idx)
 
 	tuh_cdc_itf_get_info(idx, &itf_info);
 
-	hlog_info(USBLOG, "CDC Interface is mounted %d: address = %X, itf_num = %u, subclass %X, proto %X",
+	hlog_info(USB_MODULE, "CDC Interface is mounted %d: address = %X, itf_num = %u, subclass %X, proto %X",
 			  idx, itf_info.daddr, itf_info.bInterfaceNumber, itf_info.bInterfaceSubClass, itf_info.bInterfaceProtocol);
 
 #ifdef CFG_TUH_CDC_LINE_CODING_ON_ENUM
@@ -709,8 +783,8 @@ void tuh_cdc_mount_cb(uint8_t idx)
 	cdc_line_coding_t line_coding = { 0 };
 
 	if (tuh_cdc_get_local_line_coding(idx, &line_coding)) {
-		hlog_info(USBLOG, "  Baudrate: %lu, Stop Bits : %u", line_coding.bit_rate, line_coding.stop_bits);
-		hlog_info(USBLOG, "  Parity  : %u, Data Width: %u", line_coding.parity, line_coding.data_bits);
+		hlog_info(USB_MODULE, "  Baudrate: %lu, Stop Bits : %u", line_coding.bit_rate, line_coding.stop_bits);
+		hlog_info(USB_MODULE, "  Parity  : %u, Data Width: %u", line_coding.parity, line_coding.data_bits);
 	}
 #endif
 }
@@ -720,7 +794,7 @@ void tuh_cdc_umount_cb(uint8_t idx)
 	tuh_cdc_itf_info_t itf_info = { 0 };
 
 	tuh_cdc_itf_get_info(idx, &itf_info);
-	hlog_info(USBLOG, "CDC Interface is unmounted %d: address = %X, itf_num = %u, subclass %X, proto %X",
+	hlog_info(USB_MODULE, "CDC Interface is unmounted %d: address = %X, itf_num = %u, subclass %X, proto %X",
 			  idx, itf_info.daddr, itf_info.bInterfaceNumber, itf_info.bInterfaceSubClass, itf_info.bInterfaceProtocol);
 }
 
@@ -737,7 +811,7 @@ void tuh_cdc_rx_cb(uint8_t idx)
 
 	buf[count] = 0;
 
-	hlog_info(USBLOG, "Received %d bytes from device %d: address = %X, itf_num = %u",
+	hlog_info(USB_MODULE, "Received %d bytes from device %d: address = %X, itf_num = %u",
 			   count, idx, itf_info.daddr, itf_info.bInterfaceNumber);
 }
 

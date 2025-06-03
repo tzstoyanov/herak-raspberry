@@ -3,10 +3,6 @@ add_library(${lib_name} INTERFACE)
 
 set(dir ${CMAKE_CURRENT_LIST_DIR}/src)
 
-if(${ADD_USB})
-        set(COMMON_USB ${dir}/../services/usb/usb.c)
-endif()
-
 option(ADD_SYS_LOG "System Log" ON)
 option(ADD_SYS_COMMANDS "System Commands" ON)
 
@@ -31,7 +27,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/system.c
    ${dir}/sys_utils.c
    ${dir}/system_modules.c
-   ${dir}/system_weak.c
    ${dir}/../services/wifi/wifi.c
    ${dir}/time.c
    ${dir}/../services/webhook/webhook.c
@@ -39,7 +34,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/temperature.c
    ${dir}/manchester_code.c
    ${CMAKE_BINARY_DIR}/${PARAMS_FILE}.c
-   ${COMMON_USB}
 )
 
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
@@ -55,9 +49,6 @@ target_include_directories(${lib_name} INTERFACE
 
 include(${CMAKE_CURRENT_LIST_DIR}/devices/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/services/CMakeLists.txt)
-
-add_subdirectory(${PROJECT_LIB_DIR}/pio-usb  ${CMAKE_BINARY_DIR}/pio-usb)
-target_link_libraries(${lib_name} INTERFACE pico_pio_usb)
 
 target_link_libraries(${lib_name} INTERFACE pico_stdlib
 		      hardware_rtc hardware_adc

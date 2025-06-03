@@ -44,7 +44,6 @@ static struct {
 	uint8_t has_time:1;
 	uint8_t has_swout:1;
 	uint8_t has_temp:1;
-	uint8_t has_usb:1;
 	uint8_t has_wh:1;
 	uint8_t has_websrv:1;
 	uint8_t force_reboot:1;
@@ -93,8 +92,6 @@ bool system_common_init(void)
 	sys_context.force_reboot = false;
 	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
 	sys_context.has_wifi = wifi_init();
-	wd_update();
-	sys_context.has_usb = usb_init();
 	wd_update();
 	sys_context.has_time = ntp_init();
 	wd_update();
@@ -243,8 +240,6 @@ void system_common_run(void)
 		LOOP_FUNC_RUN("wifi", wifi_connect);
 	if (sys_context.has_time)
 		LOOP_FUNC_RUN("ntp", ntp_connect);
-	if (sys_context.has_usb)
-		LOOP_FUNC_RUN("usb", usb_run);
 	if (sys_context.has_wh)
 		LOOP_FUNC_RUN("webhook", webhook_run);
 	if (sys_context.has_websrv)
