@@ -18,7 +18,7 @@
 #include "params.h"
 
 #define SSR_MODULE	"ssr"
-#define MAX_SSR_COUNT GPIO_PIN_MAX+1
+#define MAX_SSR_COUNT (GPIO_PIN_MAX + 1)
 #define MQTT_DELAY_MS 20000
 
 #define MQTT_DATA_LEN   128
@@ -121,7 +121,7 @@ static void ssr_reset_all(struct ssr_context_t *ssr_ctx)
 		ssr_ctx->relays[i]->time_ms = 0;
 		ssr_ctx->relays[i]->delay_ms = 0;
 		ssr_ctx->relays[i]->last_switch = time_ms_since_boot();
-		ssr_ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].force = true;		
+		ssr_ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].force = true;
 	}
 }
 
@@ -166,13 +166,13 @@ static bool ssr_log(void *context)
 	int i;
 
 	UNUSED(context);
-	hlog_info(SSR_MODULE,"On state: %d", ctx->on_state);
+	hlog_info(SSR_MODULE, "On state: %d", ctx->on_state);
 	for (i = 0; i < MAX_SSR_COUNT; i++) {
 		if (!(ctx->relays[i]))
 			continue;
 		hlog_info(SSR_MODULE, "Relay %d: gpio %d [%s/%s]; delay: %lu/%lu sec, time %lu/%lu sec",
-				  i, ctx->relays[i]->gpio_pin, (ctx->relays[i]->state_desired==ctx->on_state)?"ON":"OFF",
-				  (ctx->relays[i]->state_actual==ctx->on_state)?"ON":"OFF",
+				  i, ctx->relays[i]->gpio_pin, (ctx->relays[i]->state_desired == ctx->on_state) ? "ON" : "OFF",
+				  (ctx->relays[i]->state_actual == ctx->on_state) ? "ON" : "OFF",
 				  ctx->relays[i]->drelay_remain_ms/1000, ctx->relays[i]->delay_ms/1000,
 				  ctx->relays[i]->time_remain_ms/1000, ctx->relays[i]->time_ms/1000);
 	}
@@ -228,7 +228,7 @@ static int ssr_mqtt_components_add(struct ssr_context_t *ctx)
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].module = SSR_MODULE;
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].platform = "sensor";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].dev_class = "duration";
-		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].unit= "s";
+		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].unit = "s";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].value_template = "{{ value_json.run_time }}";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].state_topic =
 					ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].state_topic;
@@ -239,7 +239,7 @@ static int ssr_mqtt_components_add(struct ssr_context_t *ctx)
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].module = SSR_MODULE;
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].platform = "sensor";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].dev_class = "duration";
-		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].unit= "s";
+		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].unit = "s";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].value_template = "{{ value_json.delay }}";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].state_topic =
 					ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].state_topic;

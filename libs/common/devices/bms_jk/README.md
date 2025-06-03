@@ -1,6 +1,5 @@
 # JK BMS
-
-Support for [JK BMS](../../../../docs/jk-bms-manual-1520084771.pdf) over bluetooth.
+Support for [JK BMS](../../../../docs/jk-bms-manual-1520084771.pdf) over bluetooth and [HLK-B40](../../../../docs/HLK-B40.pdf) serial interface.
 
 ## Configuration
 Configuration parameters in params.txt file:

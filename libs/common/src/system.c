@@ -40,7 +40,6 @@ typedef struct {
 static struct {
 	uint32_t periodic_log_ms;
 	uint32_t last_loop;
-	uint8_t has_swout:1;
 	uint8_t force_reboot:1;
 
 	log_status_hook_t log_status[LOG_STATUS_HOOKS_COUNT];
@@ -65,7 +64,7 @@ static bool base_init(void)
 
 bool system_common_init(void)
 {
-	// Initialize chosen serial port, default 38400 baud
+	// Initialize the serial port, default 38400 baud
 	set_sys_clock_khz(120000, true);
 	stdio_init_all();
 	srand(to_us_since_boot(get_absolute_time()));

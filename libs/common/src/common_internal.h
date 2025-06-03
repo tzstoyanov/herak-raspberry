@@ -63,10 +63,10 @@ extern "C" {
 		wd_update();\
 		if ((__end__ - __start__) >= FUNC_TIME_LOG_THRESHOLD_US)\
 			printf("\n\r\t--->[%s] took %lld usec\n\r", N, __end__ - __start__);\
-	}	
+	}
 #else
-#define LOOP_FUNC_RUN(N, F, args...) { F(args); wd_update();}
-#define LOOP_RET_FUNC_RUN(N, F, args...) { (R) = F(args); wd_update();}
+#define LOOP_FUNC_RUN(N, F, args...) { F(args); wd_update(); }
+#define LOOP_RET_FUNC_RUN(N, F, args...) { (R) = F(args); wd_update(); }
 #endif
 typedef struct {
 	app_command_t *hooks;
@@ -102,8 +102,6 @@ typedef enum {
 	IP_RESOLVING,
 	IP_RESOLVED
 } ip_resolve_state_t;
-
-void main_log(void);
 
 void log_sys_health(void);
 
