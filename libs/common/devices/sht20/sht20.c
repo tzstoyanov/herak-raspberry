@@ -272,6 +272,7 @@ static int sth20_mqtt_data_send(struct sht20_context_t *ctx, int idx)
 
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;
 	ret = mqtt_msg_component_publish(ms, ctx->mqtt_payload);
+	ctx->sensors[idx]->force = false;
 
 	if (!ret)
 		ctx->mqtt_last_send = now;

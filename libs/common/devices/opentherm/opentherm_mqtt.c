@@ -51,10 +51,10 @@ static int mqtt_data_send(opentherm_context_t *ctx)
 	ret = mqtt_msg_component_publish(ctx->mqtt.data, ctx->mqtt.payload);
 	ctx->data.data.force = false;
 	ctx->data.status.force = false;
-	ctx->data.dev_config.force = false;
 	if (IS_PIO_LOG(ctx->log_mask))
 		hlog_info(OTHM_MODULE, "Published %d bytes MQTT data: %d / %d",
 					strlen(ctx->mqtt.payload), ret, ctx->mqtt.data->force);
+	ctx->data.dev_config.force = false;
 	return ret;
 }
 
@@ -81,10 +81,10 @@ static int mqtt_errors_send(opentherm_context_t *ctx)
 
 	ctx->mqtt.payload[OTH_MQTT_DATA_LEN] = 0;
 	ret = mqtt_msg_component_publish(ctx->mqtt.errors, ctx->mqtt.payload);
-	ctx->mqtt.errors->force = false;
 	if (IS_PIO_LOG(ctx->log_mask))
 		hlog_info(OTHM_MODULE, "Published %d bytes MQTT errors: %d / %d",
 					strlen(ctx->mqtt.payload), ret, ctx->mqtt.errors->force);
+	ctx->data.errors.force = false;
 	return ret;
 }
 
@@ -113,10 +113,12 @@ static int mqtt_stats_send(opentherm_context_t *ctx)
 
 	ctx->mqtt.payload[OTH_MQTT_DATA_LEN] = 0;
 	ret = mqtt_msg_component_publish(ctx->mqtt.stats, ctx->mqtt.payload);
-	ctx->data.stats.force = false;
 	if (IS_PIO_LOG(ctx->log_mask))
 		hlog_info(OTHM_MODULE, "Published %d bytes MQTT statistics: %d / %d",
 					strlen(ctx->mqtt.payload), ret, ctx->mqtt.stats->force);
+
+	ctx->data.stats.force = false;
+
 	return ret;
 }
 
