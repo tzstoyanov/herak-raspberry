@@ -122,6 +122,7 @@ typedef struct {
 	bt_charc_t jk_term_charc;
 	bms_jk_mqtt_t mqtt;
 	uint32_t debug;
+	uint32_t connect_count;
 } bms_context_t;
 
 void bms_jk_mqtt_init(bms_context_t *ctx);
