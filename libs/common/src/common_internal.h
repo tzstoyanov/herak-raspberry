@@ -103,10 +103,6 @@ typedef enum {
 	IP_RESOLVED
 } ip_resolve_state_t;
 
-bool wifi_init(void);
-void wifi_connect(void);
-bool wifi_is_connected(void);
-
 bool ntp_init(void);
 void ntp_connect(void);
 bool ntp_connected(void);

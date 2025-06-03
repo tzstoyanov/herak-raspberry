@@ -4,6 +4,10 @@ if(ADD_SYS_LOG)
    include(${CMAKE_CURRENT_LIST_DIR}/log/CMakeLists.txt)
 endif()
 
+if(ADD_SYS_WIFI)
+   include(${CMAKE_CURRENT_LIST_DIR}/wifi/CMakeLists.txt)
+endif()
+
 if(ADD_BT_STACK)
    include(${CMAKE_CURRENT_LIST_DIR}/bt/CMakeLists.txt)
 endif()

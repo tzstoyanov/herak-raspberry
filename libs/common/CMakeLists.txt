@@ -4,6 +4,7 @@ add_library(${lib_name} INTERFACE)
 set(dir ${CMAKE_CURRENT_LIST_DIR}/src)
 
 option(ADD_SYS_LOG "System Log" ON)
+option(ADD_SYS_WIFI "WIFI" ON)
 option(ADD_SYS_COMMANDS "System Commands" ON)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
@@ -27,7 +28,6 @@ target_sources(${lib_name} INTERFACE
    ${dir}/system.c
    ${dir}/sys_utils.c
    ${dir}/system_modules.c
-   ${dir}/../services/wifi/wifi.c
    ${dir}/time.c
    ${dir}/../services/webhook/webhook.c
    ${dir}/../services/webserver/webserv.c

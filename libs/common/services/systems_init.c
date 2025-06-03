@@ -17,6 +17,10 @@ void systems_register_and_init(void)
 	SYS_REGISTER(sys_log_register);
 #endif /* HAVE_SYS_LOG */
 
+#ifdef HAVE_SYS_WIFI
+	SYS_REGISTER(sys_wifi_register);
+#endif /* HAVE_SYS_WIFI */
+
 #ifdef HAVE_SYS_BT
 	SYS_REGISTER(sys_bt_register);
 #endif /* HAVE_SYS_BT */

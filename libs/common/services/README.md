@@ -1,4 +1,5 @@
 # Services:
+- [Internet](wifi/README.md)
 - [Bluetooth](bt/README.md)
 - [USB Host](usb/README.md)
 - [Logs](log/README.md)
