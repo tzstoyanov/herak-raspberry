@@ -57,7 +57,7 @@ out_err:
 
 }
 
-#define STATUS_STR	"Module status:"
+#define STATUS_STR	"Module status:\n\r"
 static int cmd_module_status(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	sys_module_t *mod = (sys_module_t *)user_data;
