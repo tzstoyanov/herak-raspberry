@@ -1,5 +1,5 @@
 set(PROJECT_NAME herak-common)
-set(HEAP_SIZE 8192)
+set(HEAP_SIZE 32768)
 set(DEBUG_BUILD false)
 
 # Select the modules used in this application. ON / OFF
