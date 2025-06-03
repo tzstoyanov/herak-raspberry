@@ -351,6 +351,7 @@ static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_le
 			if (ctx->state != BT_CONNECTED)
 				hlog_info(BMS_JK_MODULE, "Connected to %s", ctx->name);
 			ctx->state = BT_CONNECTED;
+			ctx->connect_count++;
 			break;
 		case BT_DISCONNECTED:
 			if (ctx->state != BT_DISCONNECTED)
@@ -612,10 +613,12 @@ static bool bms_jk_log(void *context)
 
 	if (!in_progress) {
 		in_progress = true;
-		hlog_info(BMS_JK_MODULE, "BT stack is %s, Terminal is %s, notifications are %s, last valid response [%s] ago",
+		hlog_info(BMS_JK_MODULE, "BT stack is %s, Terminal is %s, notifications are %s",
 				  ctx->state == BT_READY ? "Ready" : "Not ready",
 				  TERM_IS_ACTIVE(ctx) ? "active" : "not active",
-				  ctx->jk_term_charc.notify ? "registered" : "not registered", tbuf);
+				  ctx->jk_term_charc.notify ? "registered" : "not registered");
+		hlog_info(BMS_JK_MODULE, "Last valid response [%s] ago, connection count %d",
+				  tbuf, ctx->connect_count);				  
 		if (!ctx->dev_info.valid)
 			hlog_info(BMS_JK_MODULE, "No valid device info received");
 		else
