@@ -3,6 +3,7 @@ add_library(${lib_name} INTERFACE)
 
 set(dir ${CMAKE_CURRENT_LIST_DIR}/src)
 
+option(ADD_SYS_FS "File System" ON)
 option(ADD_SYS_LOG "System Log" ON)
 option(ADD_SYS_WIFI "WIFI" ON)
 option(ADD_NTP "NTP Client" ON)

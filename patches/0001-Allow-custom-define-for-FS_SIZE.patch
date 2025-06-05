@@ -1,0 +1,31 @@
+From 2ba795d87c3e23e66bbcc3ea396bb8c7dc0a0580 Mon Sep 17 00:00:00 2001
+From: Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+Date: Fri, 30 May 2025 08:27:10 +0300
+Subject: [PATCH] Allow custom define for FS_SIZE.
+
+Currently FS_SIZE is defined to 32K in code. Added logic to define that
+outside if littlefs code, optionally. If not defined by the user of the
+library, by default use that internal define.
+
+Signed-off-by: Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+---
+ pico_hal.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/libs/littlefs-lib/pico_hal.c b/libs/littlefs-lib/pico_hal.c
+index db169c5..4d43f75 100644
+--- a/libs/littlefs-lib/pico_hal.c
++++ b/libs/littlefs-lib/pico_hal.c
+@@ -19,7 +19,9 @@
+ 
+ #include "pico_hal.h"
+ 
++#ifndef FS_SIZE
+ #define FS_SIZE (256 * 1024)
++#endif
+ 
+ static int pico_hal_read(lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size);
+ static int pico_hal_prog(lfs_block_t block, lfs_off_t off, const void* buffer, lfs_size_t size);
+-- 
+2.48.1
+
