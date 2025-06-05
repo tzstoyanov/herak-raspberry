@@ -13,6 +13,10 @@
 void systems_register_and_init(void)
 {
 
+#ifdef HAVE_SYS_FS
+	SYS_REGISTER(sys_fs_register);
+#endif /* HAVE_SYS_FS */
+
 #ifdef HAVE_SYS_LOG
 	SYS_REGISTER(sys_log_register);
 #endif /* HAVE_SYS_LOG */

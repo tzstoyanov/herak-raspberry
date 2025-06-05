@@ -12,6 +12,7 @@
 
 #include "common_lib.h"
 
+#include "fs/fs_api.h"
 #include "log/log_api.h"
 #include "wifi/wifi_api.h"
 #include "lcd/lcd_api.h"

@@ -7,6 +7,7 @@ Support for all services, devices and sensors is implemented as modules. Modules
 
 ### Services:
 - [Internet](libs/common/services/wifi/README.md)
+- [File System](libs/common/services/fs/README.md)
 - [NTP client](libs/common/services/ntp/README.md)
 - [Bluetooth](libs/common/services/bt/README.md)
 - [USB Host](libs/common/services/usb/README.md)
