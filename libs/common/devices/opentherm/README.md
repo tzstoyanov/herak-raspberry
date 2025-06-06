@@ -66,29 +66,29 @@ The status of the Open Therm device is reported with this http request, where `p
 ## Control
 ### MQTT
 The parameters of the Open Therm device can be configured with MQTT commands, send to this topic, where `<user-topic>` is defined in `params.txt` - as `MQTT_TOPIC`:  
-&nbsp;&nbsp;&nbsp;&nbsp;`<user-topic>/command/opentherm`   - Set the state of the Open Therm device, request body:  
-&nbsp;&nbsp;&nbsp;&nbsp;`dhw:<0/1>`         - Enable / Disable Domestic Hot Water.  
-&nbsp;&nbsp;&nbsp;&nbsp;`ch:<0/1>`          - Enable / Disable Central Heating.  
-&nbsp;&nbsp;&nbsp;&nbsp;`dhw_temp:<0..100>` - Temperature of Disable Domestic Hot Water.  
-&nbsp;&nbsp;&nbsp;&nbsp;`ch_temp:<0..100>`  - Temperature of Central Heating.  
-&nbsp;&nbsp;&nbsp;&nbsp;`stat_reset`        - Reset statistics.  
+&nbsp;&nbsp;&nbsp;&nbsp;`<user-topic>/command`   - Set the state of the Open Therm device, request body:  
+&nbsp;&nbsp;&nbsp;&nbsp;`opentherm?dhw:<0/1>`         - Enable / Disable Domestic Hot Water.  
+&nbsp;&nbsp;&nbsp;&nbsp;`opentherm?ch:<0/1>`          - Enable / Disable Central Heating.  
+&nbsp;&nbsp;&nbsp;&nbsp;`opentherm?dhw_temp:<0..100>` - Temperature of Disable Domestic Hot Water.  
+&nbsp;&nbsp;&nbsp;&nbsp;`opentherm?ch_temp:<0..100>`  - Temperature of Central Heating.  
+&nbsp;&nbsp;&nbsp;&nbsp;`opentherm?stat_reset`        - Reset statistics.  
 ### WEB
 The state of the Open Therm device can be set with this http request. The request parameters are the same as in the MQTT request body:  
-&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm/dhw:<0/1>`  
-&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm/dhw:<0/1>`  
-&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm/ch:<0/1>`  
-&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm/dhw_temp:<0..100>`  
-&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm/ch_temp:<0..100>`  
-&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm/stat_reset`  
+&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm?dhw:<0/1>`  
+&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm?dhw:<0/1>`  
+&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm?ch:<0/1>`  
+&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm?dhw_temp:<0..100>`  
+&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm?ch_temp:<0..100>`  
+&nbsp;&nbsp;&nbsp;&nbsp;`http://<ip>:<port>/opentherm?stat_reset`  
 
 ## Example
 Set the temperature to 45°C and turn `on` the Central Heating:  
--  with MQTT, send requests to `<user-topic>/command/opentherm`:  
-&nbsp;&nbsp;&nbsp;&nbsp;`ch_temp:60`  
-&nbsp;&nbsp;&nbsp;&nbsp;`ch:1`  
+-  with MQTT, send requests to `<user-topic>/command`:  
+&nbsp;&nbsp;&nbsp;&nbsp;`opentherm?ch_temp:60`  
+&nbsp;&nbsp;&nbsp;&nbsp;`opentherm?ch:1`  
 - with HTTP, send these request to a device with IP address `192.168.0.1` and port `8080`:  
-&nbsp;&nbsp;&nbsp;&nbsp;`curl http://192.168.0.1:8080/opentherm/ch_temp:60`  
-&nbsp;&nbsp;&nbsp;&nbsp;`curl http://192.168.0.1:8080/opentherm/ch:1`  
+&nbsp;&nbsp;&nbsp;&nbsp;`curl http://192.168.0.1:8080/opentherm?ch_temp:60`  
+&nbsp;&nbsp;&nbsp;&nbsp;`curl http://192.168.0.1:8080/opentherm?ch:1`  
 
 ## Credits
 [https://ihormelnyk.com/opentherm_adapter](https://ihormelnyk.com/opentherm_adapter)  
