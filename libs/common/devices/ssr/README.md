@@ -31,17 +31,17 @@ The status of all relays is reported with this http request, where `port` is def
 ## Control
 ### MQTT
 The state of a relay can be set with MQTT commands, send to this topic, where `<user-topic>` is defined in `params.txt` - as `MQTT_TOPIC`:  
-`<user-topic>/command/ssr` - Set the state of a SSR, request body:  
-&nbsp;&nbsp;&nbsp;&nbsp;`ssr/set:<id>:<state>:<time_sec>:<delay_sec>` - Where `id` is index of the relay 0-28, `state` is the desired state 0-1, `time_sec` is time in seconds the relay must stay in the desired state, `delay_sec` is the delay after that the relay will transition into the desired state. The `time_sec` and `delay_sec` are optional. If `time_sec` is 0 or is omitted, the relay will stay in the desired state infinitely. If `delay_sec` is 0 or is omitted, the relay will transition into the desired state imidiately.
+`<user-topic>/command` - Set the state of a SSR, request body:  
+&nbsp;&nbsp;&nbsp;&nbsp;`ssr?set:<id>:<state>:<time_sec>:<delay_sec>` - Where `id` is index of the relay 0-28, `state` is the desired state 0-1, `time_sec` is time in seconds the relay must stay in the desired state, `delay_sec` is the delay after that the relay will transition into the desired state. The `time_sec` and `delay_sec` are optional. If `time_sec` is 0 or is omitted, the relay will stay in the desired state infinitely. If `delay_sec` is 0 or is omitted, the relay will transition into the desired state imidiately.
 ### HTTP
 The state of a relay can be set with this http request. The request parameters are the same as in the MQTT request body:  
-`curl http://<device_ip>:<port>/ssr/set:<id>:<state>:<time_sec>:<delay_sec>`
+`curl http://<device_ip>:<port>/ssr?set:<id>:<state>:<time_sec>:<delay_sec>`
 ## Example
 Turn `on` a relay with index `2` for `60` seconds after a delay of `30` seconds:  
-- with MQTT, send request to `<user-topic>/command/ssr`:  
-&nbsp;&nbsp;&nbsp;&nbsp;`ssr/set/2:1:60:30`  
+- with MQTT, send request to `<user-topic>/command`:  
+&nbsp;&nbsp;&nbsp;&nbsp;`ssr?set/2:1:60:30`  
 - with HTTP, send this request to a device with IP address `192.168.0.1` and port `8080`  
-&nbsp;&nbsp;&nbsp;&nbsp;`curl http://192.168.0.1:8080/ssr/set:2:1:60:30`  
+&nbsp;&nbsp;&nbsp;&nbsp;`curl http://192.168.0.1:8080/ssr?set:2:1:60:30`  
 
 Turn `off` a relay with index `2` imidiately:  
 - with MQTT, send request to `<user-topic>/command/ssr`:  
