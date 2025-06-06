@@ -35,6 +35,8 @@ static bool sys_fs_log_status(void *context)
 	struct fs_context_t *ctx = (struct fs_context_t *)context;
 	struct pico_fsstat_t stat;
 
+	UNUSED(ctx);
+
 	if (pico_fsstat(&stat) < 0) {
 		hlog_info(FS_MODULE, "Failed to read file system status");
 		return true;
@@ -53,8 +55,6 @@ static void sys_fs_debug_set(uint32_t lvl, void *context)
 
 static bool sys_fs_init(struct fs_context_t **ctx)
 {
-	int ret;
-
 	(*ctx) = (struct fs_context_t *)calloc(1, sizeof(struct fs_context_t));
 	if (!(*ctx))
 		return false;
@@ -80,6 +80,7 @@ static int fs_format(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 
 	UNUSED(cmd);
 	UNUSED(params);
+	UNUSED(wctx);
 
 	WEB_CLIENT_REPLY(ctx, "Formatting file system ...");
 
@@ -103,6 +104,9 @@ static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 	struct lfs_info linfo;
 	int ret;
 	int fd;
+
+	UNUSED(cmd);
+	UNUSED(user_data);
 
 	if (!params || params[0] != ':' || strlen(params) < 2)
 		path = "/";
@@ -159,6 +163,9 @@ static int fs_cat_file(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	char buff[BUFF_SIZE];
 	char *path, *rest;
 	int sz, fd = -1;
+
+	UNUSED(cmd);
+	UNUSED(user_data);
 
 	if (ctx->type == CMD_CTX_WEB)
 		debug_log_forward(ctx->context.web.client_idx);
