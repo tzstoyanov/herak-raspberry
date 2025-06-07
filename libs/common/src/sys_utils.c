@@ -12,6 +12,7 @@
 #include "common_lib.h"
 #include "common_internal.h"
 #include "pico/stdlib.h"
+#include "base64.h"
 
 extern char __StackLimit, __bss_end__;
 
@@ -210,3 +211,20 @@ void log_sys_health(void)
 		hlog_info(SYS_LOG, "System is healthy, no errors detected");
 
 }
+
+char *sys_user_param_get(char *name, const char *def, int def_len)
+{
+	char *val = NULL;
+
+#ifdef HAVE_SYS_CFG_STORE
+	val = cfgs_param_get(name);
+#endif /* HAVE_SYS_CFG_STORE */
+
+	if (val)
+		return val;
+	if (def_len < 1)
+		return NULL;
+
+	return base64_decode(def, def_len);
+}
+

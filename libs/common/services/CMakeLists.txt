@@ -4,6 +4,10 @@ if(ADD_SYS_FS)
    include(${CMAKE_CURRENT_LIST_DIR}/fs/CMakeLists.txt)
 endif()
 
+if(ADD_SYS_CFG_STORE)
+   include(${CMAKE_CURRENT_LIST_DIR}/cfg_store/CMakeLists.txt)
+endif()
+
 if(ADD_SYS_LOG)
    include(${CMAKE_CURRENT_LIST_DIR}/log/CMakeLists.txt)
 endif()
