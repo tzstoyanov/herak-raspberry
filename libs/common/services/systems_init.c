@@ -17,6 +17,10 @@ void systems_register_and_init(void)
 	SYS_REGISTER(sys_fs_register);
 #endif /* HAVE_SYS_FS */
 
+#ifdef HAVE_SYS_CFG_STORE
+	SYS_REGISTER(sys_cfg_store_register);
+#endif /* HAVE_SYS_FS */
+
 #ifdef HAVE_SYS_LOG
 	SYS_REGISTER(sys_log_register);
 #endif /* HAVE_SYS_LOG */

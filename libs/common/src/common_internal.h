@@ -68,6 +68,11 @@ extern "C" {
 #define LOOP_FUNC_RUN(N, F, args...) { F(args); wd_update(); }
 #define LOOP_RET_FUNC_RUN(N, F, args...) { (R) = F(args); wd_update(); }
 #endif
+
+#define USER_PRAM_GET(P)	sys_user_param_get(#P, P, P##_len)
+
+char *sys_user_param_get(char *name, const char *def, int def_len);
+
 typedef struct {
 	app_command_t *hooks;
 	int count;
