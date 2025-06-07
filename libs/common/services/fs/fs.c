@@ -143,7 +143,7 @@ static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 		}
 		hlog_info(FS_MODULE, "\t\t[%s] %d\t%s",
 				  linfo.type == LFS_TYPE_REG ? "file" :
-	(linfo.type == LFS_TYPE_DIR ? "dir " : "uknown"),
+				  (linfo.type == LFS_TYPE_DIR ? "dir " : "uknown"),
 				  linfo.type == LFS_TYPE_REG ? linfo.size : 0, linfo.name);
 	} while (true);
 	pico_dir_close(fd);
@@ -174,11 +174,11 @@ static int fs_cat_file(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 		hlog_info(FS_MODULE, "\tInvalid path parameter ...");
 		goto out;
 	} else {
-		path = strtok_r(rest, ":", &rest);
+		path = strtok_r(params, ":", &rest);
 	}
 	fd = pico_open(path, LFS_O_RDONLY);
 	if (fd < 0) {
-		hlog_info(FS_MODULE, "\tFailed to open the file: %d", fd);
+		hlog_info(FS_MODULE, "\tFailed to open file [%s]: %d", path, fd);
 		goto out;
 	}
 	sz = pico_read(fd, buff, BUFF_SIZE);
@@ -186,7 +186,9 @@ static int fs_cat_file(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 		hlog_info(FS_MODULE, "\tFailed to read the file: %d", sz);
 		goto out;
 	}
-	hlog_info(FS_MODULE, "\t[%s] %d bytes:", path, pico_size(fd));
+	sz = pico_size(fd);
+	hlog_info(FS_MODULE, "\t[%s] %d bytes:", path, sz);
+	buff[sz] = 0;
 	hlog_info(FS_MODULE, "\t\t[%s]", buff);
 
 out:
