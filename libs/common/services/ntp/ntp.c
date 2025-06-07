@@ -61,15 +61,17 @@ static bool get_ntp_servers(struct ntp_context_t **ctx)
 	int idx;
 
 	(*ctx) = NULL;
-	if (NTP_SERVERS_len < 1)
+	rest = USER_PRAM_GET(NTP_SERVERS);
+	if (!rest)
 		return false;
 
 	(*ctx) = (struct ntp_context_t *)calloc(1, sizeof(struct ntp_context_t));
-	if (!(*ctx))
+	if (!(*ctx)) {
+		free(rest);
 		return false;
+	}
 
 	idx = 0;
-	rest = param_get(NTP_SERVERS);
 	while ((tok = strtok_r(rest, ";", &rest)) && idx < SNTP_MAX_SERVERS)
 		(*ctx)->ntp_servers[idx++] = tok;
 

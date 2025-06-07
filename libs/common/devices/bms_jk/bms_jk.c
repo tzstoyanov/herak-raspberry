@@ -425,8 +425,8 @@ static int bms_jk_read_cmd(bms_context_t *ctx, uint8_t address, uint32_t value, 
 #define BMS_MODEL_STR   "JK"
 static bool get_bms_config(bms_context_t **ctx)
 {
-	char *bt_mod = param_get(BMS_MODEL);
-	char *bt_id = param_get(BMS_BT);
+	char *bt_mod = USER_PRAM_GET(BMS_MODEL);
+	char *bt_id = USER_PRAM_GET(BMS_BT);
 	char *rest, *rest1;
 	bt_addr_t address;
 	bool ret = false;

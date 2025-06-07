@@ -602,9 +602,10 @@ static bool webserv_read_config(struct werbserv_context_t **ctx)
 	char *str;
 	int port;
 
-	if (WEBSERVER_PORT_len <= 0)
+	str = USER_PRAM_GET(WEBSERVER_PORT);
+	if (!str)
 		return false;
-	str = param_get(WEBSERVER_PORT);
+
 	port = (int)strtol(str, NULL, 0);
 	free(str);
 

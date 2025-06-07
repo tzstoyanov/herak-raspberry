@@ -50,12 +50,15 @@ static bool get_wifi_cfg(struct wifi_context_t **ctx)
 	int idx;
 	int i;
 
-	if (WIFI_SSD_len < 1)
+	rest = USER_PRAM_GET(WIFI_SSD);
+	if (!rest)
 		return false;
 	(*ctx) = (struct wifi_context_t *)calloc(1, sizeof(struct wifi_context_t));
-	if (!(*ctx))
+	if (!(*ctx)) {
+		free(rest);
 		return false;
-	rest = param_get(WIFI_SSD);
+	}
+	
 	idx = 0;
 	while ((tok = strtok_r(rest, ";", &rest)) && idx < MAX_WIFI_NETS) {
 		(*ctx)->all_nets[idx] = (struct wifi_net_t *)calloc(1, sizeof(struct wifi_net_t));
@@ -67,7 +70,7 @@ static bool get_wifi_cfg(struct wifi_context_t **ctx)
 	if (!idx)
 		goto out_err;
 	hlog_info(WIFI_MODULE, "Got %d wifi networks", idx);
-	rest = param_get(WIFI_PASS);
+	rest = USER_PRAM_GET(WIFI_PASS);
 	idx = 0;
 	while ((tok = strtok_r(rest, ";", &rest)) && idx < MAX_WIFI_NETS)
 		(*ctx)->all_nets[idx++]->pass = tok;
