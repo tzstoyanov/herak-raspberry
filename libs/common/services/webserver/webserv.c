@@ -29,8 +29,8 @@
 #define WS_POLL_INTERVAL	2
 #define WEBSRV_PRIO			TCP_PRIO_NORMAL
 #define PACKET_BUFF_SIZE	1024
-#define HTTP_CMD_LEN		5
-#define HTTP_URL_LEN		32
+#define HTTP_CMD_LEN		10
+#define HTTP_URL_LEN		128
 
 #define IP_TIMEOUT_MS	20000
 
@@ -143,7 +143,7 @@ static int webserv_add_handler(struct werbserv_context_t *ctx, char *url, webser
 	return i;
 }
 
-#define HELP_SIZE	128
+#define HELP_SIZE	256
 static void commands_help(int client_idx, struct webcmd_t *handlers)
 {
 	char help[HELP_SIZE];
@@ -274,7 +274,7 @@ static void ws_tcp_send(struct webclient_t *client, struct altcp_pcb *tpcb)
 	}
 }
 
-#define HTTP_REPLY_SIZE	64
+#define HTTP_REPLY_SIZE	128
 static bool parse_http_request(struct pbuf *p, char *cmd, int cmd_len, char *url, int url_len)
 {
 	char reply_line[HTTP_REPLY_SIZE];
