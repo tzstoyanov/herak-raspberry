@@ -10,7 +10,7 @@ The commands can be sent to the device with a HTTP or a MQTT request. The result
 
 Example command for listing the content of the top directory. The device has address `192.168.1.1`, listens on HTTP port `8080` and uses MQTT topic `test/dev`
 - Using HTTP: `curl http://192.168.1.1:8080/fs?ls:/`
-- Using MQTT: send request to topic `test/dev/fs` with content `ls:/`.
+- Using MQTT: send request to topic `test/dev/command` with content `fs?ls:/`.
 
 ## API
 ```
