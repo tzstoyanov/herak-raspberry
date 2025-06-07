@@ -281,14 +281,14 @@ static bool notify_get_config(char **server, char **endpoint, int *port)
 	char *ep = NULL;
 	int port_id = 0;
 
-	srv = param_get(WEBHOOK_SERVER);
+	srv = USER_PRAM_GET(WEBHOOK_SERVER);
 	if (!srv || strlen(srv) < 1)
 		goto out_err;
-	ep = param_get(WEBHOOK_ENDPOINT);
+	ep = USER_PRAM_GET(WEBHOOK_ENDPOINT);
 	if (!ep || strlen(ep) < 1)
 		goto out_err;
 
-	port_str = param_get(WEBHOOK_PORT);
+	port_str = USER_PRAM_GET(WEBHOOK_PORT);
 	if (port_str && strlen(port_str) > 1)
 		port_id = atoi(port_str);
 	if (!port_id)
@@ -407,7 +407,7 @@ static bool soil_init(struct soil_context_t **ctx)
 
 	if ((*ctx)->sensors_count < 1)
 		goto out_error;
-	(*ctx)->dev_name = param_get(DEV_HOSTNAME);
+	(*ctx)->dev_name = USER_PRAM_GET(DEV_HOSTNAME);
 	free(digital);
 	free(analog);
 

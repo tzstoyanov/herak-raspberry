@@ -313,14 +313,16 @@ static bool syscmd_read_config(struct syscmd_context_t **ctx)
 {
 	char *str;
 
-	if (SYS_CMD_DEBUG_len <= 0)
+	str = USER_PRAM_GET(SYS_CMD_DEBUG);
+	if (!str)
 		return false;
 
 	(*ctx) = (struct syscmd_context_t *)calloc(1, sizeof(struct syscmd_context_t));
-	if (!(*ctx))
+	if (!(*ctx)) {
+		free(str);
 		return false;
+	}
 
-	str = param_get(SYS_CMD_DEBUG);
 	(*ctx)->what = strtol(str, NULL, 0);
 	free(str);
 

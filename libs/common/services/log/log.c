@@ -148,8 +148,8 @@ static bool sys_log_init(struct log_context_t **ctx)
 	if (!(*ctx))
 		return false;
 
-	if (SYSLOG_SERVER_ENDPOINT_len > 0) {
-		str = param_get(SYSLOG_SERVER_ENDPOINT);
+	str = USER_PRAM_GET(SYSLOG_SERVER_ENDPOINT);
+	if (str) {
 		rest = str;
 		tok = strtok_r(rest, ":", &rest);
 		(*ctx)->server_url = strdup(tok);
@@ -160,7 +160,7 @@ static bool sys_log_init(struct log_context_t **ctx)
 		free(str);
 	}
 	mutex_init(&((*ctx)->lock));
-	(*ctx)->hostname = param_get(DEV_HOSTNAME);
+	(*ctx)->hostname = USER_PRAM_GET(DEV_HOSTNAME);
 	(*ctx)->log_level = HLOG_INFO;
 	(*ctx)->http_log = false;
 	__log_context = (*ctx);

@@ -929,18 +929,26 @@ static void sys_mqtt_run(void *context)
 
 static int mqtt_get_config(struct mqtt_context_t  **ctx)
 {
+	char *endp, *topc, *usr;
 	char *str, *tok, *rest;
 	int res;
 
-	if (MQTT_SERVER_ENDPOINT_len < 1 || MQTT_TOPIC_len < 1 || MQTT_USER_len < 1)
+	topc = USER_PRAM_GET(MQTT_TOPIC);
+	endp = USER_PRAM_GET(MQTT_SERVER_ENDPOINT);
+	usr = USER_PRAM_GET(MQTT_USER);
+	if (!endp || !topc || !usr) {
+		free(topc);
+		free(endp);
+		free(usr);
 		return -1;
+	}
 	(*ctx) = (struct mqtt_context_t  *)calloc(1, sizeof(struct mqtt_context_t));
 	if (!(*ctx))
 		return -1;
 
-	(*ctx)->state_topic = param_get(MQTT_TOPIC);
+	(*ctx)->state_topic = topc;
 
-	str = param_get(MQTT_SERVER_ENDPOINT);
+	str = endp;
 	rest = str;
 	tok = strtok_r(rest, ":", &rest);
 	(*ctx)->server_url = strdup(tok);
@@ -950,13 +958,13 @@ static int mqtt_get_config(struct mqtt_context_t  **ctx)
 		(*ctx)->server_port = DEF_SERVER_PORT;
 	free(str);
 
-	rest = param_get(MQTT_USER);
+	rest = usr;
 	tok = strtok_r(rest, ";", &rest);
 	(*ctx)->client_info.client_user = tok;
 	(*ctx)->client_info.client_pass = rest;
 
 	if (MQTT_RATE_PPM_len > 1) {
-		str = param_get(MQTT_RATE_PPM);
+		str = USER_PRAM_GET(MQTT_RATE_PPM);
 		rest = str;
 		tok = strtok_r(rest, ";", &rest);
 		res = (int)strtol(tok, NULL, 10);
@@ -981,7 +989,7 @@ static bool sys_mqtt_init(struct mqtt_context_t  **ctx)
 
 	(*ctx)->state = MQTT_CLIENT_INIT;
 	snprintf((*ctx)->status_topic, MQTT_MAX_TOPIC_SIZE, STATUS_TOPIC_TEMPLATE, (*ctx)->state_topic);
-	(*ctx)->client_info.client_id = param_get(DEV_HOSTNAME);
+	(*ctx)->client_info.client_id = USER_PRAM_GET(DEV_HOSTNAME);
 	(*ctx)->client_info.keep_alive = MQTT_KEEPALIVE_S;
 	(*ctx)->client_info.will_topic = (*ctx)->status_topic;
 	(*ctx)->client_info.will_msg = OFFLINE_MSG;
