@@ -21,7 +21,7 @@
 #define WS_MODULE	"webserv"
 #define HELP_CMD	"help"
 #define HELP_URL	"/help"
-// #define WS_DEBUG
+#define WS_DEBUG(C)	((C) && (C)->debug)
 
 #define HTTP_RESPONCE_HEAD	"HTTP/1.1 %d %s\r\nDate: %s\r\nUser-Agent: %s\r\nContent-Type: text/plain; charset=UTF-8\r\nConnection: keep-alive\r\n\r\n"
 #define MAX_HANDLERS		64
@@ -335,7 +335,7 @@ static enum http_response_id client_parse_incoming(struct webclient_t *client, s
 	int handled = 0;
 	int i;
 
-#ifdef WS_DEBUG
+	if(WS_DEBUG(client->ctx))
 	{
 		struct pbuf *bp = p;
 
@@ -345,7 +345,7 @@ static enum http_response_id client_parse_incoming(struct webclient_t *client, s
 			bp = bp->next;
 		}
 	}
-#endif
+
 	wctx.client_idx = client->idx;
 	wctx.keep_open = false;
 	wctx.keep_silent = false;
@@ -391,11 +391,8 @@ static void webclient_disconnect(struct webclient_t *client, char *reason)
 	if (!client || !client->init)
 		return;
 
-#ifdef WS_DEBUG
-	hlog_info(WS_MODULE, "Closed connection to client %d: [%s]", client->idx, reason);
-#else
-	UNUSED(reason);
-#endif
+	if(WS_DEBUG(client->ctx))
+		hlog_info(WS_MODULE, "Closed connection to client %d: [%s]", client->idx, reason);
 
 	WC_LOCK(client);
 		if (client->tcp_client) {
@@ -632,9 +629,9 @@ static err_t webserv_accept(void *arg, struct altcp_pcb *pcb, err_t err)
 	for (i = 0; i < MAX_CLIENTS; i++)
 		if (!ctx->client[i].tcp_client)
 			break;
-#ifdef WS_DEBUG
-	hlog_info(WS_MODULE, "Accepted new client %d / %d", i, MAX_CLIENTS);
-#endif
+	if(WS_DEBUG(ctx))
+		hlog_info(WS_MODULE, "Accepted new client %d / %d", i, MAX_CLIENTS);
+
 	if (i >= MAX_CLIENTS)
 		return ERR_MEM;
 	if (!ctx->client[i].init) {
