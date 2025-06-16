@@ -252,6 +252,8 @@ static int opentherm_sync_param_f(opentherm_context_t *ctx, int cmd, float *desi
 	int ret = 0;
 
 	if (*desired != *actual) {
+		if (IS_CMD_LOG(ctx->log_mask))
+			hlog_info(OTHM_MODULE, "Sync parameter %d with device: desired %f vs actual %f", cmd, *desired, *actual);
 		req.f = *desired;
 		ret = ot_cmd_write(ctx, cmd, &req, &repl);
 		if (!ret)
@@ -340,19 +342,27 @@ static void opentherm_read_cfg_data(opentherm_context_t *ctx)
 	if (!ot_cmd_read(ctx, DATA_ID_MAXTSET_BOUNDS, NULL, &repl)) {
 		CFG_READ(ctx->data.dev_config.ch_max_cfg, repl.u8arr[1]);
 		CFG_READ(ctx->data.dev_config.ch_min_cfg, repl.u8arr[0]);
-		if (ctx->data.dev_config.ch_max_cfg)
+		if (ctx->data.dev_config.ch_max_cfg) {
 			ctx->data.param_desired.ch_max = ctx->data.dev_config.ch_max_cfg;
+			ctx->data.dev_config.ch_temperature_setpoint_rangemax = ctx->data.dev_config.ch_max_cfg;
+		}
+		if (ctx->data.dev_config.ch_min_cfg > 0)
+			ctx->data.dev_config.ch_temperature_setpoint_rangemin = ctx->data.dev_config.ch_min_cfg;
 	}
 	if (!ot_cmd_read(ctx, DATA_ID_TDHWSET_BOUNDS, NULL, &repl)) {
 		CFG_READ(ctx->data.dev_config.dhw_max_cfg, repl.u8arr[1]);
 		CFG_READ(ctx->data.dev_config.dhw_min_cfg, repl.u8arr[0]);
-		if (ctx->data.dev_config.dhw_max_cfg)
+		if (ctx->data.dev_config.dhw_max_cfg) {
 			ctx->data.param_desired.dhw_max = ctx->data.dev_config.dhw_max_cfg;
+			ctx->data.dev_config.dhw_temperature_setpoint_rangemax = ctx->data.dev_config.dhw_max_cfg;
+		}
+		if (ctx->data.dev_config.dhw_min_cfg > 0)
+			ctx->data.dev_config.dhw_temperature_setpoint_rangemin = ctx->data.dev_config.dhw_min_cfg;
 	}
 	if (!ot_cmd_read(ctx, DATA_ID_MAXTSET, NULL, &repl))
 		CFG_READ(ctx->data.param_actual.ch_max, repl.f);
-	if (!ot_cmd_read(ctx, DATA_ID_TDHWSET, NULL, &repl))
-		CFG_READ(ctx->data.param_actual.dhw_max, repl.f);
+	//if (!ot_cmd_read(ctx, DATA_ID_TDHWSET, NULL, &repl))
+	//	CFG_READ(ctx->data.param_actual.dhw_max, repl.f);
 }
 
 #define STATIC_READ(S, V)\
@@ -443,12 +453,14 @@ bool opentherm_dev_log(opentherm_context_t *ctx)
 					ctx->data.status.dhw_active ? "running" : "not running");
 		hlog_info(OTHM_MODULE, "  CH set: %3.2f/%3.2f*C",
 				ctx->data.param_desired.ch_temperature_setpoint, ctx->data.param_actual.ch_temperature_setpoint);
-		hlog_info(OTHM_MODULE, "  CH range: %3.2f : %3.2f*C",
-				ctx->data.dev_config.ch_min_cfg, ctx->data.dev_config.ch_max_cfg);
+		hlog_info(OTHM_MODULE, "  CH range: %d:%d*C (%3.2f/%3.2f*C)",
+				ctx->data.dev_config.ch_min_cfg, ctx->data.dev_config.ch_max_cfg,
+				ctx->data.dev_config.ch_temperature_setpoint_rangemin, ctx->data.dev_config.ch_temperature_setpoint_rangemax);
 		hlog_info(OTHM_MODULE, "  DHW set: %3.2f/%3.2f*C",
 				ctx->data.param_desired.dhw_temperature_setpoint, ctx->data.param_actual.dhw_temperature_setpoint);
-		hlog_info(OTHM_MODULE, "  DWH range: %3.2f : %3.2f*C",
-				ctx->data.dev_config.dhw_min_cfg, ctx->data.dev_config.dhw_max_cfg);
+		hlog_info(OTHM_MODULE, "  DWH range: %d:%d*C (%3.2f/%3.2f*C)",
+				ctx->data.dev_config.dhw_min_cfg, ctx->data.dev_config.dhw_max_cfg,
+				ctx->data.dev_config.dhw_temperature_setpoint_rangemin, ctx->data.dev_config.dhw_temperature_setpoint_rangemax);
 		in_progress++;
 		break;
 	case 1:
