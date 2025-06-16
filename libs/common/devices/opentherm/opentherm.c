@@ -97,7 +97,6 @@ static bool opentherm_init(opentherm_context_t **ctx)
 
 	opentherm_data_init(&((*ctx)->data));
 	opentherm_dev_init(*ctx);
-	(*ctx)->pio.log_mask = &(*ctx)->log_mask;
 	opentherm_mqtt_init(*ctx);
 
 	hlog_info(OTHM_MODULE, "Initialise successfully OpenTherm module");
