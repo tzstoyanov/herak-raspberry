@@ -7,7 +7,7 @@ The commands can be sent to the device with a HTTP or a MQTT request. The result
 - `set:<name>:<value>` - Set user parameter.  
 - `del:<name>`  - Delete user parameter.  
 - `reset`       - Reset to default all user configuration.  
-- `list`        - List supported user configurable parameters.  
+- `list`        - List supported user configurable parameters. Those who have local configuration are marked with [*].
 - `purge`       - Delete unknown user configuration.  
 
 Example command for listing the content of the supported user configurable parameters. The device has address `192.168.1.1`, listens on HTTP port `8080` and uses MQTT topic `test/dev`
