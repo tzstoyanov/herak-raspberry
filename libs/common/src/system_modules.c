@@ -45,7 +45,7 @@ static int cmd_module_debug(cmd_run_context_t *ctx, char *cmd, char *params, voi
 
 	if (strlen(params) < 2 || params[0] != ':')
 		goto out_err;
-	debug = (int)strtol(params + 1, NULL, 10);
+	debug = (int)strtol(params + 1, NULL, 0);
 	mod->debug(debug, mod->context);
 	hlog_info(SYSMODLOG, "Set debug of module %s to 0x%X", mod->name, debug);
 
@@ -89,6 +89,27 @@ out:
 	return 0;
 }
 
+static void sys_module_debug_init(sys_module_t *module)
+{
+	if (!module->debug)
+		return;
+
+#ifdef HAVE_SYS_CFG_STORE
+	{
+		char *dname;
+		char *val = NULL;
+		uint32_t debug;
+
+		sys_asprintf(&dname, "dbg_%s", module->name);
+		val = cfgs_param_get(dname);
+		if (val) {
+			debug = (int)strtol(val, NULL, 0);
+			module->debug(debug, module->context);
+		}
+	}
+#endif /* HAVE_SYS_CFG_STORE */
+}
+
 #define CMD_COMMON_DESC "Common module commands"
 static app_command_t module_common_requests[] = {
 		{"debug", ":<debug_flags>", cmd_module_debug},
@@ -104,6 +125,7 @@ void sys_modules_init(void)
 	devices_register_and_init();
 
 	for (i = 0; i < sys_modules_context.modules_count; i++) {
+		sys_module_debug_init(sys_modules_context.modules[i]);
 		if (sys_modules_context.modules[i]->commands.hooks)	{
 #ifdef HAVE_SYS_WEBSERVER
 			ret = webserv_add_commands(sys_modules_context.modules[i]->name,
