@@ -236,9 +236,9 @@ static int cfgs_list_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void *
 	for (i = 0; i < wctx->count; i++) {
 		snprintf(wctx->buff, BUFF_SIZE, "%s/%s", CFG_DIR, wctx->cfg_params[i]->name);
 		fd = pico_open(wctx->buff, LFS_O_RDONLY);
-		hlog_info(CFGS_MODULE, "\t%s%s",
-				  wctx->cfg_params[i]->name,
-				  fd >= 0 ? " (has local config)" : "");
+		hlog_info(CFGS_MODULE, "\t [%c] %s",
+				  fd >= 0 ? '*' : ' ',
+				  wctx->cfg_params[i]->name);
 		if (fd >= 0)
 			pico_close(fd);
 	}
