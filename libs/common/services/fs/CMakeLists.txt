@@ -1,5 +1,5 @@
 add_compile_definitions(HAVE_SYS_FS=1)
-add_compile_definitions(FS_SIZE=65536) #  64K File System size
+add_compile_definitions(FS_SIZE=131072) #  128K File System size
 
 target_sources(${lib_name} INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/fs.c
