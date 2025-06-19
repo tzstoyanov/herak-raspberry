@@ -58,17 +58,18 @@ static bool sys_cfgs_init(struct cfgs_context_t **ctx)
 {
 	int fd;
 
+	if (!fs_is_mounted())
+		return false;
+
 	(*ctx) = (struct cfgs_context_t *)calloc(1, sizeof(struct cfgs_context_t));
 	if (!(*ctx))
 		return false;
 
-	if (fs_is_mounted()) {
-		fd = pico_dir_open(CFG_DIR);
-		if (fd < 0)
-			pico_mkdir(CFG_DIR);
-		else
-			pico_dir_close(fd);
-	}
+	fd = pico_dir_open(CFG_DIR);
+	if (fd < 0)
+		pico_mkdir(CFG_DIR);
+	else
+		pico_dir_close(fd);
 
 	__cfgs_context = *ctx;
 
