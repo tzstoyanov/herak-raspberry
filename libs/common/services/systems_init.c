@@ -56,4 +56,8 @@ void systems_register_and_init(void)
 #ifdef HAVE_SYS_WEBHOOK
 	SYS_REGISTER(sys_webhook_register);
 #endif /* HAVE_SYS_WEBHOOK */
+
+#ifdef HAVE_SYS_TFTP_SERVER
+	SYS_REGISTER(sys_tftp_srv_register);
+#endif /* HAVE_SYS_SCRIPTS */
 }

@@ -7,6 +7,7 @@
 - [Logs](log/README.md)
 - [MQTT client](mqtt/README.md)
 - [HTTP server](webserver/README.md)
+- [TFTP server](tftp_srv/README.md)
 - [Webhooks](webhook/README.md)
 - [Commands](syscmd/README.md)
 
