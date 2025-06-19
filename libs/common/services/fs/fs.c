@@ -139,6 +139,36 @@ static int fs_format(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 	return 0;
 }
 
+static int fs_rm_path(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	struct fs_context_t *wctx = (struct fs_context_t *)user_data;
+	char *path, *rest;
+	int ret;
+
+	UNUSED(cmd);
+	UNUSED(user_data);
+
+	if (ctx->type == CMD_CTX_WEB)
+		debug_log_forward(ctx->context.web.client_idx);
+
+	if (!params || params[0] != ':' || strlen(params) < 2) {
+		hlog_info(FS_MODULE, "\tInvalid path parameter ...");
+		goto out;
+	} else {
+		path = strtok_r(params, ":", &rest);
+	}
+	ret = pico_remove(path);
+	if (ret < 0)
+		hlog_info(FS_MODULE, "\tDeletion of [%s] failed with [%s]", path, fs_get_err_msg(ret));
+
+	if (IS_DEBUG(wctx))
+		hlog_info(FS_MODULE, "\tDeleting [%s]: [%s]", path, fs_get_err_msg(ret));
+out:
+	if (ctx->type == CMD_CTX_WEB)
+		debug_log_forward(-1);
+	return 0;
+}
+
 static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	char *path = NULL, *rest = params;
@@ -255,7 +285,8 @@ static app_command_t fs_cmd_requests[] = {
 #ifdef HAVE_CAT_COMMAND
 	{"cat", ":<path> - full path to a file", fs_cat_file},
 #endif /* HAVE_CAT_COMMAND */
-	{"ls", ":[<path>] - optional, full path to a directory", fs_ls_dir}
+	{"ls", ":[<path>] - optional, full path to a directory", fs_ls_dir},
+	{"rm", ":<path> - delete file or directory (the directory must be empty)", fs_rm_path}
 };
 
 void sys_fs_register(void)
