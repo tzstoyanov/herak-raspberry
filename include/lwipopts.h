@@ -8,7 +8,7 @@
 #define LWIP_SOCKET					0
 #define LWIP_TIMERS 				1
 
-#define MEMP_NUM_SYS_TIMEOUT	(LWIP_NUM_SYS_TIMEOUT_INTERNAL + 5)
+#define MEMP_NUM_SYS_TIMEOUT	(LWIP_NUM_SYS_TIMEOUT_INTERNAL + 6)
 #define MQTT_REQ_MAX_IN_FLIGHT	(5) /* maximum of subscribe requests */
 
 #if PICO_CYW43_ARCH_POLL

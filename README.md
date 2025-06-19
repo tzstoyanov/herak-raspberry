@@ -14,6 +14,7 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - [Logs](libs/common/services/log/README.md)
 - [MQTT client](libs/common/services/mqtt/README.md)
 - [HTTP server](libs/common/services/webserver/README.md)
+- [TFTP Server](libs/common/services/tftp_srv/README.md)
 - [Webhooks](libs/common/services/webhook/README.md)
 - [Commands](libs/common/services/syscmd/README.md)
 - [Persistent user configuration](libs/common/services/cfg_store/README.md)
