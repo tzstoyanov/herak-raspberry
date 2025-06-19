@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 bool fs_is_mounted(void);
+char *fs_get_err_msg(int err);
 
 #ifdef __cplusplus
 }

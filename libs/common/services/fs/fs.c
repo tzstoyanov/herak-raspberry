@@ -18,6 +18,46 @@
 
 #define FS_MODULE	"fs"
 
+#define IS_DEBUG(C)	((C) && (C)->debug)
+
+
+static __in_flash() struct {
+	enum lfs_error err;
+	char *desc;
+} fs_error_msg[] = {
+	{ LFS_ERR_OK, "ok" },
+	{ LFS_ERR_IO, " Error during device operation" },
+	{ LFS_ERR_CORRUPT, "Corrupted" },
+	{ LFS_ERR_NOENT, "No directory entry" },
+	{ LFS_ERR_EXIST, "Entry already exists" },
+	{ LFS_ERR_NOTDIR, "Entry is not a dir" },
+	{ LFS_ERR_ISDIR, "Entry is a dir" },
+	{ LFS_ERR_NOTEMPTY, "Dir is not empty" },
+	{ LFS_ERR_BADF, "Bad file number" },
+	{ LFS_ERR_FBIG, "File too large" },
+	{ LFS_ERR_INVAL, "Invalid parameter" },
+	{ LFS_ERR_NOSPC, "No space left on device" },
+	{ LFS_ERR_NOMEM, "No more memory available" },
+	{ LFS_ERR_NOATTR, "No data/attr available" },
+	{ LFS_ERR_NAMETOOLONG, "File name too long" }
+};
+
+#define FS_UKNOWN_STR	32
+char *fs_get_err_msg(int err)
+{
+	int err_count = ARRAY_SIZE(fs_error_msg);
+	static char unkown[FS_UKNOWN_STR];
+	int i;
+
+	for (i = 0; i < err_count; i++) {
+		if (err == fs_error_msg[i].err)
+			return fs_error_msg[i].desc;
+	}
+
+	snprintf(unkown, FS_UKNOWN_STR, "error %d", err);
+	return unkown;
+}
+
 struct fs_context_t {
 	sys_module_t mod;
 	uint32_t debug;
@@ -80,13 +120,15 @@ static int fs_format(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 
 	UNUSED(cmd);
 	UNUSED(params);
-	UNUSED(wctx);
 
 	WEB_CLIENT_REPLY(ctx, "Formatting file system ...");
 
 	ret = pico_unmount();
 	if (!ret)
 		ret = pico_mount(true);
+
+	if (IS_DEBUG(wctx))
+		hlog_info(FS_MODULE, "\tFormatted new FS: [%s]", fs_get_err_msg(ret));
 
 	if (ret < 0) {
 		WEB_CLIENT_REPLY(ctx, "fail\r\n");
@@ -121,8 +163,9 @@ static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 		goto out;
 	}
 
-	if (pico_fsstat(&stat) < 0) {
-		hlog_info(FS_MODULE, "\tFailed to read file system status");
+	ret = pico_fsstat(&stat);
+	if (ret < 0) {
+		hlog_info(FS_MODULE, "\tFailed to read file system status: %s");
 		goto out;
 	}
 
@@ -138,7 +181,7 @@ static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 		if (ret == 0)
 			break;
 		if (ret < 0) {
-			hlog_info(FS_MODULE, "\tFailed to read the directory: %d", ret);
+			hlog_info(FS_MODULE, "\tFailed to read the directory: [%s]", fs_get_err_msg(ret));
 			break;
 		}
 		hlog_info(FS_MODULE, "\t\t[%s] %d\t%s",
