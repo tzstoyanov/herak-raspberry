@@ -6,12 +6,21 @@
 #ifndef _LIB_SYS_FS_API_H_
 #define _LIB_SYS_FS_API_H_
 
+#include "pico_hal.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 bool fs_is_mounted(void);
 char *fs_get_err_msg(int err);
+int fs_get_files_count(char *dir_path);
+
+int fs_open(char *path, enum lfs_open_flags flags);
+void fs_close(int fd);
+int fs_gets(int fd, char *buff, int buff_size);
+int fs_read(int fd, char *buff, int buff_size);
+int fs_write(int fd, char *buff, int buff_size);
 
 #ifdef __cplusplus
 }
