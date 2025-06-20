@@ -15,8 +15,7 @@
 #include "base64.h"
 #include "params.h"
 
-#define TFTP_SRV_MODULE "tftp"
-#define MAX_OPENED_FILES	5
+#define TFTP_SRV_MODULE		"tftp"
 #define MAX_FILE_PATH		LFS_NAME_MAX
 
 #define IS_DEBUG(C)	((C) && (C)->debug)
@@ -24,7 +23,6 @@
 struct tftp_srv_context_t {
 	sys_module_t mod;
 	uint32_t debug;
-	int files[MAX_OPENED_FILES];
 };
 
 static struct tftp_srv_context_t *__tftp_srv_context;
@@ -37,14 +35,9 @@ static struct tftp_srv_context_t *tftp_srv_context_get(void)
 static bool sys_tftp_srv_log_status(void *context)
 {
 	struct tftp_srv_context_t *ctx = (struct tftp_srv_context_t *)context;
-	int i, cnt = 0;
 
-	for (i = 0; i < MAX_OPENED_FILES; i++)
-		if (ctx->files[i] >= 0)
-			cnt++;
-
-	hlog_info(TFTP_SRV_MODULE, "TFTP Server is running at port %d, opened files %d",
-			  TFTP_PORT, cnt);
+	UNUSED(ctx);
+	hlog_info(TFTP_SRV_MODULE, "TFTP Server is running at port %d", TFTP_PORT);
 
 	return true;
 }
@@ -70,7 +63,7 @@ static int tftp_dirs_create(struct tftp_srv_context_t *ctx, const char *fname)
 		if (fname[i] == '/') {
 			ret = pico_mkdir(fcreate);
 			if (IS_DEBUG(ctx))
-				hlog_warning(TFTP_SRV_MODULE, "Create directory [%s]: %d", fcreate, ret);
+				hlog_warning(TFTP_SRV_MODULE, "Create directory [%s]: %s", fcreate, fs_get_err_msg(ret));
 			if (ret && ret != LFS_ERR_EXIST)
 				return -1;
 		}
@@ -83,62 +76,34 @@ static int tftp_dirs_create(struct tftp_srv_context_t *ctx, const char *fname)
 static void *tftp_open(const char *fname, const char *mode, u8_t is_write)
 {
 	struct tftp_srv_context_t *ctx = tftp_srv_context_get();
-	int i;
+	int fd;
 
 	UNUSED(mode);
-
-	if (!ctx || !fname || strlen(fname) >= MAX_FILE_PATH)
-		return NULL;
-
-	for (i = 0; i < MAX_OPENED_FILES; i++)
-		if (ctx->files[i] < 0)
-			break;
-	if (i >= MAX_OPENED_FILES) {
-		if (IS_DEBUG(ctx))
-			hlog_warning(TFTP_SRV_MODULE, "Failed to open [%s]: too many opened files", fname);
-		return NULL;
-	}
-
 	if (is_write) {
 		if (tftp_dirs_create(ctx, fname)) {
 			if (IS_DEBUG(ctx))
 				hlog_warning(TFTP_SRV_MODULE, "Failed to create directories for [%s]", fname);
 			return NULL;
 		}
-		ctx->files[i] = pico_open(fname, LFS_O_WRONLY|LFS_O_TRUNC|LFS_O_CREAT);
+		fd = fs_open((char *)fname, LFS_O_WRONLY|LFS_O_TRUNC|LFS_O_CREAT);
 	} else {
-		ctx->files[i] = pico_open(fname, LFS_O_RDONLY);
+		fd = fs_open((char *)fname, LFS_O_RDONLY);
 	}
-	if (ctx->files[i] < 0) {
+	if (fd < 0) {
 		if (IS_DEBUG(ctx))
-			hlog_warning(TFTP_SRV_MODULE, "Failed to open [%s]: error %d", fname, ctx->files[i]);
+			hlog_warning(TFTP_SRV_MODULE, "Failed to open [%s]", fname);
 		return NULL;
 	}
 	if (IS_DEBUG(ctx))
 		hlog_info(TFTP_SRV_MODULE, "Opened [%s] for %s: fd %d",
-				  fname, is_write ? "writing" : "reading", ctx->files[i]);
-	return (void *)ctx->files[i];
-}
-
-static int tftp_get_fd(void *handle)
-{
-	struct tftp_srv_context_t *ctx = tftp_srv_context_get();
-	int fd = (int) handle;
-	int i;
-
-	if (!ctx || fd < 0)
-		return -1;
-	for (i = 0; i < MAX_OPENED_FILES; i++)
-		if (ctx->files[i] == fd)
-			return fd;
-	return -1;
+				  fname, is_write ? "writing" : "reading", fd);
+	return (void *)fd;
 }
 
 static void tftp_close(void *handle)
 {
 	struct tftp_srv_context_t *ctx = tftp_srv_context_get();
-	int fd = tftp_get_fd(handle);
-	int i;
+	int fd = (int)handle;
 
 	if (!ctx || fd < 0) {
 		if (IS_DEBUG(ctx))
@@ -146,38 +111,16 @@ static void tftp_close(void *handle)
 		return;
 	}
 
-	pico_close(fd);
+	fs_close(fd);
 
 	if (IS_DEBUG(ctx))
 		hlog_info(TFTP_SRV_MODULE, "Closing fd %d", fd);
-
-
-	for (i = 0; i < MAX_OPENED_FILES; i++) {
-		if (ctx->files[i] == fd) {
-			ctx->files[i] = -1;
-			break;
-		}
-	}
-}
-
-static void tftp_close_all(struct tftp_srv_context_t *ctx)
-{
-	int i;
-
-	for (i = 0; i < MAX_OPENED_FILES; i++) {
-		if (ctx->files[i] >= 0) {
-			pico_close(ctx->files[i]);
-			if (IS_DEBUG(ctx))
-				hlog_info(TFTP_SRV_MODULE, "Closing fd %d", ctx->files[i]);
-			ctx->files[i] = -1;
-		}
-	}
 }
 
 static int tftp_read(void *handle, void *buf, int bytes)
 {
 	struct tftp_srv_context_t *ctx = tftp_srv_context_get();
-	int fd = tftp_get_fd(handle);
+	int fd = (int)handle;
 	int ret;
 
 	if (fd < 0) {
@@ -186,9 +129,12 @@ static int tftp_read(void *handle, void *buf, int bytes)
 		return -1;
 	}
 
-	ret = pico_read(fd, buf, bytes);
-	if (ret <= 0)
+	ret = fs_read(fd, buf, bytes);
+	if (ret <= 0) {
+		if (IS_DEBUG(ctx))
+			hlog_warning(TFTP_SRV_MODULE, "Failed to read file: %d", ret);
 		return -1;
+	}
 
 	if (IS_DEBUG(ctx))
 		hlog_info(TFTP_SRV_MODULE, "Read %d bytes from fd %d", ret, fd);
@@ -199,7 +145,7 @@ static int tftp_read(void *handle, void *buf, int bytes)
 static int tftp_write(void *handle, struct pbuf *p)
 {
 	struct tftp_srv_context_t *ctx = tftp_srv_context_get();
-	int fd = tftp_get_fd(handle);
+	int fd = (int)handle;
 	int ret, bytes = 0;
 
 	if (fd < 0) {
@@ -209,7 +155,7 @@ static int tftp_write(void *handle, struct pbuf *p)
 	}
 
 	while (p != NULL) {
-		ret = pico_write(fd, p->payload, p->len);
+		ret = fs_write(fd, p->payload, p->len);
 		if (ret != p->len) {
 			if (IS_DEBUG(ctx))
 				hlog_warning(TFTP_SRV_MODULE, "Failed to write file, error %d", ret);
@@ -230,20 +176,11 @@ static void tftp_error(void *handle, int err, const char *msg, int size)
 {
 	struct tftp_srv_context_t *ctx = tftp_srv_context_get();
 	int fd = (int) handle;
-	int i;
 
 	if (!ctx)
 		return;
 
-	if (fd >= 0) {
-		for (i = 0; i < MAX_OPENED_FILES; i++) {
-			if (ctx->files[i] == fd) {
-				pico_close(ctx->files[i]);
-				ctx->files[i] = -1;
-				break;
-			}
-		}
-	}
+	fs_close(fd);
 
 	if (IS_DEBUG(ctx)) {
 		char message[MAX_MSG] = {0};
@@ -264,7 +201,6 @@ static bool sys_tftp_srv_init(struct tftp_srv_context_t **ctx)
 		tftp_write,
 		tftp_error
 	};
-	int i;
 
 	if (!fs_is_mounted())
 		return false;
@@ -274,8 +210,6 @@ static bool sys_tftp_srv_init(struct tftp_srv_context_t **ctx)
 		return false;
 	if (tftp_init_server(&tftp_hooks) != ERR_OK)
 		goto out_err;
-	for (i = 0; i < MAX_OPENED_FILES; i++)
-		(*ctx)->files[i] = -1;
 	__tftp_srv_context = *ctx;
 
 	return true;
@@ -284,22 +218,6 @@ out_err:
 	(*ctx) = NULL;
 	return false;
 }
-
-static int tftp_srv_close_all_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
-{
-	struct tftp_srv_context_t *wctx = (struct tftp_srv_context_t *)user_data;
-
-	UNUSED(cmd);
-	UNUSED(params);
-
-	WEB_CLIENT_REPLY(ctx, "Close all opened files\r\n");
-	tftp_close_all(wctx);
-	return 0;
-}
-
-static app_command_t tftp_srv_cmd_requests[] = {
-	{"close_all", " - close all opened files", tftp_srv_close_all_cmd},
-};
 
 void sys_tftp_srv_register(void)
 {
@@ -311,8 +229,6 @@ void sys_tftp_srv_register(void)
 	ctx->mod.name = TFTP_SRV_MODULE;
 	ctx->mod.log = sys_tftp_srv_log_status;
 	ctx->mod.debug = sys_tftp_srv_debug_set;
-	ctx->mod.commands.hooks = tftp_srv_cmd_requests;
-	ctx->mod.commands.count = ARRAY_SIZE(tftp_srv_cmd_requests);
 	ctx->mod.commands.description = "TFTP Server";
 	ctx->mod.context = ctx;
 	sys_module_register(&ctx->mod);
