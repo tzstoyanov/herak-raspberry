@@ -20,7 +20,7 @@
 #define ONEWIRE_MODULE "one_wire"
 #define ONEWIRE_SENORS_MAX	3
 #define ONEWIRE_LINES_MAX	10
-#define MQTT_DATA_LEN		64
+#define MQTT_DATA_LEN		128
 #define MQTT_DELAY_MS		5000
 #define READ_INTERVAL_MS	1000
 
@@ -132,7 +132,7 @@ static bool one_wire_log(void *context)
 
 	hlog_info(ONEWIRE_MODULE, "Detected One-Wire sensors:");
 	for (i = 0; i < ctx->count; i++)
-		for (j = 0; i < ctx->lines[i]->count; j++)
+		for (j = 0; j < ctx->lines[i]->count; j++)
 			hlog_info(ONEWIRE_MODULE, "\tId[0x%llX] on GPIO %d: %3.2f°C, errors %d",
 					  ctx->lines[i]->sensors[j].address, ctx->lines[i]->pin,
 					  ctx->lines[i]->sensors[j].temperature, ctx->lines[i]->sensors[j].crc_errors);
