@@ -109,6 +109,17 @@ static bool sys_ntp_init(struct ntp_context_t **ctx)
 	return true;
 }
 
+static void sys_ntp_reconnect(void *context)
+{
+	struct ntp_context_t *ctx = (struct ntp_context_t *)context;
+
+	LWIP_LOCK_START;
+		sntp_stop();
+	LWIP_LOCK_END;
+	ctx->init = false;
+	ctx->time_synched = false;
+}
+
 static void sys_ntp_connect(void *context)
 {
 	struct ntp_context_t *ctx = (struct ntp_context_t *)context;
@@ -171,13 +182,23 @@ static void sys_ntp_debug_set(uint32_t lvl, void *context)
 static bool sys_ntp_log_status(void *context)
 {
 	struct ntp_context_t  *ctx = (struct ntp_context_t *)context;
+	ip_addr_t *addr;
+	char *name;
 	int i;
 
-	hlog_info(NTP_MODULE, "Synchronize time from:");
+	if (sntp_enabled())
+		hlog_info(NTP_MODULE, "Enabled in %s mode, servers:",
+			  sntp_getoperatingmode() == 0 ? "poll" : "listen only");
+	else
+		hlog_info(NTP_MODULE, "Disabled, servers:");
 	for (i = 0; i < SNTP_MAX_SERVERS; i++) {
-		if (!ctx->ntp_servers[i])
-			break;
-		hlog_info(NTP_MODULE, "\t%s", ctx->ntp_servers[i]);
+		name = sntp_getservername(i);
+		if (!name)
+			continue;
+		addr = sntp_getserver(i);
+		hlog_info(NTP_MODULE, "\t%s (%d.%d.%d.%d), reachability 0x%X",
+				  name, ip4_addr1(addr), ip4_addr2(addr),
+				  ip4_addr3(addr), ip4_addr4(addr), sntp_getreachability(i));
 	}
 
 	return true;
@@ -192,6 +213,7 @@ void sys_ntp_register(void)
 
 	ctx->mod.name = NTP_MODULE;
 	ctx->mod.run = sys_ntp_connect;
+	ctx->mod.reconnect = sys_ntp_reconnect;
 	ctx->mod.log = sys_ntp_log_status;
 	ctx->mod.debug = sys_ntp_debug_set;
 	ctx->mod.context = ctx;
