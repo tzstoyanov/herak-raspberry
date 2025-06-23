@@ -24,6 +24,7 @@
 #else
 #define MEM_SIZE				8192
 #endif
+#define MEMP_NUM_UDP_PCB            16
 #define MEMP_NUM_TCP_SEG			32
 #define MEMP_NUM_ARP_QUEUE			5
 #define PBUF_POOL_SIZE				32
@@ -62,20 +63,16 @@
 #define LWIP_CALLBACK_API			1
 #define LWIP_ALTCP				1
 #define LWIP_ALTCP_TLS				0
-#define DNS_TABLE_SIZE				6
+#define DNS_TABLE_SIZE				10
 #define LWIP_TCP_KEEPALIVE			1
 #define LWIP_NETIF_TX_SINGLE_PBUF	1
 #define DHCP_DOES_ARP_CHECK			0
 #define LWIP_DHCP_DOES_ACD_CHECK	0
 
 #define LWIP_NOASSERT				0
-//#ifndef NDEBUG
 #define LWIP_DEBUG					1
 #define LWIP_STATS					1
 #define LWIP_STATS_DISPLAY			1
-//#define DNS_DEBUG					LWIP_DBG_TYPES_ON
-//#define MQTT_DEBUG				LWIP_DBG_TYPES_ON
-//#endif
 
 /*
 void hlog_any(int severity, const char *topic, const char *fmt, ...);
@@ -113,11 +110,16 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...);
 #define PPP_DEBUG					LWIP_DBG_OFF
 #define SLIP_DEBUG					LWIP_DBG_OFF
 #define DHCP_DEBUG					LWIP_DBG_OFF
+#define MQTT_DEBUG				    LWIP_DBG_OFF
+#define DNS_DEBUG					LWIP_DBG_OFF
+#define SNTP_DEBUG                  LWIP_DBG_OFF
 
-#define LWIP_DHCP_MAX_NTP_SERVERS			2
+
+#define LWIP_DHCP_MAX_NTP_SERVERS			3
 #define SNTP_SERVER_DNS						1
+#define SNTP_SUPPORT_MULTIPLE_SERVERS       1
 #define SNTP_MONITOR_SERVER_REACHABILITY	1
-#define SNTP_SET_SYSTEM_TIME		herak_set_system_time
+#define SNTP_SET_SYSTEM_TIME                herak_set_system_time
 
 #ifdef __cplusplus
 extern "C" {
