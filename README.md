@@ -51,7 +51,7 @@ Minimal application - only the system main loop. Uses the system modules defined
 ### Get the code
 The project uses sub-modules, so clone the repo with all sub-modules:
 ```
-git clone --recurse-submodules https://github.com/tzstoyanov/herak-raspberry
+git clone --recurse-submodules  https://github.com/tzstoyanov/herak-raspberry.git
 ```
 Apply all mandatory patches, which are not yet released upstream. Run in the top directory:
 ```
