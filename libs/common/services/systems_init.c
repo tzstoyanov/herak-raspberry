@@ -65,4 +65,8 @@ void systems_register_and_init(void)
 	SYS_REGISTER(sys_commands_register);
 #endif /* HAVE_SYS_SCRIPTS */
 
+#ifdef HAVE_SYS_SCRIPTS
+	SYS_REGISTER(sys_scripts_register);
+#endif /* HAVE_SYS_SCRIPTS */
+
 }

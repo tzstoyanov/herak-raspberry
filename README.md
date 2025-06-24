@@ -19,6 +19,7 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - [Commands engine](libs/common/services/commands/README.md)
 - [System Commands](libs/common/services/syscmd/README.md)
 - [Persistent user configuration](libs/common/services/cfg_store/README.md)
+- [Scripts](libs/common/services/scripts/README.md)
 - Watchdog
 
 ### Devices and Sensors:
