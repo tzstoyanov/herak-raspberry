@@ -96,7 +96,7 @@ static void *tftp_open(const char *fname, const char *mode, u8_t is_write)
 	if (IS_DEBUG(ctx))
 		hlog_info(TFTP_SRV_MODULE, "Opened [%s] for %s: fd %d",
 				  fname, is_write ? "writing" : "reading", fd);
-	return (void *)fd;
+	return (void *)(fd + 1);
 }
 
 static void tftp_close(void *handle)
@@ -104,13 +104,13 @@ static void tftp_close(void *handle)
 	struct tftp_srv_context_t *ctx = tftp_srv_context_get();
 	int fd = (int)handle;
 
-	if (!ctx || fd < 0) {
+	if (!ctx || fd < 1) {
 		if (IS_DEBUG(ctx))
 			hlog_warning(TFTP_SRV_MODULE, "Failed to close file, invalid fd %d", fd);
 		return;
 	}
 
-	fs_close(fd);
+	fs_close(fd - 1);
 
 	if (IS_DEBUG(ctx))
 		hlog_info(TFTP_SRV_MODULE, "Closing fd %d", fd);
@@ -122,13 +122,13 @@ static int tftp_read(void *handle, void *buf, int bytes)
 	int fd = (int)handle;
 	int ret;
 
-	if (fd < 0) {
+	if (fd < 1) {
 		if (IS_DEBUG(ctx))
 			hlog_warning(TFTP_SRV_MODULE, "Failed to read file, invalid fd %d", fd);
 		return -1;
 	}
 
-	ret = fs_read(fd, buf, bytes);
+	ret = fs_read(fd - 1, buf, bytes);
 	if (ret <= 0) {
 		if (IS_DEBUG(ctx))
 			hlog_warning(TFTP_SRV_MODULE, "Failed to read file: %d", ret);
@@ -147,14 +147,14 @@ static int tftp_write(void *handle, struct pbuf *p)
 	int fd = (int)handle;
 	int ret, bytes = 0;
 
-	if (fd < 0) {
+	if (fd < 1) {
 		if (IS_DEBUG(ctx))
 			hlog_warning(TFTP_SRV_MODULE, "Failed to write file, invalid fd %d", fd);
 		return -1;
 	}
 
 	while (p != NULL) {
-		ret = fs_write(fd, p->payload, p->len);
+		ret = fs_write(fd - 1, p->payload, p->len);
 		if (ret != p->len) {
 			if (IS_DEBUG(ctx))
 				hlog_warning(TFTP_SRV_MODULE, "Failed to write file, error %d", ret);
@@ -178,8 +178,8 @@ static void tftp_error(void *handle, int err, const char *msg, int size)
 
 	if (!ctx)
 		return;
-
-	fs_close(fd);
+	if (fd > 0)
+		fs_close(fd - 1);
 
 	if (IS_DEBUG(ctx)) {
 		char message[MAX_MSG] = {0};
