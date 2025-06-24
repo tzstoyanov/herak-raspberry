@@ -182,9 +182,11 @@ static void sys_ntp_debug_set(uint32_t lvl, void *context)
 static bool sys_ntp_log_status(void *context)
 {
 	struct ntp_context_t  *ctx = (struct ntp_context_t *)context;
-	ip_addr_t *addr;
-	char *name;
+	const ip_addr_t *addr;
+	const char *name;
 	int i;
+
+	UNUSED(ctx);
 
 	if (sntp_enabled())
 		hlog_info(NTP_MODULE, "Enabled in %s mode, servers:",
