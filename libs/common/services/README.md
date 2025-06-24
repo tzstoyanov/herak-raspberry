@@ -11,4 +11,5 @@
 - [Webhooks](webhook/README.md)
 - [Commands engine](commands/README.md)
 - [System Commands](syscmd/README.md)
+- [Scripts](scripts/README.md)
 
