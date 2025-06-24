@@ -12,9 +12,11 @@
 extern "C" {
 #endif
 
+#define FS_MAX_FILE_PATH		LFS_NAME_MAX
+
 bool fs_is_mounted(void);
 char *fs_get_err_msg(int err);
-int fs_get_files_count(char *dir_path);
+int fs_get_files_count(char *dir_path, char *ext);
 
 int fs_open(char *path, enum lfs_open_flags flags);
 void fs_close(int fd);
