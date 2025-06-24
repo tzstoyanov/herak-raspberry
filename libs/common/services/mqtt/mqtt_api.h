@@ -28,11 +28,9 @@ typedef struct {
 
 /* MQTT */
 #define MQTT_DEV_QOS    2
-typedef void (*mqtt_msg_receive_cb_t)(char *topic, char *data, uint16_t len, void *context);
 int mqtt_msg_publish(char *topic, char *message, bool force);
 int mqtt_msg_component_publish(mqtt_component_t *component, char *message);
 int mqtt_msg_component_register(mqtt_component_t *component);
-int mqtt_add_commands(char *module, app_command_t *commands, int commands_cont, char *description, void *user_data);
 
 bool mqtt_is_connected(void);
 bool mqtt_is_discovery_sent(void);

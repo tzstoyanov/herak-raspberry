@@ -9,5 +9,6 @@
 - [HTTP server](webserver/README.md)
 - [TFTP server](tftp_srv/README.md)
 - [Webhooks](webhook/README.md)
-- [Commands](syscmd/README.md)
+- [Commands engine](commands/README.md)
+- [System Commands](syscmd/README.md)
 

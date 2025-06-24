@@ -10,11 +10,28 @@
 extern "C" {
 #endif
 
+typedef struct {
+	int client_idx;
+	bool keep_open;
+	bool keep_silent;
+	int hret;
+} run_context_web_t;
+
+#define	WEBCTX_GET_CLIENT(C)	(((C)->type == CMD_CTX_WEB) ? (((run_context_web_t *)(C)->context)->client_idx) : -1)
+#define	WEBCTX_SET_KEEP_OPEN(C, V)	\
+	do { \
+		if (((C)->type == CMD_CTX_WEB)) ((run_context_web_t *)(C)->context)->keep_open = (V);\
+	} while (0)
+#define	WEBCTX_SET_KEEP_SILENT(C, V)	\
+	do { \
+		if (((C)->type == CMD_CTX_WEB)) ((run_context_web_t *)(C)->context)->keep_silent = (V);\
+	} while (0)
+
 // C - cmd_run_context_t; S - log string
 #ifdef HAVE_SYS_WEBSERVER
 #define WEB_CLIENT_REPLY(C, S)\
 	do {if ((C)->type == CMD_CTX_WEB) {\
-		webserv_client_send_data((C)->context.web.client_idx, (S), strlen((S)));\
+		webserv_client_send_data(((run_context_web_t *)((C)->context))->client_idx, (S), strlen((S)));\
 	}} while (0)
 #else /* HAVE_SYS_WEBSERVER */
 #define WEB_CLIENT_REPLY(C, S)  { (void)(C); (void)(S); }

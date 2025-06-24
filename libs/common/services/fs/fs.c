@@ -20,7 +20,6 @@
 #define MAX_OPENED_FILES	10
 #define IS_DEBUG(C)	((C) && (C)->debug)
 
-
 static __in_flash() struct {
 	enum lfs_error err;
 	char *desc;
@@ -155,10 +154,9 @@ static int fs_rm_path(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 	int ret;
 
 	UNUSED(cmd);
-	UNUSED(user_data);
 
 	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(ctx->context.web.client_idx);
+		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
 
 	if (!params || params[0] != ':' || strlen(params) < 2) {
 		hlog_info(FS_MODULE, "\tInvalid path parameter ...");
@@ -195,7 +193,7 @@ static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 		path = strtok_r(rest, ":", &rest);
 
 	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(ctx->context.web.client_idx);
+		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
 
 	if (!path) {
 		hlog_info(FS_MODULE, "\tInvalid path parameter ...");
@@ -262,7 +260,7 @@ static int fs_cat_file(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	UNUSED(user_data);
 
 	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(ctx->context.web.client_idx);
+		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
 
 	if (!params || params[0] != ':' || strlen(params) < 2) {
 		hlog_info(FS_MODULE, "\tInvalid path parameter ...");

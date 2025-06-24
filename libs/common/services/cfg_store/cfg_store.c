@@ -231,7 +231,7 @@ static int cfgs_list_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void *
 	UNUSED(params);
 
 	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(ctx->context.web.client_idx);
+		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
 
 	hlog_info(CFGS_MODULE, "Supported config parameters:");
 	for (i = 0; i < wctx->count; i++) {

@@ -71,10 +71,10 @@ static int cmd_module_status(cmd_run_context_t *ctx, char *cmd, char *params, vo
 
 	if (ctx->type == CMD_CTX_WEB) {
 #ifdef HAVE_SYS_WEBSERVER
-		webserv_client_send_data(ctx->context.web.client_idx, STATUS_STR, strlen(STATUS_STR));
+		webserv_client_send_data(WEBCTX_GET_CLIENT(ctx), STATUS_STR, strlen(STATUS_STR));
 #endif /* HAVE_SYS_WEBSERVER */
 #ifdef HAVE_SYS_COMMANDS
-		debug_log_forward(ctx->context.web.client_idx);
+		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
 #endif /* HAVE_SYS_COMMANDS */
 	}
 
@@ -112,8 +112,8 @@ static void sys_module_debug_init(sys_module_t *module)
 
 #define CMD_COMMON_DESC "Common module commands"
 static app_command_t module_common_requests[] = {
-		{"debug", ":<debug_flags>", cmd_module_debug},
-		{"status", NULL, cmd_module_status},
+		{"debug", ":<debug_flags> - set module debug flags", cmd_module_debug},
+		{"status", " - report module status", cmd_module_status},
 };
 
 void sys_modules_init(void)
@@ -127,6 +127,14 @@ void sys_modules_init(void)
 	for (i = 0; i < sys_modules_context.modules_count; i++) {
 		sys_module_debug_init(sys_modules_context.modules[i]);
 		if (sys_modules_context.modules[i]->commands.hooks)	{
+#ifdef HAVE_COMMANDS
+		ret = cmd_handler_add(sys_modules_context.modules[i]->name,
+					 sys_modules_context.modules[i]->commands.hooks, sys_modules_context.modules[i]->commands.count,
+					 sys_modules_context.modules[i]->commands.description, sys_modules_context.modules[i]->context);
+			if (ret < 0)
+				hlog_warning(SYSMODLOG, "Failed to register commands for module %s",
+							 sys_modules_context.modules[i]->name);					 
+#endif /* HAVE_COMMANDS */
 #ifdef HAVE_SYS_WEBSERVER
 			ret = webserv_add_commands(sys_modules_context.modules[i]->name,
 					 sys_modules_context.modules[i]->commands.hooks, sys_modules_context.modules[i]->commands.count,
@@ -135,17 +143,16 @@ void sys_modules_init(void)
 				hlog_warning(SYSMODLOG, "WEB Failed to register commands for module %s",
 							 sys_modules_context.modules[i]->name);
 #endif /* HAVE_SYS_WEBSERVER */
-
-#ifdef HAVE_SYS_MQTT
-			ret = mqtt_add_commands(sys_modules_context.modules[i]->name,
-					  sys_modules_context.modules[i]->commands.hooks, sys_modules_context.modules[i]->commands.count,
-					  sys_modules_context.modules[i]->commands.description, sys_modules_context.modules[i]->context);
-			if (ret < 0)
-				hlog_warning(SYSMODLOG, "MQTT Failed to register commands for module %s",
-							 sys_modules_context.modules[i]->name);
-#endif /* HAVE_SYS_MQTT */
 		}
 		if (sys_modules_context.modules[i]->log || sys_modules_context.modules[i]->debug) {
+#ifdef HAVE_COMMANDS
+			ret = cmd_handler_add(sys_modules_context.modules[i]->name,
+					 module_common_requests, ARRAY_SIZE(module_common_requests),
+					 CMD_COMMON_DESC, sys_modules_context.modules[i]);
+			if (ret < 0)
+				hlog_warning(SYSMODLOG, "Failed to register common commands for module %s",
+							 sys_modules_context.modules[i]->name);
+#endif /* HAVE_COMMANDS */			
 #ifdef HAVE_SYS_WEBSERVER
 			ret = webserv_add_commands(sys_modules_context.modules[i]->name,
 					 module_common_requests, ARRAY_SIZE(module_common_requests),
@@ -154,16 +161,7 @@ void sys_modules_init(void)
 				hlog_warning(SYSMODLOG, "WEB Failed to register common commands for module %s",
 							 sys_modules_context.modules[i]->name);
 #endif /* HAVE_SYS_WEBSERVER */
-
-#ifdef HAVE_SYS_MQTT
-			ret = mqtt_add_commands(sys_modules_context.modules[i]->name,
-					  module_common_requests, ARRAY_SIZE(module_common_requests),
-					  CMD_COMMON_DESC, sys_modules_context.modules[i]);
-			if (ret < 0)
-				hlog_warning(SYSMODLOG, "MQTT Failed to register common commands for module %s",
-							 sys_modules_context.modules[i]->name);
 		}
-#endif /* HAVE_SYS_MQTT */
 		if (sys_modules_context.modules[i]->log) {
 			ret = add_status_callback(sys_modules_context.modules[i]->log, sys_modules_context.modules[i]->context);
 			if (ret < 0)

@@ -176,7 +176,7 @@ static enum http_response_id commands_handler(run_context_web_t *wctx, char *cmd
 	if (!request)
 		request = strchr(url + 1, '/');
 	r_ctx.type = CMD_CTX_WEB;
-	r_ctx.context.web.client_idx = wctx->client_idx;
+	r_ctx.context = wctx;
 	if (request) {
 		len = strlen(request);
 		if (len >= strlen(HELP_CMD) && !strncmp(request + 1, HELP_CMD, strlen(HELP_CMD))) {
@@ -184,7 +184,7 @@ static enum http_response_id commands_handler(run_context_web_t *wctx, char *cmd
 			webserv_client_send_data(wctx->client_idx, ":\n\r", strlen(":\n\r"));
 			commands_help(wctx->client_idx, handlers);
 			ret = HTTP_RESP_OK;
-			r_ctx.context.web.hret = 0;
+			wctx->hret = 0;
 			goto out;
 		}
 		for (i = 0; i < handlers->count; i++) {
@@ -197,7 +197,7 @@ static enum http_response_id commands_handler(run_context_web_t *wctx, char *cmd
 					if (*params != ':')
 						continue;
 				}
-				r_ctx.context.web.hret = handlers->commands[i].cb(&r_ctx, handlers->commands[i].command, params, handlers->user_data);
+				wctx->hret = handlers->commands[i].cb(&r_ctx, handlers->commands[i].command, params, handlers->user_data);
 				break;
 			}
 		}
@@ -205,7 +205,6 @@ static enum http_response_id commands_handler(run_context_web_t *wctx, char *cmd
 			ret = HTTP_RESP_OK;
 	}
 out:
-	memcpy(wctx, &r_ctx.context.web, sizeof(run_context_web_t));
 	return ret;
 }
 
