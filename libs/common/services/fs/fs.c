@@ -301,10 +301,11 @@ bool fs_is_mounted(void)
 	return false;
 }
 
-int fs_get_files_count(char *dir_path)
+int fs_get_files_count(char *dir_path, char *ext)
 {
 	struct fs_context_t *ctx = fs_context_get();
 	struct lfs_info linfo;
+	int slen, elen;
 	int count = 0;
 	int fd;
 
@@ -318,8 +319,18 @@ int fs_get_files_count(char *dir_path)
 	do {
 		if (pico_dir_read(fd, &linfo) <= 0)
 			break;
-		if (linfo.type == LFS_TYPE_REG)
-			count++;
+		if (linfo.type != LFS_TYPE_REG)
+			continue;
+		if (ext) {
+			slen = strlen(linfo.name);
+			elen = strlen(ext);
+			if (elen >= slen)
+				continue;
+			slen -= elen;
+			if (strncmp(linfo.name + slen, ext, elen))
+				continue;
+		}
+		count++;
 	} while (true);
 	pico_dir_close(fd);
 
@@ -412,7 +423,7 @@ static int fs_read_check(int fd, char *buff, int buff_size, char *stops, int cou
 		do {
 			ret = pico_read(ctx->open_fd[fd], &byte, 1);
 			if (ret != 1) {
-				if (ret < 0)
+				if (ret <= 0)
 					count = -1;
 				break;
 			}
@@ -420,6 +431,8 @@ static int fs_read_check(int fd, char *buff, int buff_size, char *stops, int cou
 				if (byte == stops[i])
 					break;
 			}
+			if (i < count_stops)
+				break;
 			buff[count++] = byte;
 			if (count >= buff_size)
 				break;
@@ -481,7 +494,7 @@ int fs_write(int fd, char *buff, int buff_size)
 }
 
 static app_command_t fs_cmd_requests[] = {
-	{"format", NULL, fs_format},
+	{"format", " - format the file system", fs_format},
 #ifdef HAVE_CAT_COMMAND
 	{"cat", ":<path> - full path to a file", fs_cat_file},
 #endif /* HAVE_CAT_COMMAND */

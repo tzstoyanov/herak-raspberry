@@ -16,7 +16,6 @@
 #include "params.h"
 
 #define TFTP_SRV_MODULE		"tftp"
-#define MAX_FILE_PATH		LFS_NAME_MAX
 
 #define IS_DEBUG(C)	((C) && (C)->debug)
 
@@ -51,7 +50,7 @@ static void sys_tftp_srv_debug_set(uint32_t lvl, void *context)
 
 static int tftp_dirs_create(struct tftp_srv_context_t *ctx, const char *fname)
 {
-	char fcreate[MAX_FILE_PATH] = {0};
+	char fcreate[FS_MAX_FILE_PATH] = {0};
 	int i = 0;
 	int ret;
 
@@ -59,7 +58,7 @@ static int tftp_dirs_create(struct tftp_srv_context_t *ctx, const char *fname)
 		return 0;
 	fcreate[i] = fname[i];
 	i++;
-	while (fname[i] && i < MAX_FILE_PATH) {
+	while (fname[i] && i < FS_MAX_FILE_PATH) {
 		if (fname[i] == '/') {
 			ret = pico_mkdir(fcreate);
 			if (IS_DEBUG(ctx))
