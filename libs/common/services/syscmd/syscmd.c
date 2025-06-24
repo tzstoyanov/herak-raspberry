@@ -103,8 +103,8 @@ static int sys_log_system(cmd_run_context_t *ctx, char *cmd, char *params, void 
 
 #ifdef HAVE_SYS_WEBSERVER
 	if (ctx->type == CMD_CTX_WEB) {
-		webserv_client_send_data(ctx->context.web.client_idx, LSYS_STATUS_STR, strlen(LSYS_STATUS_STR));
-		debug_log_forward(ctx->context.web.client_idx);
+		webserv_client_send_data(WEBCTX_GET_CLIENT(ctx), LSYS_STATUS_STR, strlen(LSYS_STATUS_STR));
+		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
 	}
 #endif
 
@@ -130,14 +130,14 @@ static int sys_status(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 #ifdef HAVE_SYS_WEBSERVER
 	if (ctx->type == CMD_CTX_WEB) {
 		if (wctx->client_log >= 0) {
-			webserv_client_send(ctx->context.web.client_idx, STATUS_TOO_MANY_STR,
+			webserv_client_send(WEBCTX_GET_CLIENT(ctx), STATUS_TOO_MANY_STR,
 								strlen(STATUS_TOO_MANY_STR), HTTP_RESP_TOO_MANY_ERROR);
 		} else {
-			webserv_client_send(ctx->context.web.client_idx, STATUS_STR, strlen(STATUS_STR), HTTP_RESP_OK);
-			debug_log_forward(ctx->context.web.client_idx);
-			ctx->context.web.keep_open = true;
+			webserv_client_send(WEBCTX_GET_CLIENT(ctx), STATUS_STR, strlen(STATUS_STR), HTTP_RESP_OK);
+			debug_log_forward(WEBCTX_GET_CLIENT(ctx));
+			WEBCTX_SET_KEEP_OPEN(ctx, true);
 		}
-		ctx->context.web.keep_silent = true;
+		WEBCTX_SET_KEEP_SILENT(ctx, true);
 	}
 #else
 	UNUSED(wctx);
@@ -174,18 +174,18 @@ static int sys_log_on(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 
 #ifdef HAVE_SYS_WEBSERVER
 	if (wctx->client_log >= 0) {
-		webserv_client_send(ctx->context.web.client_idx, STATUS_TOO_MANY_STR, strlen(STATUS_TOO_MANY_STR), HTTP_RESP_TOO_MANY_ERROR);
-		ctx->context.web.keep_open = true;
+		webserv_client_send(WEBCTX_GET_CLIENT(ctx), STATUS_TOO_MANY_STR, strlen(STATUS_TOO_MANY_STR), HTTP_RESP_TOO_MANY_ERROR);
+		WEBCTX_SET_KEEP_OPEN(ctx, true);
 		return 0;
 	}
-	webserv_client_send(ctx->context.web.client_idx, LOGON_STR, strlen(LOGON_STR), HTTP_RESP_OK);
+	webserv_client_send(WEBCTX_GET_CLIENT(ctx), LOGON_STR, strlen(LOGON_STR), HTTP_RESP_OK);
 #else
 	UNUSED(wctx);
 #endif /* HAVE_SYS_WEBSERVER */
 
-	ctx->context.web.keep_silent = true;
-	ctx->context.web.keep_open = true;
-	debug_log_forward(ctx->context.web.client_idx);
+	WEBCTX_SET_KEEP_SILENT(ctx, true);
+	WEBCTX_SET_KEEP_OPEN(ctx, true);
+	debug_log_forward(WEBCTX_GET_CLIENT(ctx));
 	return 0;
 }
 
@@ -200,7 +200,7 @@ static int sys_log_off(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 
 #ifdef HAVE_SYS_WEBSERVER
 	if (ctx->type == CMD_CTX_WEB &&
-		wctx->client_log != ctx->context.web.client_idx)
+		wctx->client_log != WEBCTX_GET_CLIENT(ctx))
 		webserv_client_close(wctx->client_log);
 #else
 	UNUSED(wctx);
@@ -348,7 +348,7 @@ static void sys_commands_debug_set(uint32_t lvl, void *context)
 	ctx->debug = lvl;
 }
 
-void sys_commands_register(void)
+void sys_syscmd_register(void)
 {
 	struct syscmd_context_t *ctx = NULL;
 

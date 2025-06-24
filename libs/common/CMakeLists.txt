@@ -13,6 +13,7 @@ option(ADD_WEBHOOK "WebHook service" ON)
 option(ADD_SYS_COMMANDS "System Commands" ON)
 option(ADD_CHIP_TEMPERATURE "Internal Chip Temperature" ON) 
 option(ADD_SYS_TFTP_SERVER "TFTP Server" ON)
+option(ADD_COMMANDS "Commands engine" ON)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
 

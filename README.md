@@ -16,7 +16,8 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - [HTTP server](libs/common/services/webserver/README.md)
 - [TFTP Server](libs/common/services/tftp_srv/README.md)
 - [Webhooks](libs/common/services/webhook/README.md)
-- [Commands](libs/common/services/syscmd/README.md)
+- [Commands engine](libs/common/services/commands/README.md)
+- [System Commands](libs/common/services/syscmd/README.md)
 - [Persistent user configuration](libs/common/services/cfg_store/README.md)
 - Watchdog
 

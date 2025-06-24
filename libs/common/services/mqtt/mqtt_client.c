@@ -27,7 +27,6 @@
 // send discovery + subscribe on every hour; 60*60*1000
 #define CONFIG_INTERVAL_MSEC	3600000
 #define COMMAND_TOPIC_TEMPLATE	"%s/command"
-#define MAX_CMD_HANDLERS		64
 
 #define MSEC_INSEC	60000ULL
 
@@ -72,23 +71,11 @@ enum mqtt_client_state_t {
 };
 
 typedef struct {
-	int count;
-	char *url;
-	char *description;
-	void *user_data;
-	app_command_t *user_hook;
-} mqtt_cmd_t;
-
-typedef struct {
-	char *cmd_topic;
-	void *cmd_context;
-	int cmd_handler;
-	mqtt_cmd_t hooks[MAX_CMD_HANDLERS];
+	char cmd_topic[MQTT_MAX_TOPIC_SIZE];
 	int cmd_msg_size;
 	bool cmd_msg_in_progress;
 	bool cmd_msg_ready;
 	char cmd_msg[MQTT_OUTPUT_RINGBUF_SIZE];
-	mqtt_msg_receive_cb_t cmd_hook;
 } mqtt_commads_t;
 
 typedef struct {
@@ -113,6 +100,7 @@ typedef struct {
 	char *server_url;
 	char *state_topic;
 	char status_topic[MQTT_MAX_TOPIC_SIZE];
+	cmd_run_context_t cmd_ctx;
 	mqtt_commads_t	commands;
 	mqtt_component_t *components[MQTT_DISCOVERY_MAX_COUNT];
 	uint16_t cmp_count;
@@ -168,8 +156,7 @@ static void mqtt_incoming_publish(void *arg, const char *topic, u32_t tot_len)
 	struct mqtt_context_t *ctx = (struct mqtt_context_t *)arg;
 
 	MQTT_CLIENT_LOCK(ctx);
-	if (!ctx->commands.cmd_topic ||
-		 ctx->commands.cmd_msg_in_progress ||
+	if ( ctx->commands.cmd_msg_in_progress ||
 		 tot_len >= MQTT_OUTPUT_RINGBUF_SIZE)
 		goto out;
 
@@ -180,54 +167,6 @@ static void mqtt_incoming_publish(void *arg, const char *topic, u32_t tot_len)
 	ctx->commands.cmd_msg_ready = false;
 	ctx->commands.cmd_msg_size = 0;
 
-out:
-	MQTT_CLIENTL_UNLOCK(ctx);
-}
-
-static void mqtt_call_user_cb(struct mqtt_context_t *ctx)
-{
-	cmd_run_context_t rctx = {0};
-	app_command_t *cmd;
-	int data_offset;
-	char *url;
-	int i, j;
-
-	MQTT_CLIENT_LOCK(ctx);
-	if (ctx->commands.cmd_msg_size < 2)
-		goto out;
-
-	rctx.type = CMD_CTX_MQTT;
-	for (i = 0; i < ctx->commands.cmd_handler; i++) {
-		url = ctx->commands.hooks[i].url;
-		if (!url)
-			continue;
-		if (strlen(url) > strlen(ctx->commands.cmd_msg))
-			continue;
-		if (strncmp(ctx->commands.cmd_msg, url, strlen(url)))
-			continue;
-		data_offset = strlen(url) + 1;
-		for (j = 0; j < ctx->commands.hooks[i].count; j++) {
-			cmd = &ctx->commands.hooks[i].user_hook[j];
-			if (!cmd->cb)
-				continue;
-			if (strlen(cmd->command) > strlen(ctx->commands.cmd_msg + data_offset))
-				continue;
-			if (strncmp(ctx->commands.cmd_msg + data_offset, cmd->command, strlen(cmd->command)))
-				continue;
-			if (strlen(ctx->commands.cmd_msg + data_offset) > strlen(cmd->command)) {
-				if (ctx->commands.cmd_msg[data_offset + strlen(cmd->command)] != ':')
-					continue;
-			}
-			data_offset += strlen(cmd->command);
-			if (IS_DEBUG(ctx))
-				hlog_info(MQTT_MODULE, "User command [%s]", ctx->commands.cmd_msg);
-			MQTT_CLIENTL_UNLOCK(ctx);
-			cmd->cb(&rctx, cmd->command, ctx->commands.cmd_msg + data_offset,
-					ctx->commands.hooks[i].user_data);
-			MQTT_CLIENT_LOCK(ctx);
-			break;
-		}
-	}
 out:
 	MQTT_CLIENTL_UNLOCK(ctx);
 }
@@ -262,9 +201,12 @@ static bool mqtt_incoming_ready(struct mqtt_context_t *ctx)
 	MQTT_CLIENT_LOCK(ctx);
 	if (!ctx->commands.cmd_msg_ready)
 		goto out;
+#ifdef HAVE_COMMANDS
 	MQTT_CLIENTL_UNLOCK(ctx);
-	mqtt_call_user_cb(ctx);
+	if (ctx->commands.cmd_msg_size >= 2)
+		cmd_exec(&ctx->cmd_ctx, ctx->commands.cmd_msg);
 	MQTT_CLIENT_LOCK(ctx);
+#endif
 	ctx->commands.cmd_msg_in_progress = false;
 	ctx->commands.cmd_msg_ready = false;
 	ctx->commands.cmd_msg_size = 0;
@@ -280,10 +222,6 @@ static int mqtt_cmd_subscribe(struct mqtt_context_t *ctx)
 	err_t ret = -1;
 
 	MQTT_CLIENT_LOCK(ctx);
-	if (!ctx->commands.cmd_topic) {
-		ret = 1;
-		goto out;
-	}
 	if (ctx->state != MQTT_CLIENT_CONNECTED)
 		goto out;
 
@@ -502,7 +440,7 @@ static void mqtt_config_send(struct mqtt_context_t *ctx)
 			}
 			if (ctx->status_topic[0])
 				ctx->config.status = true;
-			if (ctx->commands.cmd_topic)
+			if (ctx->commands.cmd_topic[0])
 				ctx->config.subscribe = true;
 		}
 	MQTT_CLIENTL_UNLOCK(ctx);
@@ -644,45 +582,18 @@ bool mqtt_is_discovery_sent(void)
 static bool sys_mqtt_log_status(void *context)
 {
 	struct mqtt_context_t  *ctx = (struct mqtt_context_t *)context;
-	static int progress;
-	int i, j, k;
+	int i;
 
-	if (!progress) {
-		if (!mqtt_is_connected_ctx(ctx)) {
-			hlog_info(MQTT_MODULE, "Not connected to a server, looking for %s ... connect count %d ",
-					ctx->server_url, ctx->connect_count);
-			return true;
-		}
-		hlog_info(MQTT_MODULE, "Connected to server %s, publish rate limit between %lldppm and %lldppm, connect count %d",
-				ctx->server_url, MSEC_INSEC/ctx->mqtt_max_delay,
-				MSEC_INSEC/ctx->mqtt_min_delay, ctx->connect_count);
-		if (ctx->commands.cmd_topic)
-			hlog_info(MQTT_MODULE, "Listen to topic [%s]", ctx->commands.cmd_topic);
-		progress++;
-		return false;
+	if (!mqtt_is_connected_ctx(ctx)) {
+		hlog_info(MQTT_MODULE, "Not connected to a server, looking for %s ... connect count %d ",
+				ctx->server_url, ctx->connect_count);
+		return true;
 	}
-
-	if (progress <= ctx->commands.cmd_handler) {
-		k = 0;
-		for (i = progress - 1; i < ctx->commands.cmd_handler; i++) {
-			hlog_info(MQTT_MODULE, "  Serving user commands [%s]:", ctx->commands.hooks[i].description);
-			for (j = 0; j < ctx->commands.hooks[i].count; j++) {
-				hlog_info(MQTT_MODULE, "    %s/%s%s",
-						ctx->commands.hooks[i].url,
-						ctx->commands.hooks[i].user_hook[j].command,
-						ctx->commands.hooks[i].user_hook[j].help ? ctx->commands.hooks[i].user_hook[j].help : "");
-			}
-			k++;
-			progress++;
-			if (k >= LOG_STEP)
-				break;
-		}
-	}
-	if (progress <= ctx->commands.cmd_handler)
-		return false;
-
-	hlog_info(MQTT_MODULE, "Registered %d devices", ctx->cmp_count);
-	hlog_info(MQTT_MODULE, "Sent %d discovery messages", ctx->config.discovery_send);
+	hlog_info(MQTT_MODULE, "Connected to server %s, publish rate limit between %lldppm and %lldppm, connect count %d",
+			ctx->server_url, MSEC_INSEC/ctx->mqtt_max_delay,
+			MSEC_INSEC/ctx->mqtt_min_delay, ctx->connect_count);
+	if (ctx->commands.cmd_topic[0])
+		hlog_info(MQTT_MODULE, "Listen to topic [%s]", ctx->commands.cmd_topic);
 
 	if (ctx->status_topic[0]) {
 		hlog_info(MQTT_MODULE, "Sending status to [%s], sent %d",
@@ -691,13 +602,22 @@ static bool sys_mqtt_log_status(void *context)
 		hlog_info(MQTT_MODULE, "No status is send.");
 	}
 
-	if (ctx->commands.cmd_topic) {
+	if (ctx->commands.cmd_topic[0]) {
 		hlog_info(MQTT_MODULE, "Listen for commands on [%s], subscribed %d",
 				  ctx->commands.cmd_topic, ctx->config.subscribe_send);
 	} else {
 		hlog_info(MQTT_MODULE, "Do not listen for commands");
 	}
-	progress = 0;
+	hlog_info(MQTT_MODULE, "Registered %d devices", ctx->cmp_count);
+	hlog_info(MQTT_MODULE, "Sent %d discovery messages", ctx->config.discovery_send);
+	for (i = 0; i < ctx->cmp_count; i++) {
+		hlog_info(MQTT_MODULE, "\t %s/%s %s\t[%s]",
+				  ctx->components[i]->module,
+				  ctx->components[i]->name,
+				  ctx->components[i]->platform,
+				  ctx->components[i]->state_topic);
+	}
+
 	return true;
 }
 
@@ -989,6 +909,7 @@ static bool sys_mqtt_init(struct mqtt_context_t  **ctx)
 
 	(*ctx)->state = MQTT_CLIENT_INIT;
 	snprintf((*ctx)->status_topic, MQTT_MAX_TOPIC_SIZE, STATUS_TOPIC_TEMPLATE, (*ctx)->state_topic);
+	snprintf((*ctx)->commands.cmd_topic, MQTT_MAX_TOPIC_SIZE, COMMAND_TOPIC_TEMPLATE, (*ctx)->state_topic);
 	(*ctx)->client_info.client_id = USER_PRAM_GET(DEV_HOSTNAME);
 	(*ctx)->client_info.keep_alive = MQTT_KEEPALIVE_S;
 	(*ctx)->client_info.will_topic = (*ctx)->status_topic;
@@ -997,6 +918,7 @@ static bool sys_mqtt_init(struct mqtt_context_t  **ctx)
 	(*ctx)->client_info.will_retain = 1;
 	(*ctx)->send_in_progress = 0;
 	(*ctx)->max_payload_size = MQTT_OUTPUT_RINGBUF_SIZE - MQTT_MAX_TOPIC_SIZE;
+	(*ctx)->cmd_ctx.type = CMD_CTX_MQTT;
 
 	__mqtt_context = (*ctx);
 	return true;
@@ -1038,50 +960,6 @@ int mqtt_msg_component_register(mqtt_component_t *component)
 	if (IS_DEBUG(ctx))
 		hlog_info(MQTT_MODULE, "Registered discovery message for %s/%s", component->module, component->name);
 	return idx;
-}
-
-int mqtt_add_commands(char *module, app_command_t *commands, int commands_cont, char *description, void *user_data)
-{
-	struct mqtt_context_t *ctx = mqtt_context_get();
-	mqtt_cmd_t *arr_hooks;
-	int size, ret;
-
-	if (!ctx)
-		return -1;
-
-	MQTT_CLIENT_LOCK(ctx);
-
-	if (!ctx->state_topic)
-		goto out_err;
-	if (ctx->commands.cmd_handler >= MAX_CMD_HANDLERS)
-		goto out_err;
-
-	if (!ctx->commands.cmd_topic) {
-		size = strlen(ctx->state_topic) + strlen(COMMAND_TOPIC_TEMPLATE) + 1;
-		ctx->commands.cmd_topic = malloc(size);
-		if (!ctx->commands.cmd_topic)
-			goto out_err;
-		ret = snprintf(ctx->commands.cmd_topic, size, COMMAND_TOPIC_TEMPLATE, ctx->state_topic);
-		if (ret <= 0) {
-			free(ctx->commands.cmd_topic);
-			ctx->commands.cmd_topic = NULL;
-			goto out_err;
-		}
-	}
-	arr_hooks = &ctx->commands.hooks[ctx->commands.cmd_handler++];
-	arr_hooks->url = module;
-	arr_hooks->description = description;
-	arr_hooks->count = commands_cont;
-	arr_hooks->user_data = user_data;
-	arr_hooks->user_hook = commands;
-
-	MQTT_CLIENTL_UNLOCK(ctx);
-	mqtt_cmd_subscribe(ctx);
-	return 0;
-
-out_err:
-	MQTT_CLIENTL_UNLOCK(ctx);
-	return -1;
 }
 
 void sys_mqtt_register(void)

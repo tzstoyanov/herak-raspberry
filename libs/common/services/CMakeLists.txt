@@ -48,6 +48,10 @@ if(ADD_SYS_TFTP_SERVER)
    include(${CMAKE_CURRENT_LIST_DIR}/tftp_srv/CMakeLists.txt)
 endif()
 
+if(ADD_COMMANDS)
+   include(${CMAKE_CURRENT_LIST_DIR}/commands/CMakeLists.txt)
+endif()
+
 target_sources(${lib_name} INTERFACE
    ${CMAKE_CURRENT_LIST_DIR}/systems_init.c
 )

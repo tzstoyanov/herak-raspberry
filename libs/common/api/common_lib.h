@@ -49,38 +49,6 @@ void dump_hex_data(char *topic, const uint8_t *data, int len);
 void dump_char_data(char *topic, const uint8_t *data, int len);
 void wd_update(void);
 
-typedef enum {
-	CMD_CTX_WEB,
-	CMD_CTX_MQTT,
-} run_type_t;
-
-typedef struct {
-	// ToDo
-} run_context_mqtt_t;
-
-typedef struct {
-	int client_idx;
-	bool keep_open;
-	bool keep_silent;
-	int hret;
-} run_context_web_t;
-
-typedef union {
-	run_context_web_t web;
-	run_context_mqtt_t mqtt;
-} run_context_t;
-
-typedef struct {
-	run_type_t		type;
-	run_context_t	context;
-} cmd_run_context_t;
-
-typedef int (*app_command_cb_t) (cmd_run_context_t *ctx, char *cmd, char *params, void *user_data);
-typedef struct {
-	char *command;
-	char *help;
-	app_command_cb_t cb;
-} app_command_t;
 
 /* manchester code  */
 uint64_t manchester_encode(uint32_t frame, bool invert);

@@ -50,7 +50,7 @@ void systems_register_and_init(void)
 #endif /* HAVE_SYS_WEBSERVER */
 
 #ifdef HAVE_SYS_COMMANDS
-	SYS_REGISTER(sys_commands_register);
+	SYS_REGISTER(sys_syscmd_register);
 #endif /* HAVE_SYS_COMMANDS */
 
 #ifdef HAVE_SYS_WEBHOOK
@@ -60,4 +60,9 @@ void systems_register_and_init(void)
 #ifdef HAVE_SYS_TFTP_SERVER
 	SYS_REGISTER(sys_tftp_srv_register);
 #endif /* HAVE_SYS_SCRIPTS */
+
+#ifdef HAVE_COMMANDS
+	SYS_REGISTER(sys_commands_register);
+#endif /* HAVE_SYS_SCRIPTS */
+
 }
