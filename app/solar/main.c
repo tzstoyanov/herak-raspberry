@@ -23,7 +23,6 @@ int main(void)
 	int blinik_count = 0;
 	bool has_solar = false;
 	bool has_bms = false;
-	bool has_wh = false;
 
 	if (!system_common_init()) {
 		printf("\n\rFailed to initialize the system\n\r");
@@ -32,7 +31,6 @@ int main(void)
 
 	has_solar = mppt_solar_init();
 	has_bms = bms_solar_init();
-	has_wh = wh_notify_init();
 	mqtt_solar_init();
 
 	while (true) {
@@ -45,8 +43,7 @@ int main(void)
 			mppt_solar_query();
 		if (has_bms)
 			bms_solar_query();
-		if (has_wh)
-			wh_notify_send();
+		wh_notify_send();
 		LED_OFF;
 	}
 }

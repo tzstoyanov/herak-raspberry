@@ -10,11 +10,8 @@
 extern "C" {
 #endif
 
-typedef void (*webhook_reply_t) (int idx, int http_code, void *context);
-int webhook_state(int idx, bool *connected, bool *sending);
-int webhook_send(int idx, char *data, int datalen);
-int webhook_add(char *addr, int port, char *content_type, char *endpoint, char *http_command,
-				bool keep_open, webhook_reply_t user_cb, void *user_data);
+bool webhook_connected(void);
+int webhook_send(char *data, int datalen, char *http_command, char *content_type);
 
 #ifdef __cplusplus
 }

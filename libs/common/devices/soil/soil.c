@@ -29,7 +29,6 @@
 /* Filter out the 5 biggest and the 5 smallest */
 #define SOIL_MEASURE_DROP	5
 
-#define WH_DEFAULT_PORT	80
 #define WH_HTTP_CMD		"POST"
 #define WH_HTTP_TYPE	"application/json"
 #define HTTP_OK	200
@@ -72,36 +71,30 @@ struct soil_context_t {
 	uint32_t send_time;
 	int sensors_count;
 	struct soil_sensor_t sensors[MAX_SOIL_SENSORS_COUNT];
-	int wh_idx;
 	uint64_t mqtt_last_send;
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 	uint32_t debug;
 };
 
-static int wh_notify(struct soil_context_t *ctx, int id, int trigger, int data)
-{
-	char notify_buff[WH_PAYLOAD_MAX_SIZE];
-
-	snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-			 ctx->dev_name ? ctx->dev_name : "Uknown", id, trigger?"dry":"wet", data);
-	return webhook_send(ctx->wh_idx, notify_buff, strlen(notify_buff));
-}
-
 static void wh_notify_send(struct soil_context_t *ctx, int id)
 {
+	char notify_buff[WH_PAYLOAD_MAX_SIZE];
 	uint64_t now;
 
-	if (!ctx->sensors[id].wh_send)
+	if (!webhook_connected())
 		return;
 
 	now =  time_ms_since_boot();
-	if ((now - ctx->sensors[id].wh_last_send) > WH_SEND_DELAY_MS) {
-		if (!wh_notify(ctx, id, ctx->sensors[id].last_digital,
-					   ctx->sensors[id].analog ? ctx->sensors[id].analog->percent : 0)) {
-			ctx->sensors[id].wh_send = false;
-		}
-		ctx->sensors[id].wh_last_send = now;
-	}
+	if ((now - ctx->sensors[id].wh_last_send) < WH_SEND_DELAY_MS)
+		return;
+
+	snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
+			 ctx->dev_name ? ctx->dev_name : "Uknown", id,
+			 ctx->sensors[id].last_digital?"dry":"wet",
+			 ctx->sensors[id].analog ? ctx->sensors[id].analog->percent : 0);
+	if (!webhook_send(notify_buff, strlen(notify_buff), WH_HTTP_CMD, WH_HTTP_TYPE))
+		ctx->sensors[id].wh_send = false;
+	ctx->sensors[id].wh_last_send = now;
 }
 
 #define TIME_STR	64
@@ -208,7 +201,7 @@ static void soil_run(void *context)
 			measure_analog(ctx, i);
 		if (ctx->sensors[i].digital_pin >= 0) {
 			measure_digital(ctx, i);
-			if (ctx->wh_idx >= 0 && ctx->sensors[i].updated)
+			if (ctx->sensors[i].wh_send)
 				wh_notify_send(ctx, i);
 		}
 	}
@@ -256,61 +249,6 @@ static int soil_read_pin_cfg(struct soil_context_t *ctx, char *config, bool digi
 	}
 
 	return count;
-}
-
-static void wh_callback(int idx, int http_code, void *context)
-{
-	UNUSED(idx);
-	UNUSED(context);
-	switch (http_code) {
-	case 0:
-		hlog_info(SOIL_MODULE, "http notify timeout");
-		break;
-	case HTTP_OK:
-		break;
-	default:
-		hlog_info(SOIL_MODULE, "http notify error [%d]", http_code);
-		break;
-	}
-}
-
-static bool notify_get_config(char **server, char **endpoint, int *port)
-{
-	char *port_str = NULL;
-	char *srv = NULL;
-	char *ep = NULL;
-	int port_id = 0;
-
-	srv = USER_PRAM_GET(WEBHOOK_SERVER);
-	if (!srv || strlen(srv) < 1)
-		goto out_err;
-	ep = USER_PRAM_GET(WEBHOOK_ENDPOINT);
-	if (!ep || strlen(ep) < 1)
-		goto out_err;
-
-	port_str = USER_PRAM_GET(WEBHOOK_PORT);
-	if (port_str && strlen(port_str) > 1)
-		port_id = atoi(port_str);
-	if (!port_id)
-		port_id = WH_DEFAULT_PORT;
-	free(port_str);
-
-	if (server)
-		*server = srv;
-	else
-		free(srv);
-	if (endpoint)
-		*endpoint = ep;
-	else
-		free(ep);
-	if (port)
-		*port = port_id;
-
-	return true;
-out_err:
-	free(srv);
-	free(ep);
-	return false;
 }
 
 static bool soil_log(void *context)
@@ -362,10 +300,8 @@ static bool soil_init(struct soil_context_t **ctx)
 {
 	char *digital = param_get(SOIL_D);
 	char *analog = param_get(SOIL_A);
-	char *wh_server, *wh_endpoint;
 	bool has_analog = false;
 	unsigned int cnt, i, j;
-	int wh_port;
 
 	(*ctx) = NULL;
 	if ((!digital || strlen(digital) < 1) && (!analog || strlen(analog) < 1))
@@ -375,7 +311,6 @@ static bool soil_init(struct soil_context_t **ctx)
 	if ((*ctx) == NULL)
 		goto out_error;
 
-	(*ctx)->wh_idx = -1;
 	for (i = 0 ; i < MAX_SOIL_SENSORS_COUNT; i++) {
 		(*ctx)->sensors[i].analog_pin = -1;
 		(*ctx)->sensors[i].digital_pin = -1;
@@ -410,9 +345,6 @@ static bool soil_init(struct soil_context_t **ctx)
 	(*ctx)->dev_name = USER_PRAM_GET(DEV_HOSTNAME);
 	free(digital);
 	free(analog);
-
-	if (notify_get_config(&wh_server, &wh_endpoint, &wh_port))
-		(*ctx)->wh_idx = webhook_add(wh_server, wh_port, WH_HTTP_TYPE, wh_endpoint, WH_HTTP_CMD, true, wh_callback, NULL);
 
 	if (has_analog) {
 		adc_init();
