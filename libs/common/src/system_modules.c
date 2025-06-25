@@ -57,34 +57,22 @@ out_err:
 
 }
 
-#define STATUS_STR	"Module status:\n\r"
 static int cmd_module_status(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	sys_module_t *mod = (sys_module_t *)user_data;
 	bool ret;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(params);
 
 	if (!mod || !mod->log)
 		goto out;
 
-	if (ctx->type == CMD_CTX_WEB) {
-#ifdef HAVE_SYS_WEBSERVER
-		webserv_client_send_data(WEBCTX_GET_CLIENT(ctx), STATUS_STR, strlen(STATUS_STR));
-#endif /* HAVE_SYS_WEBSERVER */
-#ifdef HAVE_SYS_COMMANDS
-		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
-#endif /* HAVE_SYS_COMMANDS */
-	}
-
 	do {
 		ret = mod->log(mod->context);
 	} while (!ret);
-#ifdef HAVE_SYS_COMMANDS
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(-1);
-#endif /* HAVE_SYS_COMMANDS */
+
 out:
 	return 0;
 }
@@ -135,14 +123,6 @@ void sys_modules_init(void)
 				hlog_warning(SYSMODLOG, "Failed to register commands for module %s",
 							 sys_modules_context.modules[i]->name);					 
 #endif /* HAVE_COMMANDS */
-#ifdef HAVE_SYS_WEBSERVER
-			ret = webserv_add_commands(sys_modules_context.modules[i]->name,
-					 sys_modules_context.modules[i]->commands.hooks, sys_modules_context.modules[i]->commands.count,
-					 sys_modules_context.modules[i]->commands.description, sys_modules_context.modules[i]->context);
-			if (ret < 0)
-				hlog_warning(SYSMODLOG, "WEB Failed to register commands for module %s",
-							 sys_modules_context.modules[i]->name);
-#endif /* HAVE_SYS_WEBSERVER */
 		}
 		if (sys_modules_context.modules[i]->log || sys_modules_context.modules[i]->debug) {
 #ifdef HAVE_COMMANDS
@@ -153,14 +133,6 @@ void sys_modules_init(void)
 				hlog_warning(SYSMODLOG, "Failed to register common commands for module %s",
 							 sys_modules_context.modules[i]->name);
 #endif /* HAVE_COMMANDS */			
-#ifdef HAVE_SYS_WEBSERVER
-			ret = webserv_add_commands(sys_modules_context.modules[i]->name,
-					 module_common_requests, ARRAY_SIZE(module_common_requests),
-					 CMD_COMMON_DESC, sys_modules_context.modules[i]);
-			if (ret < 0)
-				hlog_warning(SYSMODLOG, "WEB Failed to register common commands for module %s",
-							 sys_modules_context.modules[i]->name);
-#endif /* HAVE_SYS_WEBSERVER */
 		}
 		if (sys_modules_context.modules[i]->log) {
 			ret = add_status_callback(sys_modules_context.modules[i]->log, sys_modules_context.modules[i]->context);

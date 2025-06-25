@@ -17,41 +17,30 @@ typedef struct {
 	int hret;
 } run_context_web_t;
 
-#define	WEBCTX_GET_CLIENT(C)	(((C)->type == CMD_CTX_WEB) ? (((run_context_web_t *)(C)->context)->client_idx) : -1)
+#ifdef HAVE_SYS_WEBSERVER
 #define	WEBCTX_SET_KEEP_OPEN(C, V)	\
 	do { \
-		if (((C)->type == CMD_CTX_WEB)) ((run_context_web_t *)(C)->context)->keep_open = (V);\
+		if (((C)->type == CMD_CTX_WEB))\
+			((run_context_web_t *)(C)->context)->keep_open = (V);\
 	} while (0)
 #define	WEBCTX_SET_KEEP_SILENT(C, V)	\
 	do { \
-		if (((C)->type == CMD_CTX_WEB)) ((run_context_web_t *)(C)->context)->keep_silent = (V);\
+		if (((C)->type == CMD_CTX_WEB))\
+			((run_context_web_t *)(C)->context)->keep_silent = (V);\
 	} while (0)
 
 // C - cmd_run_context_t; S - log string
-#ifdef HAVE_SYS_WEBSERVER
 #define WEB_CLIENT_REPLY(C, S)\
 	do {if ((C)->type == CMD_CTX_WEB) {\
 		webserv_client_send_data(((run_context_web_t *)((C)->context))->client_idx, (S), strlen((S)));\
 	}} while (0)
 #else /* HAVE_SYS_WEBSERVER */
+#define WEBCTX_SET_KEEP_OPEN(C, S)  { (void)(C); (void)(S); }
+#define WEBCTX_SET_KEEP_SILENT(C, S)  { (void)(C); (void)(S); }
 #define WEB_CLIENT_REPLY(C, S)  { (void)(C); (void)(S); }
 #endif /* HAVE_SYS_WEBSERVER */
 
-enum http_response_id {
-	HTTP_RESP_OK = 0,
-	HTTP_RESP_BAD,
-	HTTP_RESP_NOT_FOUND,
-	HTTP_RESP_INTERNAL_ERROR,
-	HTTP_RESP_TOO_MANY_ERROR,
-	HTTP_RESP_MAX
-};
-typedef enum http_response_id (*webserv_request_cb_t) (run_context_web_t *wctx, char *cmd, char *url, void *context);
-int webserv_client_send(int client_idx, char *data, int datalen, enum http_response_id rep);
 int webserv_client_send_data(int client_idx, char *data, int datalen);
-
-#define WEB_CMD_NR   "\r\n"
-/* Web commands API */
-int webserv_add_commands(char *url, app_command_t *commands, int commands_cont, char *description, void *user_data);
 
 int webserv_port(void);
 int webserv_client_close(int client_idx);

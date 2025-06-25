@@ -15,9 +15,7 @@ WEBSERVER_PORT        8080
 
 ## API
 ```
-int webserv_client_send(int client_idx, char *data, int datalen, enum http_response_id rep);
 int webserv_client_send_data(int client_idx, char *data, int datalen);
-int webserv_add_commands(char *url, app_command_t *commands, int commands_cont, char *description, void *user_data);
 int webserv_port(void);
 int webserv_client_close(int client_idx);
 ```

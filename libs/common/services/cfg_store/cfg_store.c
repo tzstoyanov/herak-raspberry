@@ -228,10 +228,8 @@ static int cfgs_list_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void *
 	int i;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(params);
-
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
 
 	hlog_info(CFGS_MODULE, "Supported config parameters:");
 	for (i = 0; i < wctx->count; i++) {
@@ -244,8 +242,6 @@ static int cfgs_list_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void *
 			pico_close(fd);
 	}
 
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(-1);
 	return 0;
 }
 

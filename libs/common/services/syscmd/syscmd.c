@@ -98,28 +98,18 @@ static int sys_log_system(cmd_run_context_t *ctx, char *cmd, char *params, void 
 	struct syscmd_context_t *wctx = (struct syscmd_context_t *)user_data;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(params);
 	UNUSED(wctx);
-
-#ifdef HAVE_SYS_WEBSERVER
-	if (ctx->type == CMD_CTX_WEB) {
-		webserv_client_send_data(WEBCTX_GET_CLIENT(ctx), LSYS_STATUS_STR, strlen(LSYS_STATUS_STR));
-		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
-	}
-#endif
 
 	hlog_info(SYSCMD_MODULE, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
 			  get_uptime(), get_free_heap(), temperature_internal_get());
 	log_sys_health();
 	stats_display();
 
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(-1);
 	return 0;
 }
 
-#define STATUS_STR "\tGoing to send status ...\r\n"
-#define STATUS_TOO_MANY_STR "\tA client is already receiving logs ...\r\n"
 static int sys_status(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	struct syscmd_context_t *wctx = (struct syscmd_context_t *)user_data;
@@ -127,22 +117,8 @@ static int sys_status(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 	UNUSED(cmd);
 	UNUSED(params);
 
-#ifdef HAVE_SYS_WEBSERVER
-	if (ctx->type == CMD_CTX_WEB) {
-		if (wctx->client_log >= 0) {
-			webserv_client_send(WEBCTX_GET_CLIENT(ctx), STATUS_TOO_MANY_STR,
-								strlen(STATUS_TOO_MANY_STR), HTTP_RESP_TOO_MANY_ERROR);
-		} else {
-			webserv_client_send(WEBCTX_GET_CLIENT(ctx), STATUS_STR, strlen(STATUS_STR), HTTP_RESP_OK);
-			debug_log_forward(WEBCTX_GET_CLIENT(ctx));
-			WEBCTX_SET_KEEP_OPEN(ctx, true);
-		}
-		WEBCTX_SET_KEEP_SILENT(ctx, true);
-	}
-#else
-	UNUSED(wctx);
-	UNUSED(ctx);
-#endif
+	WEBCTX_SET_KEEP_OPEN(ctx, true);
+	WEBCTX_SET_KEEP_SILENT(ctx, true);
 
 	wctx->status_log = true;
 	system_log_status();
@@ -167,25 +143,12 @@ static int sys_log_on(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 	struct syscmd_context_t *wctx = (struct syscmd_context_t *)user_data;
 
 	UNUSED(cmd);
-	UNUSED(params);
-
-	if (ctx->type != CMD_CTX_WEB)
-		return 0;
-
-#ifdef HAVE_SYS_WEBSERVER
-	if (wctx->client_log >= 0) {
-		webserv_client_send(WEBCTX_GET_CLIENT(ctx), STATUS_TOO_MANY_STR, strlen(STATUS_TOO_MANY_STR), HTTP_RESP_TOO_MANY_ERROR);
-		WEBCTX_SET_KEEP_OPEN(ctx, true);
-		return 0;
-	}
-	webserv_client_send(WEBCTX_GET_CLIENT(ctx), LOGON_STR, strlen(LOGON_STR), HTTP_RESP_OK);
-#else
 	UNUSED(wctx);
-#endif /* HAVE_SYS_WEBSERVER */
+	UNUSED(params);
 
 	WEBCTX_SET_KEEP_SILENT(ctx, true);
 	WEBCTX_SET_KEEP_OPEN(ctx, true);
-	debug_log_forward(WEBCTX_GET_CLIENT(ctx));
+
 	return 0;
 }
 
@@ -199,14 +162,12 @@ static int sys_log_off(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	WEB_CLIENT_REPLY(ctx, "\tStop sending device logs ...\r\n");
 
 #ifdef HAVE_SYS_WEBSERVER
-	if (ctx->type == CMD_CTX_WEB &&
-		wctx->client_log != WEBCTX_GET_CLIENT(ctx))
+	if (wctx->client_log >= 0)
 		webserv_client_close(wctx->client_log);
 #else
 	UNUSED(wctx);
 #endif /* HAVE_SYS_WEBSERVER */
 
-	debug_log_forward(-1);
 	return 0;
 }
 
@@ -305,7 +266,6 @@ static void sys_commands_run(void *context)
 		if (ctx->client_log >= 0)
 			webserv_client_close(ctx->client_log);
 #endif /* HAVE_SYS_WEBSERVER */
-		debug_log_forward(-1);
 	}
 }
 
