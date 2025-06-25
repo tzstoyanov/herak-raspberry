@@ -130,7 +130,6 @@ static int cmd_set_status(cmd_run_context_t *ctx, char *params, void *user_data,
 	else
 		octx->data.status.dhw_enabled = ((set != 0) ? 1 : 0);
 
-	WEB_CLIENT_REPLY(ctx, WEB_CMD_NR);
 	return 0;
 
 out_err:
@@ -176,7 +175,6 @@ static int cmd_set_param_float(cmd_run_context_t *ctx, char *params, void *user_
 	default:
 		goto out_err;
 	}
-	WEB_CLIENT_REPLY(ctx, WEB_CMD_NR);
 	return 0;
 
 out_err:
@@ -223,18 +221,8 @@ static int cmd_scan_all(cmd_run_context_t *ctx, char *cmd, char *params, void *u
 	if (IS_CMD_LOG(octx->log_mask))
 		hlog_info(OTHM_MODULE, "WEB scan all command.");
 
-	if (ctx->type == CMD_CTX_WEB) {
-#ifdef HAVE_SYS_WEBSERVER
-		webserv_client_send(WEBCTX_GET_CLIENT(ctx), SCANN_STR, strlen(SCANN_STR), HTTP_RESP_OK);
-		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
-#endif
-	}
 	opentherm_dev_scan_all(octx);
 
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(-1);
-
-	WEB_CLIENT_REPLY(ctx, WEB_CMD_NR);
 	return 0;
 }
 
@@ -250,7 +238,6 @@ static int oth_statistics_reset(cmd_run_context_t *ctx, char *cmd, char *params,
 
 	opentherm_reset_statistics(octx);
 
-	WEB_CLIENT_REPLY(ctx, WEB_CMD_NR);
 	return 0;
 }
 

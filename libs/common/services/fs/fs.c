@@ -154,9 +154,7 @@ static int fs_rm_path(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 	int ret;
 
 	UNUSED(cmd);
-
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
+	UNUSED(ctx);
 
 	if (!params || params[0] != ':' || strlen(params) < 2) {
 		hlog_info(FS_MODULE, "\tInvalid path parameter ...");
@@ -171,8 +169,6 @@ static int fs_rm_path(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 	if (IS_DEBUG(wctx))
 		hlog_info(FS_MODULE, "\tDeleting [%s]: [%s]", path, fs_get_err_msg(ret));
 out:
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(-1);
 	return 0;
 }
 
@@ -185,15 +181,13 @@ static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 	int fd;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(user_data);
 
 	if (!params || params[0] != ':' || strlen(params) < 2)
 		path = "/";
 	else
 		path = strtok_r(rest, ":", &rest);
-
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
 
 	if (!path) {
 		hlog_info(FS_MODULE, "\tInvalid path parameter ...");
@@ -231,8 +225,6 @@ static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 	hlog_info(FS_MODULE, "FS total blocks %d, block size %d, used %d",
 			  stat.block_count, stat.block_size, stat.blocks_used);
 out:
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(-1);
 	return 0;
 }
 
@@ -257,10 +249,8 @@ static int fs_cat_file(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	int sz, fd = -1;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(user_data);
-
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(WEBCTX_GET_CLIENT(ctx));
 
 	if (!params || params[0] != ':' || strlen(params) < 2) {
 		hlog_info(FS_MODULE, "\tInvalid path parameter ...");
@@ -284,8 +274,6 @@ static int fs_cat_file(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	hlog_info(FS_MODULE, "\t\t[%s]", buff);
 
 out:
-	if (ctx->type == CMD_CTX_WEB)
-		debug_log_forward(-1);
 	if (fd >= 0)
 		pico_close(fd);
 	return 0;

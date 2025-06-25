@@ -12,6 +12,7 @@
 #define CMD_MODULE				"commands"
 #define MAX_CMD_MOD_HANDLERS	64
 #define MAX_CMD_MOD_HOOKS		2
+#define CMD_PARAM_DELIMITER		'?'
 
 #define IS_DEBUG(C)	((C) && (C)->debug)
 
@@ -129,7 +130,10 @@ int cmd_exec(cmd_run_context_t *cmd_ctx, char *cmd_str)
 			continue;
 		if (strncmp(url, cmd_str, strlen(url)))
 			continue;
-		data_offset = strlen(url) + 1;
+		data_offset = strlen(url);
+		if (cmd_str[data_offset] != CMD_PARAM_DELIMITER)
+			continue;
+		data_offset++;
 		for (j = 0; j < ctx->handlers[i]->count; j++) {
 			for (k = 0; k < ctx->handlers[i]->mod_cb[j]->count; k++) {
 				cmd = &ctx->handlers[i]->mod_cb[j]->cmd_cb[k];
