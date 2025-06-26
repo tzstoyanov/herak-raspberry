@@ -1,0 +1,88 @@
+From 0561ca7985b9f4e9c267814c4e4d341bfbefd882 Mon Sep 17 00:00:00 2001
+From: Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+Date: Thu, 26 Jun 2025 07:35:19 +0300
+Subject: [PATCH] One Wire: Silence debug prints.
+
+There is no need of debug prints in production, silence them.
+
+Signed-off-by: Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+---
+ libs/one-wire/source/one_wire.cpp | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/libs/one-wire/source/one_wire.cpp b/libs/one-wire/source/one_wire.cpp
+index b2a8e70..296d894 100644
+--- a/libs/one-wire/source/one_wire.cpp
++++ b/libs/one-wire/source/one_wire.cpp
+@@ -15,6 +15,8 @@
+ 
+ #endif
+ 
++#define OW_DEBUG	false
++
+ std::vector<rom_address_t> found_addresses;
+ 
+ One_wire::One_wire(uint data_pin, uint power_pin, bool power_polarity)
+@@ -157,7 +159,8 @@ bool One_wire::search_rom_find_next() {
+ 	uint8_t byte_counter, bit_mask;
+ 
+ 	if (!reset_check_for_device()) {
+-		printf("Failed to reset one wire bus\n");
++		if (OW_DEBUG)
++			printf("Failed to reset one wire bus\n");
+ 		return false;
+ 	} else {
+ 		if (_last_device) {
+@@ -174,7 +177,8 @@ bool One_wire::search_rom_find_next() {
+ 			if (bitA & bitB) {
+ 				discrepancy_marker = 0;// data read error, this should never happen
+ 				rom_bit_index = 0xFF;
+-				printf("Data read error - no devices on bus?\r\n");
++				if (OW_DEBUG)
++					printf("Data read error - no devices on bus?\r\n");
+ 			} else {
+ 				if (bitA | bitB) {
+ 					// Set ROM bit to Bit_A
+@@ -221,7 +225,8 @@ bool One_wire::search_rom_find_next() {
+ 			#endif
+ 
+ 			if (rom_checksum_error(_search_ROM)) {// Check the CRC
+-				printf("failed crc\r\n");
++				if (OW_DEBUG)
++					printf("failed crc\r\n");
+ 				return false;
+ 			}
+ 			rom_address_t address{};
+@@ -245,7 +250,8 @@ void One_wire::match_rom(rom_address_t &address) {
+ 			onewire_byte_out(address.rom[i]);
+ 		}
+ 	} else {
+-		printf("match_rom failed\n");
++		if (OW_DEBUG)
++			printf("match_rom failed\n");
+ 	}
+ }
+ 
+@@ -253,7 +259,8 @@ void One_wire::skip_rom() {
+ 	if (reset_check_for_device()) {
+ 		onewire_byte_out(SkipROMCommand);
+ 	} else {
+-		printf("skip_rom failed\n");
++		if (OW_DEBUG)
++			printf("skip_rom failed\n");
+ 	}
+ }
+ 
+@@ -434,7 +441,8 @@ float One_wire::temperature(rom_address_t &address, bool convert_to_fahrenheit)
+ 								  (count_per_degree - remaining_count) / count_per_degree);
+ 				break;
+ 			default:
+-				printf("Unsupported device family\n");
++				if (OW_DEBUG)
++					printf("Unsupported device family\n");
+ 				break;
+ 		}
+ 
+-- 
+2.48.1
+
