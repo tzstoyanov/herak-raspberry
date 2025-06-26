@@ -41,9 +41,10 @@ static int sys_reboot(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 	int delay = WD_REBOOT_DELAY_MS;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(wctx);
 
-	WEB_CLIENT_REPLY(ctx, "\tRebooting ...\r\n");
+	hlog_info(SYSCMD_MODULE, "\tRebooting ...");
 	if (params && params[0] == ':' && strlen(params) > 2)
 		delay = atoi(params + 1);
 	system_force_reboot(delay);
@@ -57,10 +58,11 @@ static int sys_log_level(cmd_run_context_t *ctx, char *cmd, char *params, void *
 	uint32_t lvl;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(wctx);
 
 	if (!params || params[0] != ':' || strlen(params) < 2)
-		goto out_err;
+		return -1;
 	tok = params + 1;
 
 	if (!strcmp(tok, "emerg"))
@@ -80,19 +82,14 @@ static int sys_log_level(cmd_run_context_t *ctx, char *cmd, char *params, void *
 	else if (!strcmp(tok, "debug"))
 		lvl = HLOG_DEBUG;
 	else
-		goto out_err;
+		return -1;
 
 	log_level_set(lvl);
 
-	WEB_CLIENT_REPLY(ctx, "\tSetting log level ...\r\n");
-	return 0;
-
-out_err:
-	WEB_CLIENT_REPLY(ctx, "\tUknown log level  ...\r\n");
+	hlog_info(SYSCMD_MODULE, "\tSetting log level ... %d", lvl);
 	return 0;
 }
 
-#define LSYS_STATUS_STR "\tLow level internals ...\r\n"
 static int sys_log_system(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	struct syscmd_context_t *wctx = (struct syscmd_context_t *)user_data;
@@ -119,7 +116,6 @@ static int sys_status(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 
 	WEBCTX_SET_KEEP_OPEN(ctx, true);
 	WEBCTX_SET_KEEP_SILENT(ctx, true);
-
 	wctx->status_log = true;
 	system_log_status();
 	return 0;
@@ -137,7 +133,6 @@ static int sys_ping(cmd_run_context_t *ctx, char *cmd, char *params, void *user_
 	return 0;
 }
 
-#define LOGON_STR	"\tSending device logs ...\r\n"
 static int sys_log_on(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	struct syscmd_context_t *wctx = (struct syscmd_context_t *)user_data;
@@ -157,9 +152,10 @@ static int sys_log_off(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	struct syscmd_context_t *wctx = (struct syscmd_context_t *)user_data;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(params);
 
-	WEB_CLIENT_REPLY(ctx, "\tStop sending device logs ...\r\n");
+	hlog_info(SYSCMD_MODULE, "\tStop sending device logs ...");
 
 #ifdef HAVE_SYS_WEBSERVER
 	if (wctx->client_log >= 0)
@@ -176,10 +172,11 @@ static int sys_debug_reset(cmd_run_context_t *ctx, char *cmd, char *params, void
 	struct syscmd_context_t *wctx = (struct syscmd_context_t *)user_data;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(params);
 	UNUSED(wctx);
 
-	WEB_CLIENT_REPLY(ctx, "\tGoing to reset debug state ...\r\n");
+	hlog_info(SYSCMD_MODULE, "\tGoing to reset debug state ...");
 	system_set_periodic_log_ms(0);
 	log_level_set(HLOG_INFO);
 	sys_modules_debug_set(0);
@@ -192,9 +189,10 @@ static int sys_periodic_log(cmd_run_context_t *ctx, char *cmd, char *params, voi
 	int delay = -1;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(wctx);
 
-	WEB_CLIENT_REPLY(ctx, "\tSetting periodic status log interval...\r\n");
+	hlog_info(SYSCMD_MODULE, "\tSetting periodic status log interval...");
 	if (params && params[0] == ':' && strlen(params) > 2)
 		delay = atoi(params + 1);
 	if (delay < 0)

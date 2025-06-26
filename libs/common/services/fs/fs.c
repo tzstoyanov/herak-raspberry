@@ -127,9 +127,10 @@ static int fs_format(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 	int ret;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(params);
 
-	WEB_CLIENT_REPLY(ctx, "Formatting file system ...");
+	hlog_info(FS_MODULE, "Formatting file system ...");
 
 	ret = pico_unmount();
 	if (!ret)
@@ -137,12 +138,6 @@ static int fs_format(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 
 	if (IS_DEBUG(wctx))
 		hlog_info(FS_MODULE, "\tFormatted new FS: [%s]", fs_get_err_msg(ret));
-
-	if (ret < 0) {
-		WEB_CLIENT_REPLY(ctx, "fail\r\n");
-	} else {
-		WEB_CLIENT_REPLY(ctx, "success\r\n");
-	}
 
 	return 0;
 }
@@ -233,9 +228,10 @@ static int fs_close_all_cmd(cmd_run_context_t *ctx, char *cmd, char *params, voi
 	struct fs_context_t *wctx = (struct fs_context_t *)user_data;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(params);
 
-	WEB_CLIENT_REPLY(ctx, "Close all opened files\r\n");
+	hlog_info(FS_MODULE, "Close all opened files");
 	fs_close_all(wctx);
 	return 0;
 }

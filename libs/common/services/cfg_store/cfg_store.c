@@ -214,9 +214,10 @@ static int cfgs_reset_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void 
 	struct cfgs_context_t *wctx = (struct cfgs_context_t *)user_data;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(params);
 
-	WEB_CLIENT_REPLY(ctx, "Reset to default all configuration\r\n");
+	hlog_info(CFGS_MODULE, "Reset to default all configuration");
 	cfgs_reset_all(wctx);
 	return 0;
 }
@@ -251,19 +252,17 @@ static int cfgs_set_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void *u
 	char *name, *rest = params;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
+
 	if (!params || params[0] != ':' || strlen(params) < 2)
-		goto out_err;
+		return -1;
 	name = strtok_r(rest, ":", &rest);
 	if (!name)
-		goto out_err;
+		return -1;
 
 	if (cfgs_param_set(wctx, name, rest) < 0)
-		goto out_err;
+		return -1;
 
-	return 0;
-
-out_err:
-	WEB_CLIENT_REPLY(ctx, "\tUknown parameter  ...\r\n");
 	return 0;
 }
 
@@ -273,19 +272,17 @@ static int cfgs_del_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void *u
 	char *name, *rest = params;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
+
 	if (!params || params[0] != ':' || strlen(params) < 2)
-		goto out_err;
+		return -1;
 	name = strtok_r(rest, ":", &rest);
 	if (!name)
-		goto out_err;
+		return -1;
 
 	snprintf(wctx->buff, BUFF_SIZE, "%s/%s", CFG_DIR, name);
 	pico_remove(wctx->buff);
 
-	return 0;
-
-out_err:
-	WEB_CLIENT_REPLY(ctx, "\tUknown parameter  ...\r\n");
 	return 0;
 }
 
@@ -294,9 +291,10 @@ static int cfgs_purge_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void 
 	struct cfgs_context_t *wctx = (struct cfgs_context_t *)user_data;
 
 	UNUSED(cmd);
+	UNUSED(ctx);
 	UNUSED(params);
 
-	WEB_CLIENT_REPLY(ctx, "\tDelete unkown local configuration  ...\r\n");
+	hlog_info(CFGS_MODULE, "Delete unkown local configuration  ...");
 
 	cfgs_purge_uknown(wctx);
 

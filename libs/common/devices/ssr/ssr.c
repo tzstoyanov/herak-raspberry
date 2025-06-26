@@ -374,24 +374,19 @@ static int cmd_ssr_set_state(char *cmd, char *params, struct ssr_context_t *cont
 	return ssr_state_set(context, id, state ? context->on_state : !context->on_state, time, delay);
 }
 
-#define SET_OK_STR "\tSSR switched.\r\n"
-#define SET_ERR_STR "\tInvalid parameters.\r\n"
 static int cmd_ssr_set(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	struct ssr_context_t *ssr_ctx = (struct ssr_context_t *)user_data;
 
+	UNUSED(ctx);
+
 	if (strlen(params) < 2 || params[0] != ':')
-		goto out_err;
+		return -1;
 
 	if (cmd_ssr_set_state(cmd, params, ssr_ctx))
-		goto out_err;
+		return -1;
 
-	WEB_CLIENT_REPLY(ctx, SET_OK_STR);
 	return 0;
-
-out_err:
-	WEB_CLIENT_REPLY(ctx, SET_ERR_STR);
-	return -1;
 }
 
 static int cmd_ssr_reset(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
