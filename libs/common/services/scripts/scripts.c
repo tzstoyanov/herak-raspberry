@@ -13,7 +13,7 @@
 #include "common_internal.h"
 #include "base64.h"
 #include "params.h"
-#include "params.h"
+#include "ccronexpr.h"
 
 #define SCRIPTS_MODULE "scripts"
 #define SCRIPTS_DIR     "/scripts"
@@ -34,26 +34,53 @@
 
 #define COMMENT_CHAR	'#'
 #define SPEC_CHAR		'@'
-static __in_flash() char *script_name_str = "@name";
-static __in_flash() char *script_desc_str = "@desc";
-static __in_flash() char *script_cron_str = "@cron";
-static __in_flash() char *script_ext_run_str = ".run";
-static uint32_t script_namelen;
-static uint32_t script_desclen;
-static uint32_t script_cronlen;
-static uint32_t script_ext_run_len;
+#define SCRIPT_EXTENSION			".run"
+
+#define SCRIPT_PARAM_NAME			"@name"
+#define SCRIPT_PARAM_DESC			"@desc"
+#define SCRIPT_PARAM_CRON			"@cron"
+#define SCRIPT_PARAM_CRON_ENABLE	"@cron_enable"
+enum script_params_id {
+	SCRIPT_CFG_NAME = 0,
+	SCRIPT_CFG_DESC = 1,
+	SCRIPT_CFG_CRON_ENABLE = 2,
+	SCRIPT_CFG_CRON = 3,
+	SCRIPT_CFG_MAX	= 4,
+};
+static __in_flash() char *script_configs[SCRIPT_CFG_MAX] = {
+	 SCRIPT_PARAM_NAME,
+	 SCRIPT_PARAM_DESC,
+	 SCRIPT_PARAM_CRON_ENABLE,
+	 SCRIPT_PARAM_CRON,
+};
+
+struct script_cron_t {
+	bool valid;
+	bool enable;
+	cron_expr schedule;
+	time_t next;
+};
+
+struct script_mqtt_t {
+	uint64_t last_send;
+	mqtt_component_t script;
+	mqtt_component_t last_run;
+	mqtt_component_t next_run;
+	mqtt_component_t corn;
+};
 
 struct script_t {
 	char *name;
 	char *desc;
-	char *cron;
 	char *file;
 	bool run;
 	bool notify;
+	int exec_count;
 	int fd;
 	uint64_t last_run;
-	uint64_t mqtt_last_send;
-	mqtt_component_t mqtt_comp;
+	time_t last_run_date;
+	struct script_cron_t cron;
+	struct script_mqtt_t mqtt;
 };
 
 struct scripts_context_t {
@@ -62,18 +89,12 @@ struct scripts_context_t {
 	int count;
 	struct script_t *scripts;
 	struct script_t *run;
+	uint64_t last_cron;
 	cmd_run_context_t cmd_ctx;
 	int idx;
 	char line[MAX_LINE];
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 };
-
-static struct scripts_context_t *__scripts_context;
-
-static struct scripts_context_t *scripts_context_get(void)
-{
-	return __scripts_context;
-}
 
 static bool sys_scripts_log_status(void *context)
 {
@@ -85,13 +106,30 @@ static bool sys_scripts_log_status(void *context)
 	if (ctx->count) {
 		hlog_info(SCRIPTS_MODULE, "Loaded scripts:");
 		for (i = 0; i < ctx->count; i++) {
-			hlog_info(SCRIPTS_MODULE, "\t%s:\t[%s]\t%s",
+			hlog_info(SCRIPTS_MODULE, "\t%s:\t[%s] %s",
 					   ctx->scripts[i].file, ctx->scripts[i].name, ctx->scripts[i].desc);
-			if (ctx->scripts[i].last_run) {
-				time_msec2datetime(&dt, time_ms_since_boot() - ctx->scripts[i].last_run);
-				hlog_info(SCRIPTS_MODULE, "\t Last run: %s", time_date2str(time_buff, TIME_STR, &dt));
+		   hlog_info(SCRIPTS_MODULE, "\t  Executed %d times", ctx->scripts[i].exec_count);
+			if (ctx->scripts[i].last_run_date) {
+				if (time_to_datetime(ctx->scripts[i].last_run_date, &dt)) {
+					datetime_to_str(time_buff, TIME_STR, &dt);
+					hlog_info(SCRIPTS_MODULE, "\t  Last run: %s", time_buff);
+				}
 			} else {
-				hlog_info(SCRIPTS_MODULE, "\t Last run: N/A");
+				hlog_info(SCRIPTS_MODULE, "\t  Last run: N/A");
+			}
+			if (ctx->scripts[i].cron.valid) {
+				if (ctx->scripts[i].cron.enable) {
+					if (ctx->scripts[i].cron.next > 0) {
+						if (time_to_datetime(ctx->scripts[i].cron.next, &dt)) {
+							datetime_to_str(time_buff, TIME_STR, &dt);
+							hlog_info(SCRIPTS_MODULE, "\t  Next run: %s", time_buff);
+						}
+					} else {
+						hlog_info(SCRIPTS_MODULE, "\t  Next run: N/A");
+					}
+				} else {
+					hlog_info(SCRIPTS_MODULE, "\t  Cron is disabled");
+				}
 			}
 		}
 	} else {
@@ -108,12 +146,78 @@ static void sys_scripts_debug_set(uint32_t lvl, void *context)
 	ctx->debug = lvl;
 }
 
+static void script_cron_set_next(struct scripts_context_t *ctx, struct script_t *script)
+{
+	datetime_t date;
+	time_t tm;
+
+	if (!ntp_connected() || !script->cron.valid)
+		return;
+	if (!tz_datetime_get(&date))
+		return;
+	if (!datetime_to_time(&date, &tm))
+		return;
+	script->cron.next = cron_next(&script->cron.schedule, tm);
+	script->mqtt.script.force = true;
+	if (IS_DEBUG(ctx)) {
+		char time_buff[TIME_STR];
+
+		time_to_datetime(script->cron.next, &date);
+		datetime_to_str(time_buff, TIME_STR, &date);
+		hlog_info(SCRIPTS_MODULE, "[%s] set next run to [%s]\n\r", script->name, time_buff);
+	}
+
+}
+
+static int script_param_load (struct script_t *script, char *param)
+{
+	const char *err;
+	char *data;
+	int n, i;
+
+	n = strspn(param, " \t");
+	for (i = 0; i < SCRIPT_CFG_MAX; i++) {
+		if (strlen(param + n) > strlen(script_configs[i]) && !strncmp(param + n, script_configs[i], strlen(script_configs[i])))
+			break;
+	}
+	if (i >= SCRIPT_CFG_MAX)
+		return 0;
+	data = param + strlen(script_configs[i]) + n;
+	data += strspn(data, " \t");
+	if (strlen(data) < 1)
+		return 0;
+	switch (i) {
+	case SCRIPT_CFG_NAME:
+		script->name = strdup(data);
+		break;
+	case SCRIPT_CFG_DESC:
+		script->desc = strdup(data);
+		break;
+	case SCRIPT_CFG_CRON:
+		err = NULL;
+		cron_parse_expr(data, &script->cron.schedule, &err);
+		if (err)
+			hlog_info(SCRIPTS_MODULE, "Invalid cron [%s]: %s", data, err ? err : "N/A");
+		else
+			script->cron.valid = true;
+		break;
+	case SCRIPT_CFG_CRON_ENABLE:
+		script->cron.enable = (bool)strtol(data, NULL, 0);
+		break;
+	default:
+		return 0;
+	}
+
+	return 1;
+}
+
 static int script_load(struct scripts_context_t *ctx, char *fname, struct script_t *script)
 {
+	int elen = strlen(SCRIPT_EXTENSION);
+	int params = 0;
 	char *ldata;
 	int fd = -1;
 	int ret;
-	int n;
 
 	if (sys_asprintf(&script->file, "%s/%s", SCRIPTS_DIR, fname) <= 0)
 		goto out_err;
@@ -123,26 +227,17 @@ static int script_load(struct scripts_context_t *ctx, char *fname, struct script
 		goto out_err;
 	do {
 		ret = fs_gets(fd, ctx->line, MAX_LINE);
-		if (ret <= 0)
+		if (ret < 0)
 			break;
+		if (!ret)
+			continue;
 		ldata = ctx->line;
 		ldata += strspn(ldata, " \t");
 		if (ldata[0] == COMMENT_CHAR)
 			continue;
-		if (strlen(ldata) > script_namelen && !strncmp(ldata, script_name_str, script_namelen)) {
-			n = strspn(ldata + script_namelen, " \t");
-			script->name = strdup(ldata + script_namelen + n);
 
-		}
-		if (strlen(ldata) > script_desclen && !strncmp(ldata, script_desc_str, script_desclen)) {
-			n = strspn(ldata + script_desclen, " \t");
-			script->desc = strdup(ldata + script_desclen + n);
-		}
-		if (strlen(ldata) > script_cronlen && !strncmp(ldata, script_cron_str, script_cronlen)) {
-			n = strspn(ldata + script_desclen, " \t");
-			script->cron = strdup(ldata + script_cronlen + n);
-		}
-		if (script->name && script->desc && script->cron)
+		params += script_param_load(script, ldata);
+		if (params >= SCRIPT_CFG_MAX)
 			break;
 	} while (true);
 
@@ -150,8 +245,11 @@ static int script_load(struct scripts_context_t *ctx, char *fname, struct script
 		script->name = strdup(fname);
 		if (!script->name)
 			goto out_err;
-		script->name[strlen(fname) - script_ext_run_len] = 0;
+		script->name[strlen(fname) - elen] = 0;
 	}
+
+	if (script->cron.valid && script->cron.enable)
+		script_cron_set_next(ctx, script);
 	script->fd = -1;
 	fs_close(fd);
 
@@ -162,9 +260,11 @@ static int script_load(struct scripts_context_t *ctx, char *fname, struct script
 
 out_err:
 	free(script->file);
+	script->file = NULL;
 	free(script->name);
+	script->name = NULL;
 	free(script->desc);
-	free(script->cron);
+	script->desc = NULL;
 	if (fd >= 0)
 		fs_close(fd);
 	return -1;
@@ -172,12 +272,13 @@ out_err:
 
 static void scripts_init(struct scripts_context_t *ctx)
 {
+	uint32_t elen = strlen(SCRIPT_EXTENSION);
 	struct lfs_info linfo;
 	uint32_t slen;
 	int i, count;
 	int fd = -1;
 
-	count = fs_get_files_count(SCRIPTS_DIR, script_ext_run_str);
+	count = fs_get_files_count(SCRIPTS_DIR, SCRIPT_EXTENSION);
 	if (count <= 0)
 		return;
 	fd = pico_dir_open(SCRIPTS_DIR);
@@ -187,7 +288,6 @@ static void scripts_init(struct scripts_context_t *ctx)
 		for (i = 0; i < ctx->count; i++) {
 			free(ctx->scripts[i].name);
 			free(ctx->scripts[i].desc);
-			free(ctx->scripts[i].cron);
 			free(ctx->scripts[i].file);
 		}
 		free(ctx->scripts);
@@ -204,10 +304,10 @@ static void scripts_init(struct scripts_context_t *ctx)
 		if (linfo.type != LFS_TYPE_REG)
 			continue;
 		slen = strlen(linfo.name);
-		if (slen <= script_ext_run_len)
+		if (slen <= elen)
 			continue;
-		slen -= script_ext_run_len;
-		if (strncmp(linfo.name + slen, script_ext_run_str, script_ext_run_len))
+		slen -= elen;
+		if (strncmp(linfo.name + slen, SCRIPT_EXTENSION, elen))
 			continue;
 		if (!script_load(ctx, linfo.name, &ctx->scripts[ctx->count]))
 			ctx->count++;
@@ -222,6 +322,7 @@ out:
 
 static void script_run(struct scripts_context_t *ctx)
 {
+	datetime_t date;
 	char *ldata;
 	int ret;
 
@@ -253,6 +354,10 @@ out_end:
 		fs_close(ctx->run->fd);
 		ctx->run->fd = -1;
 		ctx->run->last_run = time_ms_since_boot();
+		if (tz_datetime_get(&date))
+			datetime_to_time(&date, &ctx->run->last_run_date);
+		ctx->run->exec_count++;
+		ctx->run->mqtt.script.force = true;
 	}
 	ctx->run = NULL;
 }
@@ -284,26 +389,71 @@ static int script_mqtt_send(struct scripts_context_t *ctx, int idx)
 
 	if (!ctx->count || idx < 0 || idx >= ctx->count)
 		return 0;
-
-	if (ctx->scripts[idx].mqtt_last_send && (now - ctx->scripts[idx].mqtt_last_send) < WH_SEND_DELAY_MS)
+	if (!ctx->scripts[idx].mqtt.script.force &&
+	     (ctx->scripts[idx].mqtt.last_send && (now - ctx->scripts[idx].mqtt.last_send) < WH_SEND_DELAY_MS))
 		return 0;
 
 	ADD_MQTT_MSG("{");
 	ADD_MQTT_MSG_VAR("\"timestamp\": \"%s\"", get_current_time_str(time_buff, TIME_STR))
 	ADD_MQTT_MSG_VAR(",\"name\": \"%s\"", ctx->scripts[idx].name);
-	if (ctx->scripts[idx].last_run) {
-		time_msec2datetime(&dt, time_ms_since_boot() - ctx->scripts[idx].last_run);
-		ADD_MQTT_MSG_VAR(",\"last_run\":\"%s\"", time_date2str(time_buff, TIME_STR, &dt));
+	ADD_MQTT_MSG_VAR(",\"exec_count\": \"%d\"", ctx->scripts[idx].exec_count);
+	ADD_MQTT_MSG_VAR(",\"cron_enabled\": \"%d\"", ctx->scripts[idx].cron.enable);
+	if (ctx->scripts[idx].last_run_date) {
+		time_to_datetime(ctx->scripts[idx].last_run_date, &dt);
+		datetime_to_str(time_buff, TIME_STR, &dt);
+		ADD_MQTT_MSG_VAR(",\"last_run\":\"%s\"", time_buff);
 	} else {
 		ADD_MQTT_MSG(",\"last_run\":\"N/A\"");
 	}
+	if (ctx->scripts[idx].cron.next > 0) {
+		time_to_datetime(ctx->scripts[idx].cron.next, &dt);
+		datetime_to_str(time_buff, TIME_STR, &dt);
+		ADD_MQTT_MSG_VAR(",\"next_run\":\"%s\"", time_buff);
+	} else {
+		ADD_MQTT_MSG(",\"next_run\":\"N/A\"");
+	}
+
 	ADD_MQTT_MSG("}")
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;
-	ret = mqtt_msg_component_publish(&ctx->scripts[idx].mqtt_comp, ctx->mqtt_payload);
+	ret = mqtt_msg_component_publish(&ctx->scripts[idx].mqtt.script, ctx->mqtt_payload);
 
 	if (!ret)
-		ctx->scripts[idx].mqtt_last_send = now;
+		ctx->scripts[idx].mqtt.last_send = now;
 	return ret;
+}
+
+static void script_cron_check(struct scripts_context_t *ctx)
+{
+	uint64_t now = time_ms_since_boot();
+	datetime_t date_now;
+	time_t time_now;
+	int i;
+
+	if (!ntp_connected())
+		return;
+	if ((now - ctx->last_cron) < CRON_CHECK_MS)
+		return;
+	if (!tz_datetime_get(&date_now))
+		return;
+	if (!datetime_to_time(&date_now, &time_now))
+		return;
+
+	for (i = 0; i < ctx->count; i++) {
+		if (!ctx->scripts[i].cron.valid)
+			continue;
+		if (!ctx->scripts[i].cron.enable)
+			continue;
+		if (ctx->scripts[i].cron.next <= 0) {
+			script_cron_set_next(ctx, &ctx->scripts[i]);
+			continue;
+		}
+		if (ctx->scripts[i].cron.next <= time_now) {
+			ctx->scripts[i].run = true;
+			script_cron_set_next(ctx, &ctx->scripts[i]);
+		}
+	}
+
+	ctx->last_cron = now;
 }
 
 static void sys_scripts_run(void *context)
@@ -326,6 +476,7 @@ static void sys_scripts_run(void *context)
 	}
 	if (ctx->scripts[ctx->idx].notify)
 		script_notify(&ctx->scripts[ctx->idx]);
+	script_cron_check(ctx);
 	script_mqtt_send(ctx, ctx->idx);
 	ctx->idx++;
 }
@@ -335,11 +486,37 @@ static void scripts_mqtt_init(struct scripts_context_t *ctx)
 	int i;
 
 	for (i = 0; i < ctx->count; i++) {
-		ctx->scripts[i].mqtt_comp.module = SCRIPTS_MODULE;
-		ctx->scripts[i].mqtt_comp.platform = "sensor";
-		ctx->scripts[i].mqtt_comp.value_template = "{{ value_json.name }}";
-		ctx->scripts[i].mqtt_comp.name = ctx->scripts[i].name;
-		mqtt_msg_component_register(&ctx->scripts[i].mqtt_comp);
+		ctx->scripts[i].mqtt.script.module = SCRIPTS_MODULE;
+		ctx->scripts[i].mqtt.script.platform = "sensor";
+		ctx->scripts[i].mqtt.script.value_template = "{{ value_json.name }}";
+		sys_asprintf(&ctx->scripts[i].mqtt.script.name, "%s_script", ctx->scripts[i].name);
+		mqtt_msg_component_register(&ctx->scripts[i].mqtt.script);
+
+		ctx->scripts[i].mqtt.last_run.module = SCRIPTS_MODULE;
+		ctx->scripts[i].mqtt.last_run.platform = "sensor";
+		ctx->scripts[i].mqtt.last_run.value_template = "{{ value_json.last_run }}";
+		sys_asprintf(&ctx->scripts[i].mqtt.last_run.name, "%s_last_run", ctx->scripts[i].name);
+		ctx->scripts[i].mqtt.last_run.state_topic = ctx->scripts[i].mqtt.script.state_topic;
+		mqtt_msg_component_register(&ctx->scripts[i].mqtt.last_run);
+		ctx->scripts[i].mqtt.last_run.force = false;
+
+		ctx->scripts[i].mqtt.next_run.module = SCRIPTS_MODULE;
+		ctx->scripts[i].mqtt.next_run.platform = "sensor";
+		ctx->scripts[i].mqtt.next_run.value_template = "{{ value_json.next_run }}";
+		sys_asprintf(&ctx->scripts[i].mqtt.next_run.name, "%s_next_run", ctx->scripts[i].name);
+		ctx->scripts[i].mqtt.next_run.state_topic = ctx->scripts[i].mqtt.script.state_topic;
+		mqtt_msg_component_register(&ctx->scripts[i].mqtt.next_run);
+		ctx->scripts[i].mqtt.next_run.force = false;
+
+		ctx->scripts[i].mqtt.corn.module = SCRIPTS_MODULE;
+		ctx->scripts[i].mqtt.corn.platform = "binary_sensor";
+		ctx->scripts[i].mqtt.corn.payload_on = "1";
+		ctx->scripts[i].mqtt.corn.payload_off = "0";
+		ctx->scripts[i].mqtt.corn.value_template = "{{ value_json.cron_enabled }}";
+		sys_asprintf(&ctx->scripts[i].mqtt.corn.name, "%s_cron_enabled", ctx->scripts[i].name);
+		ctx->scripts[i].mqtt.corn.state_topic = ctx->scripts[i].mqtt.script.state_topic;
+		mqtt_msg_component_register(&ctx->scripts[i].mqtt.corn);
+		ctx->scripts[i].mqtt.corn.force = false;
 	}
 }
 
@@ -364,9 +541,56 @@ static bool sys_scripts_init(struct scripts_context_t **ctx)
 	scripts_mqtt_init(*ctx);
 	(*ctx)->cmd_ctx.type = CMD_CTX_SCRIPT;
 
-	__scripts_context = *ctx;
-
 	return true;
+}
+
+static int scripts_cmd_auto_run(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	struct scripts_context_t *wctx = (struct scripts_context_t *)user_data;
+	char *tok, *rest;
+	int i, k;
+
+	UNUSED(cmd);
+	UNUSED(ctx);
+
+	if (!params || params[0] != ':' || strlen(params) < 2) {
+		hlog_info(SCRIPTS_MODULE, "Invalid name parameter ...");
+		return 0;
+	}
+
+	tok = strtok_r(params, ":", &rest);
+	if (!tok)
+		return -1;
+	for (i = 0; i < wctx->count; i++) {
+		if (strlen(tok) != strlen(wctx->scripts[i].name))
+			continue;
+		if (strncmp(tok, wctx->scripts[i].name, strlen(tok)))
+			continue;
+		break;
+	}
+	if (i >= wctx->count) {
+		hlog_info(SCRIPTS_MODULE, "Cannot find script with name [%s]", tok);
+		return -1;
+	}
+	if (!wctx->scripts[i].cron.valid) {
+		hlog_info(SCRIPTS_MODULE, "Script [%s] has no configured cron schedule", wctx->scripts[i].name);
+		return -1;
+	}
+	tok = strtok_r(rest, ":", &rest);
+	if (!tok)
+		return -1;
+	k = (int)strtol(tok, NULL, 0);
+	if (k)
+		wctx->scripts[i].cron.enable = true;
+	else
+		wctx->scripts[i].cron.enable = false;
+	wctx->scripts[i].mqtt.script.force = true;
+
+	hlog_info(SCRIPTS_MODULE, "%s autorun of script [%s]",
+			  wctx->scripts[i].cron.enable ? "Enabled" : "Disabled",
+			  wctx->scripts[i].name);
+
+	return 0;
 }
 
 static int scripts_cmd_run(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
@@ -400,17 +624,13 @@ static int scripts_cmd_run(cmd_run_context_t *ctx, char *cmd, char *params, void
 }
 
 static app_command_t scripts_cmd_requests[] = {
-	{"run", ":<name> - run the script with given name", scripts_cmd_run}
+	{"run", ":<name> - run the script with given name", scripts_cmd_run},
+	{"auto_run", ":<name>:<0/1> - Disable / Enable auto run of the script with given name ", scripts_cmd_auto_run}
 };
 
 void sys_scripts_register(void)
 {
 	struct scripts_context_t *ctx = NULL;
-
-	script_namelen = strlen(script_name_str);
-	script_desclen = strlen(script_desc_str);
-	script_cronlen = strlen(script_cron_str);
-	script_ext_run_len = strlen(script_ext_run_str);
 
 	if (!sys_scripts_init(&ctx))
 		return;
