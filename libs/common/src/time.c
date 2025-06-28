@@ -18,11 +18,6 @@
 #include "common_internal.h"
 #include "params.h"
 
-static const char * const __in_flash() mnames[] = {
-	"Ukn", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-};
-
 uint64_t time_ms_since_boot(void)
 {
 	return (to_us_since_boot(get_absolute_time()) / 1000u);
@@ -172,24 +167,9 @@ bool tz_datetime_get(datetime_t *date)
 
 char *get_current_time_str(char *buf, int buflen)
 {
-#ifdef HAVE_SYS_NTP
-	datetime_t date;
+	datetime_t date = {0};
 
-	if (ntp_connected() && tz_datetime_get(&date)) {
-		const char *month;
-
-		if (date.month > 0 && date.month <= 12)
-			month = mnames[date.month];
-		else
-			month = mnames[0];
-		snprintf(buf, buflen, "%.2d %s %d %.2d:%.2d:%.2d",
-				 date.day, month, date.year, date.hour, date.min, date.sec);
-	} else {
-		snprintf(buf, buflen, "%s 0 %lld", mnames[0], time_ms_since_boot());
-	}
-#else /* !HAVE_SYS_NTP */
-	snprintf(buf, buflen, "%s 0 %lld", mnames[0], time_ms_since_boot());
-#endif /* HAVE_SYS_NTP */
-
+	tz_datetime_get(&date);
+	datetime_to_str(buf, buflen, &date);
 	return buf;
 }
