@@ -15,7 +15,7 @@
 #include "params.h"
 
 #define CFGS_MODULE "config"
-#define CFG_DIR     "/herak_cfg"
+#define CFG_DIR     "/device_cfg"
 #define MAX_VARS     50
 #define BUFF_SIZE    300
 
