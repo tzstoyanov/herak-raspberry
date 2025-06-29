@@ -2,7 +2,6 @@
 
 The script engine runs scripts from files, saved in the file system of the device. A script is a list of commands, executed one after another in the order from the file. On startup, all files from the `/scripts` directory with extension `.run` are loaded as scripts. The files can be uploaded to the device using [tftp](../tftp_srv/README.md).  
 - Scripts are loaded only at boot time. If a new script is uploaded, the device must be rebooted to load it.  
-- There is a limitation on the file name, accepted by the tftp server - it has to be up to 20 symbols. That includes the full path, `/scripts/<name>.run` - which limits the name of the file up to 7 symbols.  
 - The format of the script file is:  
 `@name <script name>` - optional, the name of the script, used to run it. If the name is not set, the name of the file is used (without the extension).  
 `@desc <script description>` - optional, description of the script.  
