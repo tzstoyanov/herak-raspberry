@@ -40,8 +40,12 @@ static int cmd_module_debug(cmd_run_context_t *ctx, char *cmd, char *params, voi
 	UNUSED(cmd);
 	UNUSED(ctx);
 
-	if (!mod || !mod->debug)
+	if (!mod)
 		goto out;
+	if (!mod->debug) {
+		hlog_info(SYSMODLOG, "Module %s does not support debug flags", mod->name);
+		goto out;
+	}
 
 	if (strlen(params) < 2 || params[0] != ':')
 		goto out_err;
@@ -57,6 +61,21 @@ out_err:
 
 }
 
+static int cmd_mod_help(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	sys_module_t *mod = (sys_module_t *)user_data;
+
+	UNUSED(cmd);
+	UNUSED(ctx);
+	UNUSED(params);
+
+	if (!mod)
+		return 0;
+
+	cmd_module_help(mod->name);
+	return 0;
+}
+
 static int cmd_module_status(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	sys_module_t *mod = (sys_module_t *)user_data;
@@ -66,8 +85,13 @@ static int cmd_module_status(cmd_run_context_t *ctx, char *cmd, char *params, vo
 	UNUSED(ctx);
 	UNUSED(params);
 
-	if (!mod || !mod->log)
+	if (!mod)
 		goto out;
+
+	if (!mod->log) {
+		hlog_info(SYSMODLOG, "Module %s does not support status reporting", mod->name);
+		goto out;
+	}
 
 	do {
 		ret = mod->log(mod->context);
@@ -102,6 +126,7 @@ static void sys_module_debug_init(sys_module_t *module)
 static app_command_t module_common_requests[] = {
 		{"debug", ":<debug_flags> - set module debug flags", cmd_module_debug},
 		{"status", " - report module status", cmd_module_status},
+		{"help", " - list commands supported by the module", cmd_mod_help},
 };
 
 void sys_modules_init(void)
@@ -124,16 +149,14 @@ void sys_modules_init(void)
 							 sys_modules_context.modules[i]->name);					 
 #endif /* HAVE_COMMANDS */
 		}
-		if (sys_modules_context.modules[i]->log || sys_modules_context.modules[i]->debug) {
 #ifdef HAVE_COMMANDS
-			ret = cmd_handler_add(sys_modules_context.modules[i]->name,
-					 module_common_requests, ARRAY_SIZE(module_common_requests),
-					 CMD_COMMON_DESC, sys_modules_context.modules[i]);
-			if (ret < 0)
-				hlog_warning(SYSMODLOG, "Failed to register common commands for module %s",
-							 sys_modules_context.modules[i]->name);
+		ret = cmd_handler_add(sys_modules_context.modules[i]->name,
+				 module_common_requests, ARRAY_SIZE(module_common_requests),
+				 CMD_COMMON_DESC, sys_modules_context.modules[i]);
+		if (ret < 0)
+			hlog_warning(SYSMODLOG, "Failed to register common commands for module %s",
+						 sys_modules_context.modules[i]->name);
 #endif /* HAVE_COMMANDS */			
-		}
 		if (sys_modules_context.modules[i]->log) {
 			ret = add_status_callback(sys_modules_context.modules[i]->log, sys_modules_context.modules[i]->context);
 			if (ret < 0)

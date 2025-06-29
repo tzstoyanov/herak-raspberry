@@ -43,23 +43,48 @@ static struct cmd_context_t *cmd_context_get(void)
 	return __cmd_context;
 }
 
+static void sys_cmd_module_help(struct cmd_mod_handler_t *handler)
+{
+	int i, j;
+	
+	hlog_info(CMD_MODULE, "\tModule [%s]:", handler->module);
+	for (i = 0; i < handler->count; i++) {
+		for (j = 0; j < handler->mod_cb[i]->count; j++) {
+			hlog_info(CMD_MODULE, "\t  \t%s?%s%s",
+					  handler->module,
+					  handler->mod_cb[i]->cmd_cb[j].command,
+					  handler->mod_cb[i]->cmd_cb[j].help);
+		}
+	}
+}
+
+void cmd_module_help(char *module)
+{
+	struct cmd_context_t *ctx = cmd_context_get();
+	int i;
+
+	if (!ctx)
+		return;
+	for (i = 0; i < ctx->count; i++) {
+		if (strlen(module) != strlen(ctx->handlers[i]->module))
+			continue;
+		if (strncmp(module, ctx->handlers[i]->module, strlen(module)))
+			continue;
+		sys_cmd_module_help(ctx->handlers[i]);
+		break;
+	}
+
+}
+
 static bool sys_cmd_log_status(void *context)
 {
 	struct cmd_context_t *ctx = (struct cmd_context_t *)context;
-	int i, j, k;
+	int i;
 
-	hlog_info(CMD_MODULE, "Registered user commands:");
-	for (i = 0; i < ctx->count; i++) {
-		hlog_info(CMD_MODULE, "\tModule [%s]:", ctx->handlers[i]->module);
-		for (j = 0; j < ctx->handlers[i]->count; j++) {
-			for (k = 0; k < ctx->handlers[i]->mod_cb[j]->count; k++) {
-				hlog_info(CMD_MODULE, "\t  \t%s?%s%s",
-						  ctx->handlers[i]->module,
-						  ctx->handlers[i]->mod_cb[j]->cmd_cb[k].command,
-						  ctx->handlers[i]->mod_cb[j]->cmd_cb[k].help);
-			}
-		}
-	}
+	hlog_info(CMD_MODULE, "Registered modules:");
+	for (i = 0; i < ctx->count; i++)
+		hlog_info(CMD_MODULE, "\t%s",ctx->handlers[i]->module);
+	hlog_info(CMD_MODULE, "Run `<module_name>?help` for more information.");
 
 	return true;
 }
