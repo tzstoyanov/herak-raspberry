@@ -30,6 +30,7 @@ typedef struct {
 
 int cmd_handler_add(char *module, app_command_t *commands, int commands_cont, char *description, void *user_data);
 int cmd_exec(cmd_run_context_t *cmd_ctx, char *cmd_str);
+void cmd_module_help(char *module);
 
 #ifdef __cplusplus
 }
