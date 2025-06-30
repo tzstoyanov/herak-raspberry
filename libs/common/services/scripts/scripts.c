@@ -28,7 +28,7 @@
 #define	WH_PAYLOAD_MAX_SIZE	128
 #define WH_HTTP_CMD		"POST"
 #define WH_HTTP_TYPE	"application/json"
-#define	WH_PAYLOAD_TEMPLATE "{ \"script\": %s, \"status\": \"%s\"}"
+#define	WH_PAYLOAD_TEMPLATE "{ \"message\":\"%s is %s\"}"
 
 #define IS_DEBUG(C)	((C)->debug != 0)
 
@@ -366,7 +366,7 @@ static void script_notify(struct script_t *script)
 {
 	char notify_buff[WH_PAYLOAD_MAX_SIZE];
 
-	if (!webhook_connected() || !script->notify)
+	if (!webhook_connected())
 		return;
 	snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
 			 script->name, "running");
