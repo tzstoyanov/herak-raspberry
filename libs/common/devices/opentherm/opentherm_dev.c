@@ -10,7 +10,8 @@
 #define CMD_ERR_INTERVAL_MS		10000
 #define CMD_STATS_INTERVAL_MS	10000
 #define CMD_CFG_INTERVAL_MS		60000
-#define CMD_FIND_INTERVAL_MS	60000 // 1 min
+#define DEV_FIND_INTERVAL_MS	300000 // 5 min
+#define DEV_FIND_ATTEMPTS		3
 #define CMD_SUPPORTED_RETRIES	10
 
 #define CMD_READ	0x01
@@ -509,16 +510,22 @@ bool opentherm_dev_log(opentherm_context_t *ctx)
 void opentherm_dev_run(opentherm_context_t *ctx)
 {
 	uint64_t now = time_ms_since_boot();
+	static int find_attempts;
 	static bool cmd_static;
 
 	if (!opentherm_dev_pio_attached(&ctx->pio)) {
+		if (find_attempts >= DEV_FIND_ATTEMPTS)
+			return;
 		if (ctx->dev.last_dev_lookup &&
-			(now - ctx->dev.last_dev_lookup) < CMD_FIND_INTERVAL_MS)
+			(now - ctx->dev.last_dev_lookup) < DEV_FIND_INTERVAL_MS)
 			return;
 		opentherm_dev_pio_find(&ctx->pio);
 		ctx->dev.last_dev_lookup = time_ms_since_boot();
-		if (!opentherm_dev_pio_attached(&ctx->pio))
+		if (!opentherm_dev_pio_attached(&ctx->pio)) {
+			find_attempts++;
 			return;
+		}
+		find_attempts = 0;
 	}
 
 	if (!cmd_static) {
