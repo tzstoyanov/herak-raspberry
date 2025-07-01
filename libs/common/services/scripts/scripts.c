@@ -580,10 +580,14 @@ static int scripts_cmd_auto_run(cmd_run_context_t *ctx, char *cmd, char *params,
 	if (!tok)
 		return -1;
 	k = (int)strtol(tok, NULL, 0);
-	if (k)
+	if (k) {
 		wctx->scripts[i].cron.enable = true;
-	else
+		script_cron_set_next(wctx, &wctx->scripts[i]);
+	} else {
 		wctx->scripts[i].cron.enable = false;
+		wctx->scripts[i].cron.next = 0;
+	}
+
 	wctx->scripts[i].mqtt.script.force = true;
 
 	hlog_info(SCRIPTS_MODULE, "%s autorun of script [%s]",
