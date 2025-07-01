@@ -14,7 +14,7 @@ The script engine runs scripts from files, saved in the file system of the devic
 Example script to trigger given set of [SSRs](../../devices/ssr/README.md) which runs on every 10 minutes:  
 ```
 @name ssr_trigger
-@desc Run the given relays for 30min, one after another
+@desc Run the given relays for 10min, one after another
 #    sec min  hour  dom  month  dow
 @cron 0  */10   *    *      *    *
 @cron_enable 1
@@ -32,6 +32,7 @@ Execute the script:
 ## Commands
 The commands can be sent to the device with a HTTP or a MQTT request. The result is printed on the current HTTP session, on the system console and on a remote log server. The device listens for HTTP commands on the `WEBSERVER_PORT` HTTP port and on `<MQTT_TOPIC>/command` MQTT topic, where these are configured in the `params.txt` file.  
 - `run:<name>` - run the script with given name.
+- `auto_run:<name>:<0/1>` - disable / enable auto run of the script with given name.
 
 Example command for running a script. The device has address `192.168.1.1`, listens on HTTP port `8080` and uses MQTT topic `test/dev`. The script has name `ssr_trigger`
 - Using HTTP: `curl http://192.168.1.1:8080/scripts?run:ssr_trigger`
