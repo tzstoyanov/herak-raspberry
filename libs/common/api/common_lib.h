@@ -39,6 +39,7 @@ uint8_t sys_value_to_percent(uint32_t range_min, uint32_t range_max, uint32_t va
 
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count);
 char *get_current_time_str(char *buf, int buflen);
+char *get_current_time_log_str(char *buf, int buflen);
 bool tz_datetime_get(datetime_t *date);
 uint64_t time_msec2datetime(datetime_t *date, uint64_t msec);
 char *time_date2str(char *buf, int str_len, datetime_t *date);
