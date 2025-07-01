@@ -293,7 +293,7 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 {
 	struct log_context_t *ctx = log_context_get();
 	static char log_buff[MAX_LOG_SIZE];
-	static char time_buff[32];
+	static char time_buff[64];
 	int psize = MAX_LOG_SIZE;
 	int  len, p = 0;
 	va_list ap;
@@ -307,8 +307,8 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 		return;
 
 	LOG_LOCK(ctx);
-		LBUFF_PRINT("<%d>", FACILITY*8 + severity);
-		LBUFF_PRINT("%s ", get_current_time_str(time_buff, 32));
+		LBUFF_PRINT("<%d>1 ", FACILITY*8 + severity);
+		LBUFF_PRINT("%s ", get_current_time_log_str(time_buff, 64));
 		LBUFF_PRINT("%s ", ctx ? ctx->hostname : "pico");
 		LBUFF_PRINT("%s: ", topic);
 

@@ -173,3 +173,14 @@ char *get_current_time_str(char *buf, int buflen)
 	datetime_to_str(buf, buflen, &date);
 	return buf;
 }
+
+char *get_current_time_log_str(char *buf, int buflen)
+{
+	datetime_t date = {0};
+
+	tz_datetime_get(&date);
+    snprintf(buf, buflen, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+			 date.year, date.month, date.day,
+			 date.hour, date.min, date.sec);
+	return buf;
+}
