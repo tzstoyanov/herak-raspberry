@@ -54,14 +54,13 @@ char *base64_encode(const char *plain, int len)
 char *base64_decode(const char *cipher, int len)
 {
 	unsigned char counts = 0;
-	int plen = (len * 3 / 4);
 	int i = 0, p = 0;
 	char buffer[4];
 	char *plain;
 
-	if (plen < 1)
+	if (len < 1)
 		return NULL;
-	plain = malloc(plen);
+	plain = malloc(len);
 	if (!plain)
 		return NULL;
 
@@ -80,6 +79,7 @@ char *base64_decode(const char *cipher, int len)
 		}
 	}
 	plain[p] = '\0';    /* string padding character */
+
 	return plain;
 }
 
