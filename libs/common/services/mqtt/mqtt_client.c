@@ -30,15 +30,9 @@
 
 #define MSEC_INSEC	60000ULL
 
-#define IS_DEBUG(C)	((C)->debug != 0)
-
-/* Send a packet each 60s at least, even if the data is the same */
-#define MQTT_SEND_MAX_TIME_MSEC	60000	/* 60s */
-/* Limit the rate of the packets to*/
-#define MQTT_SEND_MIN_TIME_MSEC	60000	/* 60s */
+#define IS_DEBUG(C)	((C)->debug)
 
 #define DEF_SERVER_PORT	1883
-#define DF_MAX_PKT_DELAY_MS	60000ULL
 #define DF_MIN_PKT_DELAY_MS	5000ULL
 
 #define MQTT_QOS		0
@@ -107,7 +101,6 @@ typedef struct {
 	mqtt_discovery_context_t discovery;
 	mqtt_config_send_context_t config;
 	int server_port;
-	uint64_t mqtt_max_delay;
 	uint64_t mqtt_min_delay;
 	uint32_t max_payload_size;
 	enum mqtt_client_state_t state;
@@ -589,9 +582,8 @@ static bool sys_mqtt_log_status(void *context)
 				ctx->server_url, ctx->connect_count);
 		return true;
 	}
-	hlog_info(MQTT_MODULE, "Connected to server %s, publish rate limit between %lldppm and %lldppm, connect count %d",
-			ctx->server_url, MSEC_INSEC/ctx->mqtt_max_delay,
-			MSEC_INSEC/ctx->mqtt_min_delay, ctx->connect_count);
+	hlog_info(MQTT_MODULE, "Connected to server %s, publish rate limit %lldppm, connect count %d",
+			ctx->server_url, MSEC_INSEC/ctx->mqtt_min_delay, ctx->connect_count);
 	if (ctx->commands.cmd_topic[0])
 		hlog_info(MQTT_MODULE, "Listen to topic [%s]", ctx->commands.cmd_topic);
 
@@ -628,6 +620,8 @@ int mqtt_msg_publish(char *topic, char *message, bool force)
 	uint64_t now;
 	int ret;
 
+	UNUSED(force);
+
 	if (!ctx)
 		return -1;
 
@@ -640,12 +634,10 @@ int mqtt_msg_publish(char *topic, char *message, bool force)
 		return -1;
 	}
 
-	ctx->data_send = force;
-	/* Rate limit the packets between mqtt_min_delay and mqtt_max_delay */
+	ctx->data_send = true;
+	/* Rate limit the packets */
 	now = time_ms_since_boot();
-	if ((now - ctx->last_send) > ctx->mqtt_max_delay)
-		ctx->data_send = true;
-	else if ((now - ctx->last_send) < ctx->mqtt_min_delay)
+	if ((now - ctx->last_send) < ctx->mqtt_min_delay)
 		ctx->data_send = false;
 	if (!ctx->data_send && ctx->last_send)
 		return -1;
@@ -663,6 +655,9 @@ int mqtt_msg_publish(char *topic, char *message, bool force)
 int mqtt_msg_component_publish(mqtt_component_t *component, char *message)
 {
 	int ret;
+
+	if (!mqtt_is_discovery_sent())
+		return -1;
 
 	ret = mqtt_msg_publish(component->state_topic, message, component->force);
 	if (!ret) {
@@ -885,15 +880,10 @@ static int mqtt_get_config(struct mqtt_context_t  **ctx)
 
 	if (MQTT_RATE_PPM_len > 1) {
 		str = USER_PRAM_GET(MQTT_RATE_PPM);
-		rest = str;
-		tok = strtok_r(rest, ";", &rest);
-		res = (int)strtol(tok, NULL, 10);
-		(*ctx)->mqtt_max_delay = MSEC_INSEC / res;
-		res = (int)strtol(rest, NULL, 10);
+		res = (int)strtol(str, NULL, 10);
 		(*ctx)->mqtt_min_delay = MSEC_INSEC / res;
 		free(str);
 	} else {
-		(*ctx)->mqtt_max_delay = DF_MAX_PKT_DELAY_MS;
 		(*ctx)->mqtt_min_delay = DF_MIN_PKT_DELAY_MS;
 	}
 
