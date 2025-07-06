@@ -13,5 +13,5 @@ NTP_SERVERS	192.168.1.1;pool.ntp.org
 ```
 ## API
 ```
-bool ntp_connected(void);
+bool ntp_time_valid(void);
 ```

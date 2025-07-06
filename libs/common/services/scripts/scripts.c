@@ -151,7 +151,7 @@ static void script_cron_set_next(struct scripts_context_t *ctx, struct script_t 
 	datetime_t date;
 	time_t tm;
 
-	if (!ntp_connected() || !script->cron.valid)
+	if (!ntp_time_valid() || !script->cron.valid)
 		return;
 	if (!tz_datetime_get(&date))
 		return;
@@ -429,7 +429,7 @@ static void script_cron_check(struct scripts_context_t *ctx)
 	time_t time_now;
 	int i;
 
-	if (!ntp_connected())
+	if (!ntp_time_valid())
 		return;
 	if ((now - ctx->last_cron) < CRON_CHECK_MS)
 		return;

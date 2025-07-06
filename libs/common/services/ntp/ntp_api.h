@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-bool ntp_connected(void);
+bool ntp_time_valid(void);
 
 #ifdef __cplusplus
 }
