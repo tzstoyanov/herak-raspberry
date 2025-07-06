@@ -30,7 +30,7 @@
 #define WH_HTTP_TYPE	"application/json"
 #define	WH_PAYLOAD_TEMPLATE "{ \"message\":\"%s is %s\"}"
 
-#define IS_DEBUG(C)	((C)->debug != 0)
+#define IS_DEBUG(C)	((C)->debug)
 
 #define COMMENT_CHAR	'#'
 #define SPEC_CHAR		'@'
@@ -390,7 +390,7 @@ static int script_mqtt_send(struct scripts_context_t *ctx, int idx)
 	if (!ctx->count || idx < 0 || idx >= ctx->count)
 		return 0;
 	if (!ctx->scripts[idx].mqtt.script.force &&
-	     (ctx->scripts[idx].mqtt.last_send && (now - ctx->scripts[idx].mqtt.last_send) < WH_SEND_DELAY_MS))
+	     ctx->scripts[idx].mqtt.last_send && (now - ctx->scripts[idx].mqtt.last_send) < WH_SEND_DELAY_MS)
 		return 0;
 
 	ADD_MQTT_MSG("{");
