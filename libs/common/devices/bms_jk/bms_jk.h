@@ -102,30 +102,42 @@ typedef struct {
 	bool notify;
 } bt_charc_t;
 
-#define TERM_IS_ACTIVE(C) ((C)->jk_term_charc.valid)
+#define TERM_IS_ACTIVE(D) ((D)->jk_term_charc.valid)
 
-typedef struct {
-	sys_module_t mod;
+#define BMS_MAX_DEVICES	4
+
+struct bms_context_type;
+
+struct jk_bms_dev_t {
 	bt_addr_t address;
 	char *name;
 	char *pin;
 	int bt_index;
-	mutex_t lock;
 	uint64_t send_time;
 	uint64_t last_reply;
+	uint32_t request_count;
 	bt_event_t state;
 	bms_dev_info_t dev_info;
 	bms_cells_info_t cell_info;
 	bool nbuff_ready;
+	bool wait_reply;
 	uint8_t nbuff[NOTIFY_PACKET_SIZE];
 	uint16_t nbuff_curr;
 	bt_charc_t jk_term_charc;
 	bms_jk_mqtt_t mqtt;
-	uint32_t debug;
 	uint32_t connect_count;
+	struct bms_context_type *ctx;
+};
+
+typedef struct bms_context_type {
+	sys_module_t mod;
+	mutex_t lock;
+	uint32_t debug;
+	uint32_t count;
+	struct jk_bms_dev_t *devices[BMS_MAX_DEVICES];
 } bms_context_t;
 
-void bms_jk_mqtt_init(bms_context_t *ctx);
-void bms_jk_mqtt_send(bms_context_t *ctx);
+void bms_jk_mqtt_init(bms_context_t *ctx, int idx);
+void bms_jk_mqtt_send(struct jk_bms_dev_t *dev);
 
 #endif /* _BMS_JK_H_ */

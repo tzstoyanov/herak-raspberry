@@ -19,6 +19,7 @@
 #define BMC_DEBUG(C)	(C->debug)
 
 #define CMD_POLL_MS	5000 /* Send command each 5s */
+#define CMD_TIMEOUT_MS	1000 /* Wait for response 1s */
 static const uint8_t __in_flash() jk_notify_pkt_start[] = {0x55, 0xAA, 0xEB, 0x90};
 static const uint8_t __in_flash() jk_request_pkt_start[] = {0xAA, 0x55, 0x90, 0xEB};
 
@@ -65,35 +66,36 @@ enum {
 	JK_COMMAND_DEVICE_INFO = 0x97,
 };
 
-static void charc_new(bms_context_t *ctx, bt_characteristic_t *charc)
+static void charc_new(struct jk_bms_dev_t *dev, bt_characteristic_t *charc)
 {
 	bt_uuid128_t svc128;
 	uint16_t	svc16;
 
 	if (bt_service_get_uuid(charc->char_id, &svc128, &svc16))
 		return;
-	if (memcmp(ctx->jk_term_charc.svc_uid128, svc128, BT_UUID128_LEN))
+	if (memcmp(dev->jk_term_charc.svc_uid128, svc128, BT_UUID128_LEN))
 		return;
-	if (memcmp(ctx->jk_term_charc.charc_uid128, charc->uuid128, BT_UUID128_LEN))
+	if (memcmp(dev->jk_term_charc.charc_uid128, charc->uuid128, BT_UUID128_LEN))
 		return;
 
-	ctx->jk_term_charc.char_id = charc->char_id;
-	ctx->jk_term_charc.properties = charc->properties;
-	ctx->jk_term_charc.valid = true;
+	dev->jk_term_charc.char_id = charc->char_id;
+	dev->jk_term_charc.properties = charc->properties;
+	dev->jk_term_charc.valid = true;
 
-	if (BMC_DEBUG(ctx))
+	if (BMC_DEBUG(dev->ctx))
 		hlog_info(BMS_JK_MODULE, "Got new characteristic [%s] %d: properties 0x%X, svc 0x%X ("UUID_128_FMT"), "UUID_128_FMT"",
-				  ctx->jk_term_charc.desc, charc->char_id, charc->properties, svc16, svc128, charc->uuid128);
+				  dev->jk_term_charc.desc, charc->char_id, charc->properties, svc16, svc128, charc->uuid128);
 
 }
 
-static void charc_reset(bms_context_t *ctx)
+static void charc_reset(struct jk_bms_dev_t *dev)
 {
-	ctx->jk_term_charc.valid = false;
-	ctx->jk_term_charc.send_time = 0;
-	ctx->jk_term_charc.notify = false;
-	ctx->nbuff_curr = 0;
-	ctx->nbuff_ready = false;
+	dev->jk_term_charc.valid = false;
+	dev->jk_term_charc.send_time = 0;
+	dev->jk_term_charc.notify = false;
+	dev->nbuff_curr = 0;
+	dev->nbuff_ready = false;
+	dev->wait_reply = false;
 }
 
 #define DATA_UINT8_GET(C, OFS)	 ((uint8_t)(C)->nbuff[(OFS)])
@@ -150,54 +152,54 @@ static void charc_reset(bms_context_t *ctx)
 #define CELL_FRAME_BATT_HEAT_CURR		236	// 2 bytes, float16 * 0.001f
 
 #define BMS_DATA_READ(S, V)\
-	{ if ((S) != (V)) { ctx->cell_info.data_force = true; (S) = (V); }}
-static void jk_bt_process_cell_frame(bms_context_t *ctx)
+	{ if ((S) != (V)) { dev->cell_info.data_force = true; (S) = (V); }}
+static void jk_bt_process_cell_frame(struct jk_bms_dev_t *dev)
 {
 	uint16_t d;
 	int i;
 
-	ctx->cell_info.valid = true;
+	dev->cell_info.valid = true;
 	for (i = 0; i < BMS_MAX_CELLS; i++) {
-		d = DATA_UINT16_GET(ctx, CELL_FRAME_VOLT + i * 2); // * 0.001f
-		if (ctx->cell_info.cells_v[i] != d)
-			ctx->cell_info.cell_v_force = true;
-		ctx->cell_info.cells_v[i] = d;
+		d = DATA_UINT16_GET(dev, CELL_FRAME_VOLT + i * 2); // * 0.001f
+		if (dev->cell_info.cells_v[i] != d)
+			dev->cell_info.cell_v_force = true;
+		dev->cell_info.cells_v[i] = d;
 	}
-	BMS_DATA_READ(ctx->cell_info.cells_enabled, DATA_UINT32_GET(ctx, CELL_FRAME_ENABLES_CELLS));
-	BMS_DATA_READ(ctx->cell_info.v_avg, DATA_UINT16_GET(ctx, CELL_FRAME_VOLT_AVG));			// * 0.001f
-	BMS_DATA_READ(ctx->cell_info.v_delta, DATA_UINT16_GET(ctx, CELL_FRAME_VOLT_DELTA));		// * 0.001f
-	BMS_DATA_READ(ctx->cell_info.cell_v_max, DATA_UINT8_GET(ctx, CELL_FRAME_CELL_MAX));
-	BMS_DATA_READ(ctx->cell_info.cell_v_min, DATA_UINT8_GET(ctx, CELL_FRAME_CELL_MIN));
+	BMS_DATA_READ(dev->cell_info.cells_enabled, DATA_UINT32_GET(dev, CELL_FRAME_ENABLES_CELLS));
+	BMS_DATA_READ(dev->cell_info.v_avg, DATA_UINT16_GET(dev, CELL_FRAME_VOLT_AVG));			// * 0.001f
+	BMS_DATA_READ(dev->cell_info.v_delta, DATA_UINT16_GET(dev, CELL_FRAME_VOLT_DELTA));		// * 0.001f
+	BMS_DATA_READ(dev->cell_info.cell_v_max, DATA_UINT8_GET(dev, CELL_FRAME_CELL_MAX));
+	BMS_DATA_READ(dev->cell_info.cell_v_min, DATA_UINT8_GET(dev, CELL_FRAME_CELL_MIN));
 	for (i = 0; i < BMS_MAX_CELLS; i++) {
-		d = DATA_UINT16_GET(ctx, CELL_FRAME_RESISTANCE + i * 2); // * 0.001f
-		if (ctx->cell_info.cells_res[i] != d)
-			ctx->cell_info.cell_r_force = true;
-		ctx->cell_info.cells_res[i] = d;
+		d = DATA_UINT16_GET(dev, CELL_FRAME_RESISTANCE + i * 2); // * 0.001f
+		if (dev->cell_info.cells_res[i] != d)
+			dev->cell_info.cell_r_force = true;
+		dev->cell_info.cells_res[i] = d;
 	}
-	BMS_DATA_READ(ctx->cell_info.power_temp, DATA_UINT16_GET(ctx, CELL_FRAME_POWER_TEMP));	// * 0.1f
-	BMS_DATA_READ(ctx->cell_info.cell_warn, DATA_UINT32_GET(ctx, CELL_FRAME_CELL_WARN));
-	BMS_DATA_READ(ctx->cell_info.batt_volt, DATA_UINT32_GET(ctx, CELL_FRAME_BATT_VOLT));	// * 0.001f
-	BMS_DATA_READ(ctx->cell_info.batt_power, DATA_UINT32_GET(ctx, CELL_FRAME_BATT_POWER));
-	BMS_DATA_READ(ctx->cell_info.batt_charge_curr, DATA_INT32_GET(ctx, CELL_FRAME_BATT_CHARGE)); // * 0.001f
-	BMS_DATA_READ(ctx->cell_info.batt_temp1, DATA_UINT16_GET(ctx, CELL_FRAME_TEMP_1));		// * 0.1f
-	BMS_DATA_READ(ctx->cell_info.batt_temp2, DATA_UINT16_GET(ctx, CELL_FRAME_TEMP_2));		// * 0.1f
-	BMS_DATA_READ(ctx->cell_info.batt_temp_mos, DATA_UINT16_GET(ctx, CELL_FRAME_TEMP_MOS));	// * 0.1f
-	BMS_DATA_READ(ctx->cell_info.alarms, DATA_UINT16_GET(ctx, CELL_FRAME_ALARM));
-	BMS_DATA_READ(ctx->cell_info.batt_balance_curr, DATA_UINT16_GET(ctx, CELL_FRAME_BATT_BALANCE));	// * 0.001f
-	BMS_DATA_READ(ctx->cell_info.batt_action, DATA_UINT8_GET(ctx, CELL_FRAME_BATT_ACTION));
-	BMS_DATA_READ(ctx->cell_info.batt_state, DATA_UINT8_GET(ctx, CELL_FRAME_BATT_STATE));
-	BMS_DATA_READ(ctx->cell_info.batt_cap_rem, DATA_UINT32_GET(ctx, CELL_FRAME_BATT_CAP_REMAIN));	// * 0.001f
-	BMS_DATA_READ(ctx->cell_info.batt_cap_nom, DATA_UINT32_GET(ctx, CELL_FRAME_BATT_CAP_NOMINAL));	// * 0.001f
-	BMS_DATA_READ(ctx->cell_info.batt_cycles, DATA_UINT32_GET(ctx, CELL_FRAME_CYCLE_COUNT));
-	BMS_DATA_READ(ctx->cell_info.batt_cycles_cap, DATA_UINT32_GET(ctx, CELL_FRAME_CYCLE_CAP));	// * 0.001f
-	BMS_DATA_READ(ctx->cell_info.soh, DATA_UINT8_GET(ctx, CELL_FRAME_SOH));
-	BMS_DATA_READ(ctx->cell_info.run_time, DATA_UINT32_GET(ctx, CELL_FRAME_RUNTIME));
-	BMS_DATA_READ(ctx->cell_info.charge_enable, DATA_UINT8_GET(ctx, CELL_FRAME_CHARGE_ENABLE));
-	BMS_DATA_READ(ctx->cell_info.discharge_enable, DATA_UINT8_GET(ctx, CELL_FRAME_DISCHARGE_ENABLE));
-	BMS_DATA_READ(ctx->cell_info.precharge_enable, DATA_UINT8_GET(ctx, CELL_FRAME_PRECHARGE_ENABLE));
-	BMS_DATA_READ(ctx->cell_info.ballance_work, DATA_UINT8_GET(ctx, CELL_FRAME_BALANCER_WORK));
-	BMS_DATA_READ(ctx->cell_info.batt_v, DATA_UINT16_GET(ctx, CELL_FRAME_BATTV)); // ?
-	BMS_DATA_READ(ctx->cell_info.batt_heat_a, DATA_UINT16_GET(ctx, CELL_FRAME_BATT_HEAT_CURR)); // * 0.001f
+	BMS_DATA_READ(dev->cell_info.power_temp, DATA_UINT16_GET(dev, CELL_FRAME_POWER_TEMP));	// * 0.1f
+	BMS_DATA_READ(dev->cell_info.cell_warn, DATA_UINT32_GET(dev, CELL_FRAME_CELL_WARN));
+	BMS_DATA_READ(dev->cell_info.batt_volt, DATA_UINT32_GET(dev, CELL_FRAME_BATT_VOLT));	// * 0.001f
+	BMS_DATA_READ(dev->cell_info.batt_power, DATA_UINT32_GET(dev, CELL_FRAME_BATT_POWER));
+	BMS_DATA_READ(dev->cell_info.batt_charge_curr, DATA_INT32_GET(dev, CELL_FRAME_BATT_CHARGE)); // * 0.001f
+	BMS_DATA_READ(dev->cell_info.batt_temp1, DATA_UINT16_GET(dev, CELL_FRAME_TEMP_1));		// * 0.1f
+	BMS_DATA_READ(dev->cell_info.batt_temp2, DATA_UINT16_GET(dev, CELL_FRAME_TEMP_2));		// * 0.1f
+	BMS_DATA_READ(dev->cell_info.batt_temp_mos, DATA_UINT16_GET(dev, CELL_FRAME_TEMP_MOS));	// * 0.1f
+	BMS_DATA_READ(dev->cell_info.alarms, DATA_UINT16_GET(dev, CELL_FRAME_ALARM));
+	BMS_DATA_READ(dev->cell_info.batt_balance_curr, DATA_UINT16_GET(dev, CELL_FRAME_BATT_BALANCE));	// * 0.001f
+	BMS_DATA_READ(dev->cell_info.batt_action, DATA_UINT8_GET(dev, CELL_FRAME_BATT_ACTION));
+	BMS_DATA_READ(dev->cell_info.batt_state, DATA_UINT8_GET(dev, CELL_FRAME_BATT_STATE));
+	BMS_DATA_READ(dev->cell_info.batt_cap_rem, DATA_UINT32_GET(dev, CELL_FRAME_BATT_CAP_REMAIN));	// * 0.001f
+	BMS_DATA_READ(dev->cell_info.batt_cap_nom, DATA_UINT32_GET(dev, CELL_FRAME_BATT_CAP_NOMINAL));	// * 0.001f
+	BMS_DATA_READ(dev->cell_info.batt_cycles, DATA_UINT32_GET(dev, CELL_FRAME_CYCLE_COUNT));
+	BMS_DATA_READ(dev->cell_info.batt_cycles_cap, DATA_UINT32_GET(dev, CELL_FRAME_CYCLE_CAP));	// * 0.001f
+	BMS_DATA_READ(dev->cell_info.soh, DATA_UINT8_GET(dev, CELL_FRAME_SOH));
+	BMS_DATA_READ(dev->cell_info.run_time, DATA_UINT32_GET(dev, CELL_FRAME_RUNTIME));
+	BMS_DATA_READ(dev->cell_info.charge_enable, DATA_UINT8_GET(dev, CELL_FRAME_CHARGE_ENABLE));
+	BMS_DATA_READ(dev->cell_info.discharge_enable, DATA_UINT8_GET(dev, CELL_FRAME_DISCHARGE_ENABLE));
+	BMS_DATA_READ(dev->cell_info.precharge_enable, DATA_UINT8_GET(dev, CELL_FRAME_PRECHARGE_ENABLE));
+	BMS_DATA_READ(dev->cell_info.ballance_work, DATA_UINT8_GET(dev, CELL_FRAME_BALANCER_WORK));
+	BMS_DATA_READ(dev->cell_info.batt_v, DATA_UINT16_GET(dev, CELL_FRAME_BATTV)); // ?
+	BMS_DATA_READ(dev->cell_info.batt_heat_a, DATA_UINT16_GET(dev, CELL_FRAME_BATT_HEAT_CURR)); // * 0.001f
 }
 
 #define DEV_FRAME_MODEL			6	// 16 bytes, string
@@ -215,25 +217,25 @@ static void jk_bt_process_cell_frame(bms_context_t *ctx)
 #define BMS_DEV_STR_READ(C, DEST, OFS, LEN) \
 	do { \
 		if (memcmp((DEST), (C)->nbuff + (OFS), (LEN))) \
-			ctx->cell_info.dev_force = true;\
+			dev->cell_info.dev_force = true;\
 		memcpy((DEST), (C)->nbuff + (OFS), (LEN));\
 		(DEST)[(LEN)-1] = 0;\
 	} while (0)
 #define BMS_DEV_INT_READ(S, V)\
-	{ if ((S) != (V)) { ctx->cell_info.dev_force = true; (S) = (V); }}
-static void jk_bt_process_device_frame(bms_context_t *ctx)
+	{ if ((S) != (V)) { dev->cell_info.dev_force = true; (S) = (V); }}
+static void jk_bt_process_device_frame(struct jk_bms_dev_t *dev)
 {
-	ctx->dev_info.valid = true;
-	BMS_DEV_STR_READ(ctx, ctx->dev_info.Model, DEV_FRAME_MODEL, 16);
-	BMS_DEV_STR_READ(ctx, ctx->dev_info.Vendor, DEV_FRAME_VENDOR, 16);
-	BMS_DEV_STR_READ(ctx, ctx->dev_info.Hardware, DEV_FRAME_HW, 8);
-	BMS_DEV_STR_READ(ctx, ctx->dev_info.Software, DEV_FRAME_SW, 8);
-	BMS_DEV_STR_READ(ctx, ctx->dev_info.ManufacturingDate, DEV_FRAME_MAN_DATE, 8);
-	BMS_DEV_STR_READ(ctx, ctx->dev_info.SerialN, DEV_FRAME_SN, 12);
-	BMS_DEV_STR_READ(ctx, ctx->dev_info.PassRead, DEV_FRAME_PASS_READ, 16);
-	BMS_DEV_STR_READ(ctx, ctx->dev_info.PassSetup, DEV_FRAME_PASS_SETUP, 16);
-	BMS_DEV_INT_READ(ctx->dev_info.Uptime, DATA_UINT32_GET(ctx, DEV_FRAME_UPTIME));
-	BMS_DEV_INT_READ(ctx->dev_info.PowerOnCount, DATA_UINT32_GET(ctx, DEV_FRAME_POC));
+	dev->dev_info.valid = true;
+	BMS_DEV_STR_READ(dev, dev->dev_info.Model, DEV_FRAME_MODEL, 16);
+	BMS_DEV_STR_READ(dev, dev->dev_info.Vendor, DEV_FRAME_VENDOR, 16);
+	BMS_DEV_STR_READ(dev, dev->dev_info.Hardware, DEV_FRAME_HW, 8);
+	BMS_DEV_STR_READ(dev, dev->dev_info.Software, DEV_FRAME_SW, 8);
+	BMS_DEV_STR_READ(dev, dev->dev_info.ManufacturingDate, DEV_FRAME_MAN_DATE, 8);
+	BMS_DEV_STR_READ(dev, dev->dev_info.SerialN, DEV_FRAME_SN, 12);
+	BMS_DEV_STR_READ(dev, dev->dev_info.PassRead, DEV_FRAME_PASS_READ, 16);
+	BMS_DEV_STR_READ(dev, dev->dev_info.PassSetup, DEV_FRAME_PASS_SETUP, 16);
+	BMS_DEV_INT_READ(dev->dev_info.Uptime, DATA_UINT32_GET(dev, DEV_FRAME_UPTIME));
+	BMS_DEV_INT_READ(dev->dev_info.PowerOnCount, DATA_UINT32_GET(dev, DEV_FRAME_POC));
 }
 
 static uint8_t calc_crc(const uint8_t data[], const uint16_t len)
@@ -247,157 +249,158 @@ static uint8_t calc_crc(const uint8_t data[], const uint16_t len)
 	return crc;
 }
 
-static void jk_bt_process_terminal(bms_context_t *ctx, bt_characteristicvalue_t *val)
+static void jk_bt_process_terminal(struct jk_bms_dev_t *dev, bt_characteristicvalue_t *val)
 {
 	int ssize = ARRAY_SIZE(jk_notify_pkt_start);
 	int csize = 0;
 	uint8_t crc;
 
-	if (ctx->nbuff_ready) /* Previous frame not processed yet */
+	if (dev->nbuff_ready) /* Previous frame not processed yet */
 		return;
 
-	if (ctx->jk_term_charc.char_id != val->charId) {
-		if (BMC_DEBUG(ctx))
+	if (dev->jk_term_charc.char_id != val->charId) {
+		if (BMC_DEBUG(dev->ctx))
 			hlog_info(BMS_JK_MODULE, "Not on terminal service, ignoring: %d / %d",
-					  ctx->jk_term_charc.char_id != val->charId);
+					  dev->jk_term_charc.char_id != val->charId);
 		return;
 	}
 	if (val->len < ssize) {
-		if (BMC_DEBUG(ctx))
+		if (BMC_DEBUG(dev->ctx))
 			hlog_info(BMS_JK_MODULE, "Data not enough, ignoring: %d, at least %d expected",
 					  val->len, ssize);
 		return;
 	}
 
 	if (!memcmp(val->data, jk_notify_pkt_start, ssize)) {
-		if (BMC_DEBUG(ctx))
+		if (BMC_DEBUG(dev->ctx))
 			hlog_info(BMS_JK_MODULE, "New notification detected");
 		/* New notification starts */
-		ctx->nbuff_curr = 0;
+		dev->nbuff_curr = 0;
 		csize = val->len < NOTIFY_PACKET_SIZE ? val->len : NOTIFY_PACKET_SIZE;
 	} else {
 		/* Assemble previous notification */
-		if (BMC_DEBUG(ctx))
+		if (BMC_DEBUG(dev->ctx))
 			hlog_info(BMS_JK_MODULE, "Assemble previous notification: +%d bytes", val->len);
-		csize = NOTIFY_PACKET_SIZE - ctx->nbuff_curr;
+		csize = NOTIFY_PACKET_SIZE - dev->nbuff_curr;
 		csize = val->len < csize ? val->len : csize;
 	}
 
-	memcpy(ctx->nbuff + ctx->nbuff_curr, val->data, csize);
-	ctx->nbuff_curr += csize;
-	if (ctx->nbuff_curr == NOTIFY_PACKET_SIZE) {
-		if (BMC_DEBUG(ctx))
-			hlog_info(BMS_JK_MODULE, "Processing frame %d of type %d: %d bytes", ctx->nbuff[5], ctx->nbuff[4], ctx->nbuff_curr);
-		if (memcmp(ctx->nbuff, jk_notify_pkt_start, ssize)) {
-			if (BMC_DEBUG(ctx))
+	memcpy(dev->nbuff + dev->nbuff_curr, val->data, csize);
+	dev->nbuff_curr += csize;
+	if (dev->nbuff_curr == NOTIFY_PACKET_SIZE) {
+		if (BMC_DEBUG(dev->ctx))
+			hlog_info(BMS_JK_MODULE, "Processing frame %d of type %d: %d bytes", dev->nbuff[5], dev->nbuff[4], dev->nbuff_curr);
+		if (memcmp(dev->nbuff, jk_notify_pkt_start, ssize)) {
+			if (BMC_DEBUG(dev->ctx))
 				hlog_info(BMS_JK_MODULE, "Invalid start magic [0x%X 0x%X 0x%X 0x%X]",
-						  ctx->nbuff[0], ctx->nbuff[1], ctx->nbuff[2], ctx->nbuff[3]);
-			ctx->nbuff_curr = 0;
+						  dev->nbuff[0], dev->nbuff[1], dev->nbuff[2], dev->nbuff[3]);
+			dev->nbuff_curr = 0;
 			return;
 		}
-		crc = calc_crc(ctx->nbuff, ctx->nbuff_curr - 1);
-		if (crc != ctx->nbuff[ctx->nbuff_curr - 1]) {
-			if (BMC_DEBUG(ctx))
-				hlog_info(BMS_JK_MODULE, "Broken CRC %d != %d", crc, ctx->nbuff[ctx->nbuff_curr - 1]);
-			ctx->nbuff_curr = 0;
+		crc = calc_crc(dev->nbuff, dev->nbuff_curr - 1);
+		if (crc != dev->nbuff[dev->nbuff_curr - 1]) {
+			if (BMC_DEBUG(dev->ctx))
+				hlog_info(BMS_JK_MODULE, "Broken CRC %d != %d", crc, dev->nbuff[dev->nbuff_curr - 1]);
+			dev->nbuff_curr = 0;
 			return;
 		}
-		ctx->nbuff_ready = true;
+		dev->nbuff_ready = true;
 	}
 }
 
-static void bms_jk_frame_process(bms_context_t *ctx)
+static void bms_jk_frame_process(struct jk_bms_dev_t *dev)
 {
-	if (!ctx->nbuff_ready)
+	if (!dev->nbuff_ready)
 		return;
-	switch (ctx->nbuff[4]) {
+	switch (dev->nbuff[4]) {
 	case 0x01: /* settings, not supported yet */
-		if (BMC_DEBUG(ctx))
+		if (BMC_DEBUG(dev->ctx))
 			hlog_info(BMS_JK_MODULE, "Got frame with settings, not supported yet");
 		break;
 	case 0x02: /* cell info */
-		if (BMC_DEBUG(ctx))
+		if (BMC_DEBUG(dev->ctx))
 			hlog_info(BMS_JK_MODULE, "Got cell info");
-		jk_bt_process_cell_frame(ctx);
+		jk_bt_process_cell_frame(dev);
 		break;
 	case 0x03: /* device info */
-		if (BMC_DEBUG(ctx))
+		if (BMC_DEBUG(dev->ctx))
 			hlog_info(BMS_JK_MODULE, "Got device info");
-		jk_bt_process_device_frame(ctx);
+		jk_bt_process_device_frame(dev);
 		break;
 	default:
-		if (BMC_DEBUG(ctx))
-			hlog_info(BMS_JK_MODULE, "Got unsupported message type %d", ctx->nbuff[4]);
+		if (BMC_DEBUG(dev->ctx))
+			hlog_info(BMS_JK_MODULE, "Got unsupported message type %d", dev->nbuff[4]);
 		break;
 	}
-	ctx->last_reply = time_ms_since_boot();
-	ctx->nbuff_curr = 0;
-	ctx->nbuff_ready = false;
+	dev->last_reply = time_ms_since_boot();
+	dev->nbuff_curr = 0;
+	dev->nbuff_ready = false;
+	dev->wait_reply = false;
 }
 
 static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_len, void *context)
 {
-	bms_context_t *ctx = (bms_context_t *)context;
+	struct jk_bms_dev_t *dev = (struct jk_bms_dev_t *)context;
 	bt_service_t *svc;
 
-		if (idx != ctx->bt_index)
-			return;
-		switch (event) {
-		case BT_CONNECTED:
-			ctx->state = BT_CONNECTED;
-			free(ctx->name);
-			ctx->name = strdup(data);
-			charc_reset(ctx);
-			if (ctx->state != BT_CONNECTED)
-				hlog_info(BMS_JK_MODULE, "Connected to %s", ctx->name);
-			ctx->state = BT_CONNECTED;
-			ctx->connect_count++;
+	if (idx != dev->bt_index)
+		return;
+	switch (event) {
+	case BT_CONNECTED:
+		dev->state = BT_CONNECTED;
+		free(dev->name);
+		dev->name = strdup(data);
+		charc_reset(dev);
+		if (dev->state != BT_CONNECTED)
+			hlog_info(BMS_JK_MODULE, "Connected to %s", dev->name);
+		dev->state = BT_CONNECTED;
+		dev->connect_count++;
+		break;
+	case BT_DISCONNECTED:
+		if (dev->state != BT_DISCONNECTED)
+			hlog_info(BMS_JK_MODULE, "Disconnected from %s", dev->name);
+		charc_reset(dev);
+		dev->state = BT_DISCONNECTED;
+		free(dev->name);
+		dev->name = NULL;
+		break;
+	case BT_READY:
+		if (dev->state != BT_READY)
+			hlog_info(BMS_JK_MODULE, "Device %s is ready", dev->name);
+		dev->state = BT_READY;
+		break;
+	case BT_NEW_SERVICE:
+		if (data_len != sizeof(bt_service_t))
 			break;
-		case BT_DISCONNECTED:
-			if (ctx->state != BT_DISCONNECTED)
-				hlog_info(BMS_JK_MODULE, "Disconnected from %s", ctx->name);
-			charc_reset(ctx);
-			ctx->state = BT_DISCONNECTED;
-			free(ctx->name);
-			ctx->name = NULL;
+		svc = (bt_service_t *)data;
+		if (BMC_DEBUG(dev->ctx))
+			hlog_info(BMS_JK_MODULE, "New service discovered (0x%X): ["UUID_128_FMT"]", svc->uuid16, UUID_128_PARAM(svc->uuid128));
+		break;
+	case BT_NEW_CHARACTERISTIC:
+		if (data_len != sizeof(bt_characteristic_t))
 			break;
-		case BT_READY:
-			if (ctx->state != BT_READY)
-				hlog_info(BMS_JK_MODULE, "Device %s is ready", ctx->name);
-			ctx->state = BT_READY;
-			break;
-		case BT_NEW_SERVICE:
-			if (data_len != sizeof(bt_service_t))
-				break;
-			svc = (bt_service_t *)data;
-			if (BMC_DEBUG(ctx))
-				hlog_info(BMS_JK_MODULE, "New service discovered (0x%X): ["UUID_128_FMT"]", svc->uuid16, UUID_128_PARAM(svc->uuid128));
-			break;
-		case BT_NEW_CHARACTERISTIC:
-			if (data_len != sizeof(bt_characteristic_t))
-				break;
-			charc_new(ctx, (bt_characteristic_t *)data);
-			break;
-		case BT_VALUE_RECEIVED:
-			if (BMC_DEBUG(ctx))
-				hlog_info(BMS_JK_MODULE, "Data received, terminal is %s / %d",
-						  ctx->state == BT_READY ? "ready" : "not ready", ctx->state);
-			if (data_len == sizeof(bt_characteristicvalue_t) && ctx->state == BT_READY)
-				jk_bt_process_terminal(ctx, (bt_characteristicvalue_t *)data);
-			break;
-		}
+		charc_new(dev, (bt_characteristic_t *)data);
+		break;
+	case BT_VALUE_RECEIVED:
+		if (BMC_DEBUG(dev->ctx))
+			hlog_info(BMS_JK_MODULE, "Data received, terminal is %s / %d",
+					  dev->state == BT_READY ? "ready" : "not ready", dev->state);
+		if (data_len == sizeof(bt_characteristicvalue_t) && dev->state == BT_READY)
+			jk_bt_process_terminal(dev, (bt_characteristicvalue_t *)data);
+		break;
+	}
 }
 
-static int bms_jk_read_cmd(bms_context_t *ctx, uint8_t address, uint32_t value, uint8_t length)
+static int bms_jk_read_cmd(struct jk_bms_dev_t *dev, uint8_t address, uint32_t value, uint8_t length)
 {
 	uint64_t now = time_ms_since_boot();
 	uint8_t frame[20] = {0};
 	unsigned int i;
 	int ret;
 
-	if (!ctx->jk_term_charc.notify) {
-		if (!bt_characteristic_notify(ctx->jk_term_charc.char_id, true))
-			ctx->jk_term_charc.notify = true;
+	if (!dev->jk_term_charc.notify) {
+		if (!bt_characteristic_notify(dev->jk_term_charc.char_id, true))
+			dev->jk_term_charc.notify = true;
 	}
 
 	/* start sequence: 0xAA, 0x55, 0x90, 0xEB */
@@ -411,14 +414,14 @@ static int bms_jk_read_cmd(bms_context_t *ctx, uint8_t address, uint32_t value, 
 	frame[9] = value >> 24;
 	frame[19] = calc_crc(frame, sizeof(frame) - 1);
 
-	ret = bt_characteristic_write(ctx->jk_term_charc.char_id, frame, sizeof(frame));
+	ret = bt_characteristic_write(dev->jk_term_charc.char_id, frame, sizeof(frame));
 
-	if (BMC_DEBUG(ctx))
+	if (BMC_DEBUG(dev->ctx))
 		hlog_info(BMS_JK_MODULE, "Requested 0x%X val 0x%X: %d", address, value, ret);
 	if (ret == 0)
-		ctx->jk_term_charc.send_time = now;
+		dev->jk_term_charc.send_time = now;
 
-	bt_characteristic_read(ctx->jk_term_charc.char_id);
+	bt_characteristic_read(dev->jk_term_charc.char_id);
 	return (ret == 0 ? 0 : -1);
 }
 
@@ -427,97 +430,169 @@ static bool get_bms_config(bms_context_t **ctx)
 {
 	char *bt_mod = USER_PRAM_GET(BMS_MODEL);
 	char *bt_id = USER_PRAM_GET(BMS_BT);
+	char *dev, *addr, *ch;
+	char *mod, *mod_rest;
 	char *rest, *rest1;
 	bt_addr_t address;
 	bool ret = false;
-	char *pin = NULL;
-	char *tok;
-	int  i;
+	uint32_t  i;
 
-	if (!bt_mod || strlen(bt_mod) != strlen(BMS_MODEL_STR))
-		goto out;
-	if (strcmp(bt_mod, BMS_MODEL_STR))
+	(*ctx) = NULL;
+	if (!bt_mod || strlen(bt_mod) < 1)
 		goto out;
 	if (!bt_id || strlen(bt_id) < 1)
 		goto out;
-	rest = bt_id;
-	tok = strtok_r(rest, ";", &rest);
-	if (!tok)
-		goto out;
-	pin = strdup(rest);
-	if (!pin)
-		goto out;
-
-	rest1 = tok;
-	i = 0;
-	while ((tok = strtok_r(rest1, ":", &rest1))  && i < 6)
-		address[i++] = (int)strtol(tok, NULL, 16);
-	if (i != 6)
-		goto out;
-
 	(*ctx) = calloc(1, sizeof(bms_context_t));
 	if (!(*ctx))
 		goto out;
-	(*ctx)->pin = pin;
-	memcpy((*ctx)->address, address, sizeof(bt_addr_t));
 
-	ret = true;
+	rest = bt_id;
+	mod_rest = bt_mod;
+	while ((dev = strtok_r(rest, ";", &rest))) {
+		mod = strtok_r(mod_rest, ";", &mod_rest);
+		if (!mod || strlen(mod) != strlen(BMS_MODEL_STR))
+			continue;
+		if (strcmp(mod, BMS_MODEL_STR))
+			continue;
+		rest1 = dev;
+		addr = strtok_r(rest1, ",", &rest1);
+		if (!addr || strlen(addr) < 1)
+			continue;
+		if (!rest1 || strlen(rest1) < 1)
+			continue;
+		i = 0;
+		while ((ch = strtok_r(addr, ":", &addr))  && i < 6)
+			address[i++] = (int)strtol(ch, NULL, 16);
+		if (i != 6)
+			continue;
+		if ((*ctx)->count >= BMS_MAX_DEVICES)
+			break;
+		(*ctx)->devices[(*ctx)->count] = calloc(1, sizeof(struct jk_bms_dev_t));
+		if (!(*ctx)->devices[(*ctx)->count])
+			break;
+		memcpy((*ctx)->devices[(*ctx)->count]->address, address, sizeof(bt_addr_t));
+		(*ctx)->devices[(*ctx)->count]->pin = strdup(rest1);
+		if (!(*ctx)->devices[(*ctx)->count]->pin)
+			break;
+		(*ctx)->count++;
+	}
+
+	if ((*ctx)->count > 0)
+		ret = true;
 out:
 	free(bt_id);
 	free(bt_mod);
-	if (!ret)
-		free(pin);
+	if (!ret) {
+		if ((*ctx)) {
+			for (i = 0; i < (*ctx)->count; i++) {
+				if (!(*ctx)->devices[i])
+					continue;
+				if ((*ctx)->devices[i]->pin)
+					free((*ctx)->devices[i]->pin);
+				free((*ctx)->devices[i]);
+			}
+			free(*ctx);
+			*ctx = NULL;
+		}
+	}
+
 	return ret;
 }
 
 bool bms_jk_init(bms_context_t **ctx)
 {
+	uint32_t i;
 	//bt_uuid128_t sid = CUSTOM1_SVC_UID;
 	//bt_uuid128_t cid = CUSTOM1_CHAR_READ_UID;
 
 	if (!get_bms_config(ctx))
 		return false;
 	mutex_init(&(*ctx)->lock);
-	(*ctx)->state = BT_DISCONNECTED;
+	for (i = 0; i < (*ctx)->count; i++) {
+		(*ctx)->devices[i]->state = BT_DISCONNECTED;
 
-	memcpy((*ctx)->jk_term_charc.svc_uid128, _terminal_svc, sizeof(bt_uuid128_t));
-	memcpy((*ctx)->jk_term_charc.charc_uid128, _terminal_charc_read, sizeof(bt_uuid128_t));
-	(*ctx)->jk_term_charc.desc = "Terminal";
+		memcpy((*ctx)->devices[i]->jk_term_charc.svc_uid128, _terminal_svc, sizeof(bt_uuid128_t));
+		memcpy((*ctx)->devices[i]->jk_term_charc.charc_uid128, _terminal_charc_read, sizeof(bt_uuid128_t));
+		(*ctx)->devices[i]->ctx = (*ctx);
+		(*ctx)->devices[i]->jk_term_charc.desc = "Terminal";
 
-	(*ctx)->bt_index = bt_add_known_device((*ctx)->address, (*ctx)->pin, jk_bt_event, *ctx);
-	if ((*ctx)->bt_index < 1)
-		goto out_err;
+		(*ctx)->devices[i]->bt_index = bt_add_known_device((*ctx)->devices[i]->address,
+														   (*ctx)->devices[i]->pin,
+														   jk_bt_event, (*ctx)->devices[i]);
+		if ((*ctx)->devices[i]->bt_index < 1)
+			goto out_err;
+		bms_jk_mqtt_init((*ctx), i);
+	}
 
-	bms_jk_mqtt_init(*ctx);
-	hlog_info(BMS_JK_MODULE, "Initialise successfully JK BMS module");
+	hlog_info(BMS_JK_MODULE, "Initialise successfully %d JK BMS module", (*ctx)->count);
 	return true;
 
 out_err:
-	free((*ctx)->pin);
+	for (i = 0; i < (*ctx)->count; i++) {
+		if (!(*ctx)->devices[i])
+			continue;
+		if ((*ctx)->devices[i]->pin)
+			free((*ctx)->devices[i]->pin);
+		free((*ctx)->devices[i]);
+	}
 	free((*ctx));
+	(*ctx) = NULL;
 	return false;
+}
+
+static void bms_jk_send_request(struct jk_bms_dev_t *dev)
+{
+	if (dev->request_count % 10)
+		bms_jk_read_cmd(dev, JK_COMMAND_CELL_INFO, 0, 0);
+	else
+		bms_jk_read_cmd(dev, JK_COMMAND_DEVICE_INFO, 0, 0);
+	dev->request_count++;
+	dev->send_time = time_ms_since_boot();
+	dev->wait_reply = true;
+}
+
+static void bms_jk_process(bms_context_t *ctx)
+{
+	uint32_t i;
+
+	for (i = 0; i < ctx->count; i++) {
+		bms_jk_frame_process(ctx->devices[i]);
+		bms_jk_mqtt_send(ctx->devices[i]);
+	}
+
 }
 
 static void bms_jk_run(void *context)
 {
 	bms_context_t *ctx = (bms_context_t *)context;
-	static int cmd;
+	struct jk_bms_dev_t *dev;
+	static uint32_t idx;
 	uint64_t now;
 
-	if (ctx->state != BT_READY)
-		return;
-	now = time_ms_since_boot();
+	if (idx >= ctx->count)
+		idx = 0;
 
-	if (TERM_IS_ACTIVE(ctx) && (now - ctx->send_time) >= CMD_POLL_MS) {
-		if (cmd % 10)
-			bms_jk_read_cmd(ctx, JK_COMMAND_CELL_INFO, 0, 0);
-		else
-			bms_jk_read_cmd(ctx, JK_COMMAND_DEVICE_INFO, 0, 0);
-		cmd++;
-		ctx->send_time = now;
+	dev = ctx->devices[idx];
+	if (dev->state != BT_READY || !TERM_IS_ACTIVE(dev)) {
+		idx++;
+		goto out;
 	}
-	bms_jk_frame_process(ctx);
-	bms_jk_mqtt_send(ctx);
+
+	now = time_ms_since_boot();
+	if (dev->wait_reply) {
+		if ((now - dev->send_time) > CMD_TIMEOUT_MS) {
+			dev->nbuff_curr = 0;
+			dev->nbuff_ready = false;
+			dev->wait_reply = false;
+			idx++;
+		}
+	} else if ((now - dev->send_time) >= CMD_POLL_MS) {
+		bms_jk_send_request(dev);
+	} else
+		idx++;
+
+out:
+	bms_jk_process(ctx);
 }
 
 
@@ -529,109 +604,94 @@ static void bms_jk_debug_set(uint32_t debug, void *context)
 		ctx->debug = debug;
 }
 
-static bool bms_jk_log_cells(bms_context_t *ctx)
+static void bms_jk_log_cells(struct jk_bms_dev_t *dev)
 {
-	static int in_progress;
 	int i;
 
-	switch (in_progress) {
-	case 0:
-		hlog_info(BMS_JK_MODULE, "JK BMS cells:");
-		hlog_info(BMS_JK_MODULE, "\tEnabled cells: 0x%X", ctx->cell_info.cells_enabled);
-		for (i = 0; i < BMS_MAX_CELLS; i++) {
-			hlog_info(BMS_JK_MODULE, "\tcell %d: %3.2fv, %3.2fohm", i,
-					ctx->cell_info.cells_v[i]*0.001, ctx->cell_info.cells_res[i]*0.001);
-		}
-		in_progress++;
-		break;
-	case 1:
-		hlog_info(BMS_JK_MODULE, "\tV average: %3.2fv", ctx->cell_info.v_avg*0.001);
-		hlog_info(BMS_JK_MODULE, "\tV delta: %3.2fv", ctx->cell_info.v_avg*0.001);
-		hlog_info(BMS_JK_MODULE, "\tCell min %d, max %d", ctx->cell_info.cell_v_min, ctx->cell_info.cell_v_max);
-		hlog_info(BMS_JK_MODULE, "\tTemperatures: power %3.2f; mos %3.2f, temp1 %3.2f, temp2 %3.2f",
-				ctx->cell_info.power_temp*0.1, ctx->cell_info.batt_temp_mos*0.1,
-				ctx->cell_info.batt_temp1*0.1, ctx->cell_info.batt_temp1*0.1);
-		hlog_info(BMS_JK_MODULE, "\tBatt volt: %3.2fv", ctx->cell_info.batt_volt*0.001);
-		hlog_info(BMS_JK_MODULE, "\tBatt power: %ld", ctx->cell_info.batt_power);
-		hlog_info(BMS_JK_MODULE, "\tCell warnings: 0x%X", ctx->cell_info.cell_warn);
-		hlog_info(BMS_JK_MODULE, "\tCell alarms: 0x%X", ctx->cell_info.alarms);
-		in_progress++;
-		break;
-	case 2:
-		hlog_info(BMS_JK_MODULE, "\tBalance current: %3.2fA", ctx->cell_info.batt_balance_curr*0.001);
-		hlog_info(BMS_JK_MODULE, "\tBatt action: %s", ctx->cell_info.batt_action == 0x0?"Off" :
-													(ctx->cell_info.batt_action == 0x1?"Charging" :
-													(ctx->cell_info.batt_action == 0x2?"Discharging" : "Uknown")));
-		hlog_info(BMS_JK_MODULE, "\tBatt state: %d%%", ctx->cell_info.batt_state);
-		hlog_info(BMS_JK_MODULE, "\tBatt cycles: %d", ctx->cell_info.batt_cycles);
-		hlog_info(BMS_JK_MODULE, "\tBatt cycles capacity: %3.2f Ah", ctx->cell_info.batt_cycles_cap*0.001);
-		hlog_info(BMS_JK_MODULE, "\tBatt capacity remain: %3.2f Ah", ctx->cell_info.batt_cap_rem*0.001);
-		hlog_info(BMS_JK_MODULE, "\tBatt capacity nominal: %3.2f Ah", ctx->cell_info.batt_cap_nom*0.001);
-		in_progress++;
-		break;
-	case 3:
-		hlog_info(BMS_JK_MODULE, "\tSoH: %d", ctx->cell_info.soh);
-		hlog_info(BMS_JK_MODULE, "\tRuntime: %lds", ctx->cell_info.run_time);
-		hlog_info(BMS_JK_MODULE, "\tCharge %s", ctx->cell_info.charge_enable?"enabled":"disabled");
-		hlog_info(BMS_JK_MODULE, "\tDischarge %s", ctx->cell_info.discharge_enable?"enabled":"disabled");
-		hlog_info(BMS_JK_MODULE, "\tPrecharge %s", ctx->cell_info.precharge_enable?"enabled":"disabled");
-		hlog_info(BMS_JK_MODULE, "\tBallance %s", ctx->cell_info.ballance_work?"enabled":"disabled");
-		hlog_info(BMS_JK_MODULE, "\tBatt V: %3.2fV", ctx->cell_info.batt_v*0.001);
-		hlog_info(BMS_JK_MODULE, "\tBatt heat current: %3.2fA", ctx->cell_info.batt_heat_a*0.001);
-		in_progress = 0;
-		break;
-	default:
-		in_progress = 0;
-		break;
+	hlog_info(BMS_JK_MODULE, "\tJK BMS cells:");
+	hlog_info(BMS_JK_MODULE, "\t Enabled cells: 0x%X", dev->cell_info.cells_enabled);
+	for (i = 0; i < BMS_MAX_CELLS; i++) {
+		hlog_info(BMS_JK_MODULE, "\t cell %d: %3.2fv, %3.2fohm", i,
+				dev->cell_info.cells_v[i]*0.001, dev->cell_info.cells_res[i]*0.001);
 	}
-
-	return in_progress;
+	hlog_info(BMS_JK_MODULE, "\t V average: %3.2fv", dev->cell_info.v_avg*0.001);
+	hlog_info(BMS_JK_MODULE, "\t V delta: %3.2fv", dev->cell_info.v_avg*0.001);
+	hlog_info(BMS_JK_MODULE, "\t Cell min %d, max %d", dev->cell_info.cell_v_min, dev->cell_info.cell_v_max);
+	hlog_info(BMS_JK_MODULE, "\t Temperatures: power %3.2f; mos %3.2f, temp1 %3.2f, temp2 %3.2f",
+			  dev->cell_info.power_temp*0.1, dev->cell_info.batt_temp_mos*0.1,
+			  dev->cell_info.batt_temp1*0.1, dev->cell_info.batt_temp1*0.1);
+	hlog_info(BMS_JK_MODULE, "\t Batt volt: %3.2fv", dev->cell_info.batt_volt*0.001);
+	hlog_info(BMS_JK_MODULE, "\t Batt power: %ld", dev->cell_info.batt_power);
+	hlog_info(BMS_JK_MODULE, "\t Cell warnings: 0x%X", dev->cell_info.cell_warn);
+	hlog_info(BMS_JK_MODULE, "\t Cell alarms: 0x%X", dev->cell_info.alarms);
+	hlog_info(BMS_JK_MODULE, "\t Balance current: %3.2fA", dev->cell_info.batt_balance_curr*0.001);
+	hlog_info(BMS_JK_MODULE, "\t Batt action: %s", dev->cell_info.batt_action == 0x0?"Off" :
+												(dev->cell_info.batt_action == 0x1?"Charging" :
+												(dev->cell_info.batt_action == 0x2?"Discharging" : "Uknown")));
+	hlog_info(BMS_JK_MODULE, "\t Batt state: %d%%", dev->cell_info.batt_state);
+	hlog_info(BMS_JK_MODULE, "\t Batt cycles: %d", dev->cell_info.batt_cycles);
+	hlog_info(BMS_JK_MODULE, "\t Batt cycles capacity: %3.2f Ah", dev->cell_info.batt_cycles_cap*0.001);
+	hlog_info(BMS_JK_MODULE, "\t Batt capacity remain: %3.2f Ah", dev->cell_info.batt_cap_rem*0.001);
+	hlog_info(BMS_JK_MODULE, "\t Batt capacity nominal: %3.2f Ah", dev->cell_info.batt_cap_nom*0.001);
+	hlog_info(BMS_JK_MODULE, "\t SoH: %d", dev->cell_info.soh);
+	hlog_info(BMS_JK_MODULE, "\t Runtime: %lds", dev->cell_info.run_time);
+	hlog_info(BMS_JK_MODULE, "\t Charge %s", dev->cell_info.charge_enable?"enabled":"disabled");
+	hlog_info(BMS_JK_MODULE, "\t Discharge %s", dev->cell_info.discharge_enable?"enabled":"disabled");
+	hlog_info(BMS_JK_MODULE, "\t Precharge %s", dev->cell_info.precharge_enable?"enabled":"disabled");
+	hlog_info(BMS_JK_MODULE, "\t Ballance %s", dev->cell_info.ballance_work?"enabled":"disabled");
+	hlog_info(BMS_JK_MODULE, "\t Batt V: %3.2fV", dev->cell_info.batt_v*0.001);
+	hlog_info(BMS_JK_MODULE, "\t Batt heat current: %3.2fA", dev->cell_info.batt_heat_a*0.001);
 }
 
-static void bms_jk_log_device(bms_context_t *ctx)
+static void bms_jk_log_device(struct jk_bms_dev_t *dev)
 {
-	hlog_info(BMS_JK_MODULE, "JK BMS module:");
-	hlog_info(BMS_JK_MODULE, "\tVendor: %s", ctx->dev_info.Vendor);
-	hlog_info(BMS_JK_MODULE, "\tModel: %s", ctx->dev_info.Model);
-	hlog_info(BMS_JK_MODULE, "\tHardware: %s", ctx->dev_info.Hardware);
-	hlog_info(BMS_JK_MODULE, "\tSoftware: %s", ctx->dev_info.Software);
-	hlog_info(BMS_JK_MODULE, "\tSerialN: %s", ctx->dev_info.SerialN);
-	hlog_info(BMS_JK_MODULE, "\tUptime: %ld", ctx->dev_info.Uptime);
-	hlog_info(BMS_JK_MODULE, "\tPowerOnCount: %d", ctx->dev_info.PowerOnCount);
+	hlog_info(BMS_JK_MODULE, "\tJK BMS module:");
+	hlog_info(BMS_JK_MODULE, "\t Vendor: %s", dev->dev_info.Vendor);
+	hlog_info(BMS_JK_MODULE, "\t Model: %s", dev->dev_info.Model);
+	hlog_info(BMS_JK_MODULE, "\t Hardware: %s", dev->dev_info.Hardware);
+	hlog_info(BMS_JK_MODULE, "\t Software: %s", dev->dev_info.Software);
+	hlog_info(BMS_JK_MODULE, "\t SerialN: %s", dev->dev_info.SerialN);
+	hlog_info(BMS_JK_MODULE, "\t Uptime: %ld", dev->dev_info.Uptime);
+	hlog_info(BMS_JK_MODULE, "\t PowerOnCount: %d", dev->dev_info.PowerOnCount);
 }
 
 #define TIME_STR_LEN	64
 static bool bms_jk_log(void *context)
 {
 	bms_context_t *ctx = (bms_context_t *)context;
-	static bool in_progress;
+	struct jk_bms_dev_t *dev;
 	char tbuf[TIME_STR_LEN];
+	static uint32_t idx;
 	datetime_t date;
 
-	time_msec2datetime(&date, time_ms_since_boot() - ctx->last_reply);
+	if (idx >= ctx->count) {
+		idx = 0;
+		return true;
+	}
+	dev = ctx->devices[idx];
+	time_msec2datetime(&date, time_ms_since_boot() - dev->last_reply);
 	time_date2str(tbuf, TIME_STR_LEN, &date);
 
-	if (!in_progress) {
-		in_progress = true;
-		hlog_info(BMS_JK_MODULE, "BT stack is %s, Terminal is %s, notifications are %s",
-				  ctx->state == BT_READY ? "Ready" : "Not ready",
-				  TERM_IS_ACTIVE(ctx) ? "active" : "not active",
-				  ctx->jk_term_charc.notify ? "registered" : "not registered");
-		hlog_info(BMS_JK_MODULE, "Last valid response [%s] ago, connection count %d",
-				  tbuf, ctx->connect_count);				  
-		if (!ctx->dev_info.valid)
-			hlog_info(BMS_JK_MODULE, "No valid device info received");
-		else
-			bms_jk_log_device(context);
-	} else {
-		if (!ctx->cell_info.valid) {
-			hlog_info(BMS_JK_MODULE, "No valid cells info received");
-			in_progress = false;
-		} else {
-			in_progress = bms_jk_log_cells(context);
-		}
-	}
-	return !in_progress;
+	hlog_info(BMS_JK_MODULE, "Device %d status:", idx);
+	hlog_info(BMS_JK_MODULE, "\tBT stack is %s, Terminal is %s, notifications are %s",
+			  dev->state == BT_READY ? "Ready" : "Not ready",
+			  TERM_IS_ACTIVE(dev) ? "active" : "not active",
+			  dev->jk_term_charc.notify ? "registered" : "not registered");
+	hlog_info(BMS_JK_MODULE, "\tLast valid response [%s] ago, connection count %d",
+			  tbuf, dev->connect_count);
+
+	if (!dev->dev_info.valid)
+		hlog_info(BMS_JK_MODULE, "\tNo valid device info received");
+	else
+		bms_jk_log_device(dev);
+
+	if (!dev->cell_info.valid)
+		hlog_info(BMS_JK_MODULE, "\tNo valid cells info received");
+	else
+		bms_jk_log_cells(dev);
+
+	idx++;
+	return false;
 }
 
 void bms_jk_register(void)

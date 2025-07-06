@@ -4,26 +4,26 @@ Support for [JK BMS](../../../../docs/jk-bms-manual-1520084771.pdf) over bluetoo
 ## Configuration
 Configuration parameters in params.txt file:
 ```
-BMS_BT          <XX:XX:XX:XX:XX:XX>;<pin>
-BMS_MODEL       JK
+BMS_BT          <XX:XX:XX:XX:XX:XX>,<pin>;<XX:XX:XX:XX:XX:XX>,<pin> ...
+BMS_MODEL       JK;JK ...
 ```
-Where `<XX:XX:XX:XX:XX:XX>` is the bluetooth address of the BMS, `<pin>` is the pin code used for authorization.  
+Where `<XX:XX:XX:XX:XX:XX>` is the bluetooth address of the BMS, `<pin>` is the pin code used for authorization.  Up to 4 devices are supported.
 Example configuration:
 ```
-BMS_BT                  11:2A:33:2B:3C:44;1234
-BMS_MODEL               JK
+BMS_BT                  11:2A:33:2B:3C:44,1234;22:3A:44:3B:4C:55,0000;
+BMS_MODEL               JK;JK
 ```
 
 ## Monitor
 ### MQTT
 MQTT BMS sensors are auto-discovered by Home Assistant. The state is published using the following topics, where `<user-topic>` is defined in `params.txt` - as `MQTT_TOPIC`. The connection details for the MQTT server are also set in `params.txt`.  
-`<user-topic>/bms_jk/cell_0_v/status` - Voltage of all cells:  
+`<user-topic>/bms_jk<id>/cell_0_v/status` - Voltage of all cells:  
 &nbsp;&nbsp;&nbsp;&nbsp;`cell_<id>_v:<value>>` - Voltage of cell with `<id>`, V.  
 
-`<user-topic>/bms_jk/cell_0_r/status` - Resistance of all cells:  
+`<user-topic>/bms_jk<id>/cell_0_r/status` - Resistance of all cells:  
 &nbsp;&nbsp;&nbsp;&nbsp;`cell_<id>_r:<value>` - Resistance of cell with `<id>`, Ohms.    
 
-`<user-topic>/bms_jk/v_avg/status` - Various BMS sensors:  
+`<user-topic>/bms_jk<id>/v_avg/status` - Various BMS sensors:  
 &nbsp;&nbsp;&nbsp;&nbsp;`v_avg:<value>` - Average voltage of the battery, V.   
 &nbsp;&nbsp;&nbsp;&nbsp;`v_delta:<value>` - Voltage difference between cells with minimum and maximum voltage, V.  
 &nbsp;&nbsp;&nbsp;&nbsp;`cell_v_min:<value>` - Index of the cell with lowest voltage.  
@@ -44,7 +44,7 @@ MQTT BMS sensors are auto-discovered by Home Assistant. The state is published u
 &nbsp;&nbsp;&nbsp;&nbsp;`soh:<value>` - State Of Health, %.  
 &nbsp;&nbsp;&nbsp;&nbsp;`batt_heat_a:<value>` - Heating current, A.  
 
-`<user-topic>/bms_jk/Vendor/status` - BMS information:  
+`<user-topic>/bms_jk<id>/Vendor/status` - BMS information:  
 &nbsp;&nbsp;&nbsp;&nbsp;`Vendor:<string>` - BMS vendor.  
 &nbsp;&nbsp;&nbsp;&nbsp;`Model:<string>` - BMS model.  
 &nbsp;&nbsp;&nbsp;&nbsp;`Hardware:<string>` - Hardware revision.  
