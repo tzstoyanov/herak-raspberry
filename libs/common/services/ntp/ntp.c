@@ -33,6 +33,7 @@ struct ntp_context_t {
 	ip_addr_t server_addr;
 	datetime_t datetime;
 	bool time_synched;
+	bool time_valid;
 	uint32_t debug;
 	mutex_t lock;
 };
@@ -44,12 +45,12 @@ static struct ntp_context_t *ntp_get_context(void)
 	return __ntp_context;
 }
 
-bool ntp_connected(void)
+bool ntp_time_valid(void)
 {
 	struct ntp_context_t *ctx = ntp_get_context();
 
 	if (ctx)
-		return ctx->init;
+		return ctx->time_valid;
 
 	return false;
 }
@@ -118,6 +119,7 @@ static void sys_ntp_reconnect(void *context)
 	LWIP_LOCK_END;
 	ctx->init = false;
 	ctx->time_synched = false;
+	ctx->time_valid = false;
 }
 
 static void sys_ntp_connect(void *context)
@@ -129,6 +131,7 @@ static void sys_ntp_connect(void *context)
 		TIME_LOCK(ctx);
 			if (ctx->time_synched) {
 				ctx->time_synched = false;
+				ctx->time_valid = true;
 				datetime_to_str(buff, 64, &ctx->datetime);
 				hlog_info(NTP_MODULE, "Time synched to [%s] UTC", buff);
 				system_log_status();
