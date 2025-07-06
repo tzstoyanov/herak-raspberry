@@ -61,7 +61,6 @@ struct soil_sensor_t {
 	uint8_t last_digital;
 	bool wh_send;
 	uint64_t wh_last_send;
-	bool updated;
 	mqtt_component_t mqtt_comp;
 };
 
@@ -119,7 +118,6 @@ static int soil_mqtt_sensor_send(struct soil_context_t *ctx, int idx)
 	ADD_MQTT_MSG("}")
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;
 	ret = mqtt_msg_component_publish(&ctx->sensors[idx].mqtt_comp, ctx->mqtt_payload);
-	ctx->sensors[idx].updated = false;
 
 	if (!ret)
 		ctx->mqtt_last_send = now;
@@ -131,11 +129,6 @@ static void soil_mqtt_send(struct soil_context_t *ctx)
 	static int idx;
 	uint64_t now;
 	int i;
-
-	for (i = 0; i < ctx->sensors_count; i++) {
-		if (ctx->sensors[i].updated)
-			ctx->sensors[i].mqtt_comp.force = true;
-	}
 
 	for (i = 0; i < ctx->sensors_count; i++) {
 		if (ctx->sensors[i].mqtt_comp.force) {
@@ -173,7 +166,7 @@ static void measure_analog(struct soil_context_t *ctx, int id)
 		pcnt = 100 - sys_value_to_percent(0, MAX_ANALOG_VALUE, av);
 		if (ctx->sensors[id].analog->percent != pcnt) {
 			ctx->sensors[id].analog->percent = pcnt;
-			ctx->sensors[id].updated = true;
+			ctx->sensors[id].mqtt_comp.force = true;
 		}
 	}
 }
@@ -187,7 +180,7 @@ static void measure_digital(struct soil_context_t *ctx, int id)
 	if (digital != ctx->sensors[id].last_digital) {
 		ctx->sensors[id].last_digital = digital;
 		ctx->sensors[id].wh_send = true;
-		ctx->sensors[id].updated = true;
+		ctx->sensors[id].mqtt_comp.force = true;
 	}
 }
 

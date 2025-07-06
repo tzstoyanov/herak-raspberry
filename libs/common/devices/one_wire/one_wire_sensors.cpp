@@ -30,8 +30,8 @@ struct one_wire_sensor {
 	rom_address_t	rom_addr;
 	uint64_t		crc_errors;
 	uint64_t		address;
-	bool			force;
 	float			temperature;
+	uint64_t 		mqtt_last_send;
 	mqtt_component_t mqtt_comp;
 };
 
@@ -98,13 +98,8 @@ static void one_wire_mqtt_send(struct one_wire_context_t *ctx)
 	int i, j;
 
 	for (i = 0; i < ctx->count; i++)
-		for (j = 0; j < ctx->lines[i]->count; j++)
-			if (ctx->lines[i]->sensors[j].force)
-				ctx->lines[i]->sensors[j].mqtt_comp.force = true;
-
-	for (i = 0; i < ctx->count; i++)
 		for (j = 0; j < ctx->lines[i]->count; j++) {
-			if (ctx->lines[i]->sensors[j].mqtt_comp.force == true) {
+			if (ctx->lines[i]->sensors[j].mqtt_comp.force) {
 				one_wire_mqtt_data_send(ctx, i, j);
 				return;
 			}
@@ -165,7 +160,7 @@ static void one_wire_read_measure(struct one_wire_context_t *ctx, uint8_t idx)
 				hlog_info(ONEWIRE_MODULE, "Got %3.2f°C from sensor 0x%llX on GPIO %d",
 						  val, line->sensors[i].address, line->pin);
 			if (line->sensors[i].temperature != val) {
-				line->sensors[i].force = true;
+				line->sensors[i].mqtt_comp.force = true;
 				line->sensors[i].temperature = val;
 			}
 		}
