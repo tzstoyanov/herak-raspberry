@@ -23,6 +23,8 @@
 static const uint8_t __in_flash() jk_notify_pkt_start[] = {0x55, 0xAA, 0xEB, 0x90};
 static const uint8_t __in_flash() jk_request_pkt_start[] = {0xAA, 0x55, 0x90, 0xEB};
 
+#define TIME_STR_LEN	64
+
 /*
 
 Device Information 0x180A
@@ -354,6 +356,7 @@ static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_le
 		if (dev->state != BT_CONNECTED)
 			hlog_info(BMS_JK_MODULE, "Connected to %s", dev->name);
 		dev->state = BT_CONNECTED;
+		dev->last_reply = time_ms_since_boot();
 		dev->connect_count++;
 		break;
 	case BT_DISCONNECTED:
@@ -368,6 +371,7 @@ static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_le
 		if (dev->state != BT_READY)
 			hlog_info(BMS_JK_MODULE, "Device %s is ready", dev->name);
 		dev->state = BT_READY;
+		dev->last_reply = time_ms_since_boot();
 		break;
 	case BT_NEW_SERVICE:
 		if (data_len != sizeof(bt_service_t))
@@ -428,6 +432,7 @@ static int bms_jk_read_cmd(struct jk_bms_dev_t *dev, uint8_t address, uint32_t v
 #define BMS_MODEL_STR   "JK"
 static bool get_bms_config(bms_context_t **ctx)
 {
+	char *bt_timeout = USER_PRAM_GET(BMS_TIMEOUT_SEC);
 	char *bt_mod = USER_PRAM_GET(BMS_MODEL);
 	char *bt_id = USER_PRAM_GET(BMS_BT);
 	char *dev, *addr, *ch;
@@ -475,6 +480,12 @@ static bool get_bms_config(bms_context_t **ctx)
 		if (!(*ctx)->devices[(*ctx)->count]->pin)
 			break;
 		(*ctx)->count++;
+	}
+
+	if (bt_timeout && strlen(bt_timeout) >= 1) {
+		(*ctx)->timeout_msec = (int)strtol(bt_timeout, NULL, 0);
+		if ((*ctx)->timeout_msec > 0)
+			(*ctx)->timeout_msec *= 1000;
 	}
 
 	if ((*ctx)->count > 0)
@@ -551,6 +562,36 @@ static void bms_jk_send_request(struct jk_bms_dev_t *dev)
 	dev->wait_reply = true;
 }
 
+static void bms_jk_timeout_check(bms_context_t *ctx)
+{
+	char tbuf[TIME_STR_LEN];
+	datetime_t date;
+	uint64_t now;
+	uint32_t i;
+
+	if (ctx->timeout_msec < 1)
+		return;
+
+	now = time_ms_since_boot();
+	for (i = 0; i < ctx->count; i++) {
+		if (ctx->devices[i]->state != BT_READY ||
+			!TERM_IS_ACTIVE(ctx->devices[i]) ||
+			!ctx->devices[i]->jk_term_charc.notify)
+				continue;
+		if ((now - ctx->devices[i]->last_reply) > ctx->timeout_msec)
+			break;
+	}
+	if ( i >= ctx->count)
+		return;
+
+	time_msec2datetime(&date, now - ctx->devices[i]->last_reply);
+	time_date2str(tbuf, TIME_STR_LEN, &date);
+	hlog_info(BMS_JK_MODULE, "Timeout on device %s: %s, going to reboot ...",
+			  ctx->devices[i]->name, tbuf);
+
+	system_force_reboot(0);
+}
+
 static void bms_jk_process(bms_context_t *ctx)
 {
 	uint32_t i;
@@ -593,6 +634,7 @@ static void bms_jk_run(void *context)
 
 out:
 	bms_jk_process(ctx);
+	bms_jk_timeout_check(ctx);
 }
 
 
@@ -655,7 +697,6 @@ static void bms_jk_log_device(struct jk_bms_dev_t *dev)
 	hlog_info(BMS_JK_MODULE, "\t PowerOnCount: %d", dev->dev_info.PowerOnCount);
 }
 
-#define TIME_STR_LEN	64
 static bool bms_jk_log(void *context)
 {
 	bms_context_t *ctx = (bms_context_t *)context;
