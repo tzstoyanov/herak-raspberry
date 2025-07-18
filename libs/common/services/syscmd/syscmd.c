@@ -16,7 +16,6 @@
 
 #define SYSCMD_MODULE		"sys"
 #define SYSCMD_DESC			"System commands"
-#define WD_REBOOT_DELAY_MS	3000
 
 #define DEBUG_LOG	0x01
 
@@ -38,7 +37,7 @@ static struct syscmd_context_t *syscmd_context_get(void)
 static int sys_reboot(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	struct syscmd_context_t *wctx = (struct syscmd_context_t *)user_data;
-	int delay = WD_REBOOT_DELAY_MS;
+	int delay = 0;
 
 	UNUSED(cmd);
 	UNUSED(ctx);
