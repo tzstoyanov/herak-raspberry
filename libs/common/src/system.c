@@ -18,7 +18,7 @@
 #include "params.h"
 
 #define COMMONSYSLOG	"system"
-#define WATCHDOG_TIMEOUT_MS	30000 /* The maximum is 8388ms, which is approximately 8.3 seconds */
+#define WATCHDOG_TIMEOUT_MS	8300 /* The maximum is 8388ms, which is approximately 8.3 seconds */
 
 #define LOG_STATUS_HOOKS_COUNT	64
 
@@ -40,7 +40,7 @@ typedef struct {
 static struct {
 	uint32_t periodic_log_ms;
 	uint32_t last_loop;
-	uint8_t force_reboot:1;
+	uint64_t reboot_time;
 
 	log_status_hook_t log_status[LOG_STATUS_HOOKS_COUNT];
 	uint8_t log_status_count;
@@ -83,7 +83,7 @@ bool system_common_init(void)
 
 	sys_context.log_status_count = 0;
 	sys_context.log_status_progress = -1;
-	sys_context.force_reboot = false;
+	sys_context.reboot_time = 0;
 	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
 
 	wd_update();
@@ -201,9 +201,12 @@ void system_reconnect(void)
 
 void system_force_reboot(int delay_ms)
 {
-	hlog_info(COMMONSYSLOG, "System is rebooting in %dms ...", delay_ms);
-	watchdog_enable(delay_ms, true);
-	sys_context.force_reboot = true;
+	sys_context.reboot_time = time_ms_since_boot();
+	if (delay_ms > WATCHDOG_TIMEOUT_MS)
+		sys_context.reboot_time += (delay_ms - WATCHDOG_TIMEOUT_MS);
+
+	hlog_info(COMMONSYSLOG, "System is rebooting in %dms ...",
+			  delay_ms > WATCHDOG_TIMEOUT_MS ? delay_ms : WATCHDOG_TIMEOUT_MS);
 }
 
 void system_set_periodic_log_ms(uint32_t ms)
@@ -213,7 +216,10 @@ void system_set_periodic_log_ms(uint32_t ms)
 
 void wd_update(void)
 {
-	if (!sys_context.force_reboot)
+	if (sys_context.reboot_time < 1)
+		watchdog_update();
+
+	if (sys_context.reboot_time > time_ms_since_boot())
 		watchdog_update();
 }
 
