@@ -6,12 +6,14 @@ Configuration parameters in params.txt file:
 ```
 BMS_BT          <XX:XX:XX:XX:XX:XX>,<pin>;<XX:XX:XX:XX:XX:XX>,<pin> ...
 BMS_MODEL       JK;JK ...
+BMS_TIMEOUT_SEC <seconds>
 ```
-Where `<XX:XX:XX:XX:XX:XX>` is the bluetooth address of the BMS, `<pin>` is the pin code used for authorization.  Up to 4 devices are supported.
+Where `<XX:XX:XX:XX:XX:XX>` is the bluetooth address of the BMS, `<pin>` is the pin code used for authorization.  Up to 4 devices are supported. The BMS_TIMEOUT_SEC parameter is optional. If set, the raspberry pico will be rebooted if there is no valid response from a connected BMS device since BMS_TIMEOUT_SEC seconds.
 Example configuration:
 ```
 BMS_BT                  11:2A:33:2B:3C:44,1234;22:3A:44:3B:4C:55,0000;
 BMS_MODEL               JK;JK
+BMS_TIMEOUT_SEC         1200
 ```
 
 ## Monitor
