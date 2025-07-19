@@ -36,6 +36,10 @@ if(ADD_SONAR)
 include(${CMAKE_CURRENT_LIST_DIR}/sonar/CMakeLists.txt)
 endif()
 
+if(ADD_FLOW_YF)
+include(${CMAKE_CURRENT_LIST_DIR}/flow_yf/CMakeLists.txt)
+endif()
+
 target_sources(${lib_name} INTERFACE
    ${CMAKE_CURRENT_LIST_DIR}/devices_init.c
 )

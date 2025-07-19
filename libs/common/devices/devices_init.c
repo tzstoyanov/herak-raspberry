@@ -57,4 +57,8 @@ void devices_register_and_init(void)
 	DEV_REGISTER(sonar_register);
 #endif /* HAVE_LCD */
 
+#ifdef HAVE_FLOW_YF
+	DEV_REGISTER(flow_yf_register);
+#endif /* HAVE_FLOW_YF */
+
 }
