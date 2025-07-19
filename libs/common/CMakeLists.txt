@@ -36,6 +36,7 @@ target_sources(${lib_name} INTERFACE
    ${dir}/base64.c
    ${dir}/system.c
    ${dir}/sys_utils.c
+   ${dir}/sys_irq.c
    ${dir}/system_modules.c
    ${dir}/time.c
    ${dir}/manchester_code.c

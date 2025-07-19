@@ -94,6 +94,7 @@ void sys_modules_run(void);
 void sys_modules_log(void);
 void sys_modules_reconnect(void);
 void sys_modules_debug_set(int debug);
+void sys_irq_init(void);
 
 void system_reconnect(void);
 void system_set_periodic_log_ms(uint32_t ms);
