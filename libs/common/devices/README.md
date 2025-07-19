@@ -8,4 +8,5 @@
 - [SHT20 temperature and humidity sensor](sht20/README.md)
 - [AJ-SR04M sonar sensor](sonar/README.md)
 - [One-Wire sensor](one_wire/README.md)
+- [YF Liquid Flow sensor](flow_yf/README.md)
 

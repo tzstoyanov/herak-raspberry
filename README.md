@@ -31,6 +31,7 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - [SHT20 temperature and humidity sensor](libs/common/devices/sht20/README.md)
 - [AJ-SR04M sonar sensor](libs/common/devices/sonar/README.md)
 - [One-Wire sensor](libs/common/devices/one_wire/README.md)
+- [YF Liquid Flow sensor](libs/common/devices/flow_yf/README.md)
 - [DALY BMS](docs/Daly-Communications-Protocol-V1.2.pdf), over Bluetooth and [HLK-B40 serial interface](docs/HLK-B40.pdf)
 - Voltronic VM III inverter, over USB using [MAX communication protocol](docs/MAX-Communication-Protocol.pdf)
 - Build-in temperature sensor
