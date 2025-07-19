@@ -89,6 +89,8 @@ bool system_common_init(void)
 	wd_update();
 	sys_modules_init();
 	wd_update();
+	sys_irq_init();
+	wd_update();
 	LED_OFF;
 
 	return true;
