@@ -23,6 +23,7 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - Watchdog
 
 ### Devices and Sensors:
+- [Analog Temperature Sensor](libs/common/devices/temperature/README.md)
 - [HD44780](libs/common/devices/lcd/README.md) LCD display
 - [JK BMS](libs/common/devices/bms_jk/README.md)
 - [OpenTherm](libs/common/devices/opentherm/README.md)

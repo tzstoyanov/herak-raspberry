@@ -1,4 +1,4 @@
-add_compile_definitions(HAVE_CHIP_TEMP=1)
+add_compile_definitions(HAVE_TEMPERATURE=1)
 
 target_sources(${lib_name} INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/temperature.c

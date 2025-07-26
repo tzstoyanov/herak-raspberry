@@ -49,8 +49,8 @@ void devices_register_and_init(void)
 	DEV_REGISTER(lcd_register);
 #endif /* HAVE_LCD */
 
-#ifdef HAVE_CHIP_TEMP
-	DEV_REGISTER(chip_temperature_register);
+#ifdef HAVE_TEMPERATURE
+	DEV_REGISTER(temperature_register);
 #endif /* HAVE_CHIP_TEMP */
 
 #ifdef HAVE_SONAR
