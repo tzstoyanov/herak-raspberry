@@ -28,7 +28,7 @@ if(ADD_LCD)
 include(${CMAKE_CURRENT_LIST_DIR}/lcd/CMakeLists.txt)
 endif()
 
-if(ADD_CHIP_TEMPERATURE)
+if(ADD_TEMPERATURE)
 include(${CMAKE_CURRENT_LIST_DIR}/temperature/CMakeLists.txt)
 endif()
 
