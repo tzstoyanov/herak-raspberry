@@ -31,9 +31,11 @@
 
 enum {
 	FLOW_YF_MQTT_FLOW = 0,
+	FLOW_YF_MQTT_TOTAL_FLOW,
+	FLOW_YF_MQTT_LAST_FLOW,
+	FLOW_YF_MQTT_DURATION_FLOW,
 	FLOW_YF_MQTT_TOTAL,
-	FLOW_YF_MQTT_LAST,
-	FLOW_YF_MQTT_DURATION,
+	FLOW_YF_MQTT_LAST_RESET,
 	FLOW_YF_MQTT_MAX,
 };
 
@@ -47,6 +49,8 @@ struct flow_yf_sensor {
 	uint64_t last_read;
 	uint64_t duration_ms;
 	time_t last_flow_date;
+	uint64_t total_flow_ml;
+	time_t last_reset_date;
 	uint64_t total_ml;
 	bool connected;
 	mqtt_component_t mqtt_comp[FLOW_YF_MQTT_MAX];
@@ -118,16 +122,26 @@ static bool flow_yf_log(void *context)
 		return true;
 	hlog_info(FLOW_YF_MODULE, "Reading %d sensors:", ctx->count);
 	for (i = 0; i < ctx->count; i++) {
+		hlog_info(FLOW_YF_MODULE, "\t %d: Current flow %3.2f L/min", i, ctx->sensors[i]->flow);
+
+		if (ctx->sensors[i]->last_reset_date) {
+			time_to_datetime(ctx->sensors[i]->last_reset_date, &dt);
+			datetime_to_str(time_buff, TIME_STR, &dt);
+		} else {
+			strncpy(time_buff, "N/A", TIME_STR);
+		}
+		hlog_info(FLOW_YF_MODULE, "\t    Total water %3.2f L since [%s]",
+					(float)ctx->sensors[i]->total_ml / 1000.0, time_buff);
+
 		if (ctx->sensors[i]->last_flow_date) {
 			time_to_datetime(ctx->sensors[i]->last_flow_date, &dt);
 			datetime_to_str(time_buff, TIME_STR, &dt);
 		} else {
 			strncpy(time_buff, "N/A", TIME_STR);
 		}
-		hlog_info(FLOW_YF_MODULE, "\t %d: Current flow %3.2f L/min", i, ctx->sensors[i]->flow);
 		hlog_info(FLOW_YF_MODULE, "\t    Last flow [%s]", time_buff);
-		hlog_info(FLOW_YF_MODULE, "\t    Duration %lld min, Total %3.2f L",
-				  ctx->sensors[i]->duration_ms / 60000, (float)ctx->sensors[i]->total_ml / 1000.0);
+		hlog_info(FLOW_YF_MODULE, "\t      Duration %lld min, Total %3.2f L",
+				  ctx->sensors[i]->duration_ms / 60000, (float)ctx->sensors[i]->total_flow_ml / 1000.0);
 	}
 
 	return true;
@@ -158,14 +172,22 @@ static int flow_yf_mqtt_data_send(struct flow_yf_context_t *ctx, int idx)
 		ADD_MQTT_MSG_VAR("\"time\": \"%s\"", get_current_time_str(time_buff, TIME_STR));
 		ADD_MQTT_MSG_VAR(",\"flow\": \"%3.2f\"", ctx->sensors[idx]->flow);
 		ADD_MQTT_MSG_VAR(",\"total\": \"%3.2f\"", (float)ctx->sensors[idx]->total_ml / 1000.0); // ml -> l
+		if (ctx->sensors[idx]->last_reset_date) {
+			time_to_datetime(ctx->sensors[idx]->last_reset_date, &dt);
+			datetime_to_str(time_buff, TIME_STR, &dt);
+			ADD_MQTT_MSG_VAR(",\"last_reset\": \"%s\"", time_buff);
+		} else {
+			ADD_MQTT_MSG(",\"last_reset\":\"N/A\"");
+		}
+		ADD_MQTT_MSG_VAR(",\"total_flow\": \"%3.2f\"", (float)ctx->sensors[idx]->total_flow_ml / 1000.0); // ml -> l
 		if (ctx->sensors[idx]->last_flow_date) {
 			time_to_datetime(ctx->sensors[idx]->last_flow_date, &dt);
 			datetime_to_str(time_buff, TIME_STR, &dt);
-			ADD_MQTT_MSG_VAR(",\"last\": \"%s\"", time_buff);
+			ADD_MQTT_MSG_VAR(",\"last_flow\": \"%s\"", time_buff);
 		} else {
-			ADD_MQTT_MSG(",\"last\":\"N/A\"");
+			ADD_MQTT_MSG(",\"last_flow\":\"N/A\"");
 		}
-		ADD_MQTT_MSG_VAR(",\"duration\": \"%lld\"", ctx->sensors[idx]->duration_ms / 60000); // ms -> min
+		ADD_MQTT_MSG_VAR(",\"duration_flow\": \"%lld\"", ctx->sensors[idx]->duration_ms / 60000); // ms -> min
 	ADD_MQTT_MSG("}")
 
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;
@@ -207,7 +229,7 @@ static void flow_yf_sensor_data(struct flow_yf_context_t *ctx, int idx)
 	struct flow_yf_sensor *sensor = ctx->sensors[idx];
 	uint64_t now = time_ms_since_boot();
 	datetime_t date;
-	float interval;	
+	float interval;
 	uint32_t data;
 
 	if (now - sensor->last_read < MEASURE_TIME_MS)
@@ -217,7 +239,7 @@ static void flow_yf_sensor_data(struct flow_yf_context_t *ctx, int idx)
 	if (data) {
 		if (!sensor->flow) {
 			sensor->flow_start = now;
-			sensor->total_ml = 0;
+			sensor->total_flow_ml = 0;
 			if (tz_datetime_get(&date))
 				datetime_to_time(&date, &sensor->last_flow_date);
 			if (IS_DEBUG(ctx))
@@ -227,20 +249,35 @@ static void flow_yf_sensor_data(struct flow_yf_context_t *ctx, int idx)
 		// ((MEASURE_TIME_MS / (now - sensor->last_read)) * data) / sensor->pps;
 		interval = ((float)MEASURE_TIME_MS / (float)(now - sensor->last_read));
 		sensor->flow = (interval * data) / sensor->pps;
+		sensor->total_flow_ml += ((sensor->flow * 1000) / 60);
 		sensor->total_ml += ((sensor->flow * 1000) / 60);
 		sensor->force = true;
-		if (IS_DEBUG(ctx))
-			hlog_info(FLOW_YF_MODULE, "Measured %3.2f L/min: %d ticks for %3.2f sec, total %lld ml for %lld ms",
-					  sensor->flow, data, interval, sensor->total_ml, sensor->duration_ms);
+		if (IS_DEBUG(ctx)) {
+			hlog_info(FLOW_YF_MODULE, "Measured %3.2f L/min: %d ticks for %3.2f sec",
+					  sensor->flow, data, interval);
+			hlog_info(FLOW_YF_MODULE, "Flow total %lld ml for %lld ms, total %3.2f ml",
+					  sensor->total_flow_ml, sensor->duration_ms, sensor->total_ml);
+		}
 	} else if (sensor->flow) {
 		sensor->flow = 0;
 		sensor->force = true;
 		if (IS_DEBUG(ctx))
 			hlog_info(FLOW_YF_MODULE, "Flow stoped on %d: %lld L for %d min",
-					  idx, ctx->sensors[idx]->total_ml / 1000,
+					  idx, ctx->sensors[idx]->total_flow_ml / 1000,
 					  ctx->sensors[idx]->duration_ms / 60000);
 	}
 	sensor->last_read = now;
+}
+
+static void flow_yf_reset(struct flow_yf_sensor *sensor)
+{
+	datetime_t date;
+
+	sensor->total_ml = 0;
+	if (ntp_time_valid()) {
+		if (tz_datetime_get(&date))
+			datetime_to_time(&date, &sensor->last_reset_date);
+	}
 }
 
 static void flow_yf_run(void *context)
@@ -248,8 +285,11 @@ static void flow_yf_run(void *context)
 	struct flow_yf_context_t *ctx = (struct flow_yf_context_t *)context;
 	int i;
 
-	for (i = 0; i < ctx->count; i++)
+	for (i = 0; i < ctx->count; i++) {
+		if (!ctx->sensors[i]->last_reset_date && ntp_time_valid())
+			flow_yf_reset(ctx->sensors[i]);
 		flow_yf_sensor_data(ctx, i);
+	}
 	flow_yf_mqtt_send(ctx);
 }
 
@@ -266,6 +306,34 @@ static void flow_yf_mqtt_components_add(struct flow_yf_context_t *ctx)
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].name, "Flow_%d", i);
 		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW]));
 
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].module = FLOW_YF_MODULE;
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].platform = "sensor";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].dev_class = "volume_storage";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].unit = "L";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].value_template = "{{ value_json.total_flow }}";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].state_topic =
+										ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].state_topic;
+		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].name, "Flow_%d_total_flow", i);
+		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW]));
+
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].module = FLOW_YF_MODULE;
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].platform = "sensor";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].value_template = "{{ value_json.last_flow }}";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].state_topic =
+										ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].state_topic;
+		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].name, "Flow_%d_last_flow", i);
+		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW]));
+
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].module = FLOW_YF_MODULE;
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].platform = "sensor";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].dev_class = "duration";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].unit = "min";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].value_template = "{{ value_json.duration_flow }}";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].state_topic =
+										ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].state_topic;
+		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].name, "Flow_%d_duration_flow", i);
+		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW]));
+
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].module = FLOW_YF_MODULE;
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].platform = "sensor";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].dev_class = "volume_storage";
@@ -276,23 +344,13 @@ static void flow_yf_mqtt_components_add(struct flow_yf_context_t *ctx)
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].name, "Flow_%d_total", i);
 		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL]));
 
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST].module = FLOW_YF_MODULE;
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST].platform = "sensor";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST].value_template = "{{ value_json.last }}";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST].state_topic =
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].module = FLOW_YF_MODULE;
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].platform = "sensor";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].value_template = "{{ value_json.last_reset }}";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].state_topic =
 										ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].state_topic;
-		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST].name, "Flow_%d_last", i);
-		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST]));
-
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION].module = FLOW_YF_MODULE;
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION].platform = "sensor";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION].dev_class = "duration";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION].unit = "min";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION].value_template = "{{ value_json.duration }}";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION].state_topic =
-										ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].state_topic;
-		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION].name, "Flow_%d_duration", i);
-		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION]));
+		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].name, "Flow_%d_last_reset", i);
+		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET]));
 	}
 }
 
@@ -326,6 +384,32 @@ static bool flow_yf_init(struct flow_yf_context_t **ctx)
 	return true;
 }
 
+static int cmd_flow_yf_reset(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	struct flow_yf_context_t *flow_yf_ctx = (struct flow_yf_context_t *)user_data;
+	int i;
+
+	UNUSED(ctx);
+	UNUSED(cmd);
+
+	if (params && params[0] == ':' && strlen(params) >= 2) {
+		i = (int)strtol(params + 1, NULL, 0);
+		if (i < 0 || i >= flow_yf_ctx->count)
+			return -1;
+		flow_yf_reset(flow_yf_ctx->sensors[i]);
+	} else {
+		for (i = 0; i < flow_yf_ctx->count; i++)
+			flow_yf_reset(flow_yf_ctx->sensors[i]);
+	}
+
+	return 0;
+}
+
+static app_command_t flow_yf_requests[] = {
+	{"reset", ":<id> - Optional, reset the accumulated statistics of the given sensor",
+	  cmd_flow_yf_reset }
+};
+
 void flow_yf_register(void)
 {
 	struct flow_yf_context_t *ctx = NULL;
@@ -337,6 +421,9 @@ void flow_yf_register(void)
 	ctx->mod.run = flow_yf_run;
 	ctx->mod.log = flow_yf_log;
 	ctx->mod.debug = flow_yf_debug_set;
+	ctx->mod.commands.hooks = flow_yf_requests;
+	ctx->mod.commands.count = ARRAY_SIZE(flow_yf_requests);
+	ctx->mod.commands.description = "YF Flow control";
 	ctx->mod.context = ctx;
 	sys_module_register(&ctx->mod);
 }
