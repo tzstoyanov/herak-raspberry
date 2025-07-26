@@ -154,7 +154,8 @@ static void measure_analog(struct soil_context_t *ctx, int id)
 	int i, pcnt;
 
 	adc_select_input(ctx->sensors[id].analog->adc_id);
-
+	adc_read();
+	sleep_us(100);
 	/* read the samples */
 	for (i = 0; i < SOIL_MEASURE_COUNT; i++)
 		ctx->sensors[id].analog->samples[i] = adc_read();
