@@ -102,27 +102,32 @@ static int sht20_sensor_read(struct sht20_sensor *sensor, uint8_t *cmd, uint8_t 
 
 static int sht20_sensor_init(struct sht20_sensor *sensor)
 {
+	int ret = -1;
+
 	sensor->connected = false;
 	if (sht20_sensor_write(sensor, SHT20_RESET))
-		return -1;
+		goto out;
 	sleep_ms(20);
 	if (sht20_sensor_write(sensor, SHT20_READ_USER_REG))
-		return -1;
+		goto out;
 	if (sht20_sensor_read(sensor, &sensor->config, sizeof(sensor->config)))
-		return -1;
+		goto out;
 	if (sensor->config == 0xFF)
-		return -1;
+		goto out;
 	sensor->config = ((sensor->config & SHT20_RESERVED_CFG_MASK) |
 						SHT20_CFG_RESOLUTION_12BITS |
 						SHT20_CFG_DISABLE_ONCHIP_HEATER |
 						SHT20_CFG_DISABLE_OTP_RELOAD);
 	if (sht20_sensor_write(sensor, SHT20_WRITE_USER_REG))
-		return -1;
+		goto out;
 	if (sht20_sensor_write(sensor, sensor->config))
-		return -1;
+		goto out;
 	sensor->read_cmd = SHT20_TEMP;
 	sensor->connected = true;
-	return -1;
+	ret = 0;
+out:
+	sensor->last_read = time_ms_since_boot();
+	return ret;
 }
 
 static void sht20_sensor_check_connected(struct sht20_sensor *sensor)
@@ -231,8 +236,9 @@ static bool sht20_log(void *context)
 		return true;
 	hlog_info(SHT20_MODULE, "Reading %d sensors:", ctx->count);
 	for (i = 0; i < ctx->count; i++) {
-		hlog_info(SHT20_MODULE, "\t %d: Temperature %3.2f°C, Humidity %3.2f%%, VPD %3.2fkPa, Dew Point %3.2f%%",
-				  i, ctx->sensors[i]->temperature, ctx->sensors[i]->humidity,
+		hlog_info(SHT20_MODULE, "\t %d (%s): Temperature %3.2f°C, Humidity %3.2f%%, VPD %3.2fkPa, Dew Point %3.2f%%",
+				  i,  ctx->sensors[i]->connected ? "connected" : "not connected",
+				  ctx->sensors[i]->temperature, ctx->sensors[i]->humidity,
 				  ctx->sensors[i]->vpd, ctx->sensors[i]->dew_point);
 	}
 
@@ -426,6 +432,8 @@ static void sht20_sensor_data(struct sht20_context_t *ctx, int idx)
 	sht20_sensor_check_connected(ctx->sensors[idx]);
 	if (ctx->sensors[idx]->connected)
 		sht20_sensor_request_data(ctx, idx);
+	else
+		sht20_sensor_init(ctx->sensors[idx]);
 }
 
 static void sht20_run(void *context)
