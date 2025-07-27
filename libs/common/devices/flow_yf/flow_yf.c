@@ -25,9 +25,10 @@
 #define TIME_STR	64
 #define IS_DEBUG(C)	((C)->debug)
 
-// YF-B6	G1"		->	2-50 L/min -> 7.9 pps per litre/minute of flow.
-// YF-B10	G3/4"	->	1-30 L/min -> 6.6 pps per litre/minute of flow.
-// YF-B1	G1/2"	->	1-25 L/min -> 11  pps per litre/minute of flow.
+// YF-DN32-T	G1 1/4"	->	3-120 L/min -> 1.8 pps per litre/minute of flow / 108 ppl
+// YF-B6		G1"		->	2-50 L/min  -> 7.9 pps per litre/minute of flow / 476 ppl
+// YF-B10		G3/4"	->	1-30 L/min  -> 6.6 pps per litre/minute of flow / 396 ppl
+// YF-B1		G1/2"	->	1-25 L/min  -> 11  pps per litre/minute of flow / 660 ppl
 
 enum {
 	FLOW_YF_MQTT_FLOW = 0,
