@@ -322,9 +322,9 @@ void bms_jk_mqtt_init(bms_context_t *ctx, int idx)
 	MQTT_ADD_BMS_DATA("{{ value_json.batt_cycles }}", "batt_cycles", NULL, NULL);
 	MQTT_ADD_BMS_DATA("{{ value_json.batt_charge_curr }}", "batt_charge_curr", "current", "A");
 	MQTT_ADD_BMS_DATA("{{ value_json.batt_balance_curr }}", "batt_balance_curr", "current", "A");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_cap_rem }}", "batt_cap_rem", "energy_storage", "Ah");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_cap_nom }}", "batt_cap_nom", "energy_storage", "Ah");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_cycles_cap }}", "batt_cycles_cap", "energy_storage", "Ah");
+	MQTT_ADD_BMS_DATA("{{ value_json.batt_cap_rem }}", "batt_cap_rem", NULL, "Ah");
+	MQTT_ADD_BMS_DATA("{{ value_json.batt_cap_nom }}", "batt_cap_nom", NULL, "Ah");
+	MQTT_ADD_BMS_DATA("{{ value_json.batt_cycles_cap }}", "batt_cycles_cap", NULL, "Ah");
 	MQTT_ADD_BMS_DATA("{{ value_json.soh }}", "soh", NULL, "%");
 	MQTT_ADD_BMS_DATA("{{ value_json.batt_v }}", "batt_v", "voltage", "V");
 	MQTT_ADD_BMS_DATA("{{ value_json.batt_heat_a }}", "batt_heat_a", "current", "A");
