@@ -1,8 +1,11 @@
 # Set minimum required version of CMake
 cmake_minimum_required(VERSION 3.12)
 
+set(PROJECT_TOP_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
+set(PROJECT_INLUDE_DIR ${PROJECT_TOP_DIR}/include)
+
 # Include build functions from Pico SDK
-set(PROJECT_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../../libs)
+set(PROJECT_LIB_DIR ${PROJECT_TOP_DIR}/libs)
 set(ENV{PICO_SDK_PATH} "${PROJECT_LIB_DIR}/pico-sdk")
 set(PICO_BOARD pico_w)
 
@@ -22,8 +25,6 @@ set(ADD_USB true)
 set(DEBUG_BUILD false)
 set(HEAP_SIZE 2000)
 
-set(PROJECT_TOP_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-set(PROJECT_INLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../include)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
@@ -84,6 +85,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 			   ${PROJECT_LIB_DIR}/pio-usb/src
 			   ${PROJECT_LIB_DIR}/common/api
 )
+
+if (DEFINED LIB_PICO_MULTICORE)
+    message(STATUS "LIB_PICO_MULTICORE is defined")
+else()
+    message(STATUS "LIB_PICO_MULTICORE is NOT defined")
+endif()
 
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})

@@ -19,7 +19,7 @@ set(CMAKE_CXX_STANDARD 17)
 cmake_minimum_required(VERSION 3.12)
 
 set(PROJECT_TOP_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
-set(PROJECT_INLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../include)
+set(PROJECT_INLUDE_DIR ${PROJECT_TOP_DIR}/include)
 
 # Set params file
 set(PARAMS_FILE ${CMAKE_CURRENT_LIST_DIR}/params.txt)
@@ -35,7 +35,7 @@ execute_process(
 )
 
 # Init Pico SDK
-set(PROJECT_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../../libs)
+set(PROJECT_LIB_DIR ${PROJECT_TOP_DIR}/libs)
 set(ENV{PICO_SDK_PATH} "${PROJECT_LIB_DIR}/pico-sdk")
 set(PICO_BOARD pico_w)
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
