@@ -1,7 +1,7 @@
-From 588bf99273b302b7450008a30168561e62fb61be Mon Sep 17 00:00:00 2001
+From 808fa1385395da73f929503204a7f2208a576236 Mon Sep 17 00:00:00 2001
 From: Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
 Date: Fri, 27 Jun 2025 06:37:43 +0300
-Subject: [PATCH] Upgraded to upstream version 2.11 of littlefs.
+Subject: [PATCH 1/2] LFS: Upgraded to upstream version 2.11 of littlefs.
 
 The pico littlefs-lib is based on littlefs v2.0. There are a lot of
 bug fixes, optimizations and improvements in v2.11.
@@ -17,10 +17,10 @@ Signed-off-by: Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
  6 files changed, 3950 insertions(+), 1616 deletions(-)
  create mode 100644 lfs_util.c
 
-diff --git a/CMakeLists.txt b/CMakeLists.txt
+diff --git a/libs/littlefs-lib/CMakeLists.txt b/libs/littlefs-lib/CMakeLists.txt
 index 181a7cb..d085f2c 100644
---- a/CMakeLists.txt
-+++ b/CMakeLists.txt
+--- a/libs/littlefs-lib/CMakeLists.txt
++++ b/libs/littlefs-lib/CMakeLists.txt
 @@ -3,6 +3,7 @@ target_include_directories(littlefs-lib INTERFACE ${CMAKE_CURRENT_LIST_DIR})
  target_link_libraries(littlefs-lib INTERFACE hardware_flash)
  target_sources(littlefs-lib INTERFACE
@@ -29,10 +29,10 @@ index 181a7cb..d085f2c 100644
      ${CMAKE_CURRENT_LIST_DIR}/lfs.h
      ${CMAKE_CURRENT_LIST_DIR}/lfs_util.h
      ${CMAKE_CURRENT_LIST_DIR}/pico_hal.c
-diff --git a/lfs.c b/lfs.c
+diff --git a/libs/littlefs-lib/lfs.c b/libs/littlefs-lib/lfs.c
 index ad9de99..c0b0ba3 100644
---- a/lfs.c
-+++ b/lfs.c
+--- a/libs/littlefs-lib/lfs.c
++++ b/libs/littlefs-lib/lfs.c
 @@ -1,35 +1,53 @@
  /*
   * The little filesystem
@@ -7459,10 +7459,10 @@ index ad9de99..c0b0ba3 100644
  }
 +#endif
 +
-diff --git a/lfs.h b/lfs.h
+diff --git a/libs/littlefs-lib/lfs.h b/libs/littlefs-lib/lfs.h
 index 481cc8b..215309c 100644
---- a/lfs.h
-+++ b/lfs.h
+--- a/libs/littlefs-lib/lfs.h
++++ b/libs/littlefs-lib/lfs.h
 @@ -1,14 +1,13 @@
  /*
   * The little filesystem
@@ -8152,11 +8152,11 @@ index 481cc8b..215309c 100644
  
  #ifdef __cplusplus
  } /* extern "C" */
-diff --git a/lfs_util.c b/lfs_util.c
+diff --git a/libs/littlefs-lib/lfs_util.c b/libs/littlefs-lib/lfs_util.c
 new file mode 100644
 index 0000000..dac72ab
 --- /dev/null
-+++ b/lfs_util.c
++++ b/libs/littlefs-lib/lfs_util.c
 @@ -0,0 +1,37 @@
 +/*
 + * lfs util functions
@@ -8195,10 +8195,10 @@ index 0000000..dac72ab
 +
 +
 +#endif
-diff --git a/lfs_util.h b/lfs_util.h
+diff --git a/libs/littlefs-lib/lfs_util.h b/libs/littlefs-lib/lfs_util.h
 index 844235b..c1999fa 100644
---- a/lfs_util.h
-+++ b/lfs_util.h
+--- a/libs/littlefs-lib/lfs_util.h
++++ b/libs/littlefs-lib/lfs_util.h
 @@ -1,12 +1,43 @@
  /*
   * lfs utility functions
@@ -8394,10 +8394,10 @@ index 844235b..c1999fa 100644
  
  #endif
 +#endif
-diff --git a/pico_hal.c b/pico_hal.c
+diff --git a/libs/littlefs-lib/pico_hal.c b/libs/littlefs-lib/pico_hal.c
 index db169c5..f816716 100644
---- a/pico_hal.c
-+++ b/pico_hal.c
+--- a/libs/littlefs-lib/pico_hal.c
++++ b/libs/littlefs-lib/pico_hal.c
 @@ -19,22 +19,34 @@
  
  #include "pico_hal.h"
