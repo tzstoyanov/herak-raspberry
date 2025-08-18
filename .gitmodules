@@ -9,4 +9,4 @@
 	url = https://github.com/raspberrypi/pico-sdk
 [submodule "libs/littlefs-lib"]
 	path = libs/littlefs-lib
-	url = https://github.com/lurk101/littlefs-lib
+	url = https://github.com/tzstoyanov/pico-littlefs
