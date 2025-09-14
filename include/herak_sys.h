@@ -26,6 +26,7 @@
 #include "webserver/webserver_api.h"
 #include "syscmd/syscmd_api.h"
 #include "temperature/temperature_api.h"
+#include "ssr/ssr_api.h"
 
 #ifdef __cplusplus
 extern "C" {
