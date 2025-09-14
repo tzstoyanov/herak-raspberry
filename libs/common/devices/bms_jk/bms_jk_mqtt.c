@@ -112,6 +112,8 @@ static int mqtt_cells_data_send(struct jk_bms_dev_t *dev)
 	ADD_MQTT_MSG_VAR(",\"soh\":%d", dev->cell_info.soh);
 	ADD_MQTT_MSG_VAR(",\"batt_v\":%3.2f", dev->cell_info.batt_v*0.001);
 	ADD_MQTT_MSG_VAR(",\"batt_heat_a\":%3.2f", dev->cell_info.batt_heat_a*0.001);
+	if (dev->track_batt_level)
+		ADD_MQTT_MSG_VAR(",\"batt_low\":%d", !dev->full_battery);
 	ADD_MQTT_MSG("}");
 
 	dev->mqtt.payload[BMS_MQTT_DATA_LEN] = 0;
@@ -328,6 +330,14 @@ void bms_jk_mqtt_init(bms_context_t *ctx, int idx)
 	MQTT_ADD_BMS_DATA("{{ value_json.soh }}", "soh", NULL, "%");
 	MQTT_ADD_BMS_DATA("{{ value_json.batt_v }}", "batt_v", "voltage", "V");
 	MQTT_ADD_BMS_DATA("{{ value_json.batt_heat_a }}", "batt_heat_a", "current", "A");
+	mqtt->mqtt_comp[i].module = mod_name;
+	mqtt->mqtt_comp[i].platform = "binary_sensor";
+	mqtt->mqtt_comp[i].value_template = "{{ value_json.batt_low }}";
+	mqtt->mqtt_comp[i].payload_on = "1";
+	mqtt->mqtt_comp[i].payload_off = "0";
+	mqtt->mqtt_comp[i].name = "batt_low";
+	mqtt->mqtt_comp[i].state_topic = mqtt->bms_data->state_topic;
+	mqtt_msg_component_register(&mqtt->mqtt_comp[i++]);
 
 	/* Device */
 	mqtt->bms_info = &mqtt->mqtt_comp[i];

@@ -126,6 +126,19 @@ struct jk_bms_dev_t {
 	bt_charc_t jk_term_charc;
 	bms_jk_mqtt_t mqtt;
 	uint32_t connect_count;
+	uint64_t timeout_msec;
+
+	/* track battery */
+	bool track_batt_level;
+	bool full_battery;		// true if the battery is not empty
+	uint16_t cell_v_low;	// threshold of cell voltage for empty battery
+	uint16_t cell_v_high;	// threshold of cell voltage for non-empty battery
+
+	/* SSR trigger on non-empty battery */
+	bool ssr_trigger;
+	uint8_t ssr_id;			// ID of the SSR, that will be triggered on battery state
+	bool ssr_norm_state;	// SSR state on non-empty battery
+
 	struct bms_context_type *ctx;
 };
 
@@ -134,7 +147,6 @@ typedef struct bms_context_type {
 	mutex_t lock;
 	uint32_t debug;
 	uint32_t count;
-	uint64_t timeout_msec;
 	struct jk_bms_dev_t *devices[BMS_MAX_DEVICES];
 } bms_context_t;
 
