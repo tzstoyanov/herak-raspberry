@@ -6,16 +6,19 @@ Configuration parameters in params.txt file:
 ```
 BMS_BT          <XX:XX:XX:XX:XX:XX>,<pin>;<XX:XX:XX:XX:XX:XX>,<pin> ...
 BMS_MODEL       JK;JK ...
-BMS_TIMEOUT_SEC <seconds>
+BMS_TIMEOUT_SEC <seconds>;<seconds>...
+BMS_CELL_LEVELS <low>,<high>;<low>,<high>...
+BMS_BATT_SWITCH <ssrID>-<ssr state on normal battery>;<ssrID>-<ssr state on normal battery>...
 ```
-Where `<XX:XX:XX:XX:XX:XX>` is the bluetooth address of the BMS, `<pin>` is the pin code used for authorization.  Up to 4 devices are supported. The BMS_TIMEOUT_SEC parameter is optional. If set, the raspberry pico will be rebooted if there is no valid response from a connected BMS device since BMS_TIMEOUT_SEC seconds.
+Where `<XX:XX:XX:XX:XX:XX>` is the bluetooth address of the BMS, `<pin>` is the pin code used for authorization. Up to 4 devices are supported, separated by `;`. All parameters follow the same list logic - configuration per BMS, separated by `;` and the order corresponds to the BMSs in the `BMS_BT` list. The `BMS_MODEL` parameter must be set to `JK`. The `BMS_TIMEOUT_SEC` parameter is optional. If set, the raspberry pico will be rebooted if there is no valid response from a connected BMS device since `<seconds>`. The optional `BMS_CELL_LEVELS` parameter is used to track if the battery level is low. If any cell voltage is below the configured `<low>` threshold, the battery state is considered `low`. If the voltages of all cells are above the configured `<high>` threshold, the battery state is considered `normal`. The optional `BMS_BATT_SWITCH` parameter is used to switch attached SSR depending on the battery state. The `<ssrID>` is the ID af an attached external [SSR](../ssr/README.md). The `<ssr state on normal battery>` is the desired state of that SSR when the battery level is normal.  
 Example configuration:
 ```
 BMS_BT                  11:2A:33:2B:3C:44,1234;22:3A:44:3B:4C:55,0000;
 BMS_MODEL               JK;JK
-BMS_TIMEOUT_SEC         1200
+BMS_TIMEOUT_SEC         1200;600
+BMS_CELL_LEVELS         3.0,3.1;2.8,2.9
+BMS_BATT_SWITCH         0-1;2-1
 ```
-
 ## Monitor
 ### MQTT
 MQTT BMS sensors are auto-discovered by Home Assistant. The state is published using the following topics, where `<user-topic>` is defined in `params.txt` - as `MQTT_TOPIC`. The connection details for the MQTT server are also set in `params.txt`.  
@@ -45,6 +48,7 @@ MQTT BMS sensors are auto-discovered by Home Assistant. The state is published u
 &nbsp;&nbsp;&nbsp;&nbsp;`batt_cycles_cap:<value>` - Battery charging cycle capacity, Ah.  
 &nbsp;&nbsp;&nbsp;&nbsp;`soh:<value>` - State Of Health, %.  
 &nbsp;&nbsp;&nbsp;&nbsp;`batt_heat_a:<value>` - Heating current, A.  
+&nbsp;&nbsp;&nbsp;&nbsp;`batt_low:<value>` - Calculated battery state: 1 - low, 0 - normal.
 
 `<user-topic>/bms_jk<id>/Vendor/status` - BMS information:  
 &nbsp;&nbsp;&nbsp;&nbsp;`Vendor:<string>` - BMS vendor.  

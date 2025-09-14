@@ -25,6 +25,11 @@ static const uint8_t __in_flash() jk_request_pkt_start[] = {0xAA, 0x55, 0x90, 0x
 
 #define TIME_STR_LEN	64
 
+#define	WH_PAYLOAD_MAX_SIZE	128
+#define WH_HTTP_CMD		"POST"
+#define WH_HTTP_TYPE	"application/json"
+#define	WH_PAYLOAD_TEMPLATE "{ \"message\":\"Battery %s is %s\"}"
+
 /*
 
 Device Information 0x180A
@@ -67,6 +72,14 @@ enum {
 	JK_COMMAND_CELL_INFO = 0x96,
 	JK_COMMAND_DEVICE_INFO = 0x97,
 };
+
+static bms_context_t *__bms_jk_context;
+
+static bms_context_t *bms_jk_context_get(void)
+{
+	return __bms_jk_context;
+}
+
 
 static void charc_new(struct jk_bms_dev_t *dev, bt_characteristic_t *charc)
 {
@@ -310,6 +323,53 @@ static void jk_bt_process_terminal(struct jk_bms_dev_t *dev, bt_characteristicva
 	}
 }
 
+static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
+{
+	char notify_buff[WH_PAYLOAD_MAX_SIZE];
+	int i;
+
+	if (!dev->cell_info.valid)
+		return;
+
+	if (dev->full_battery) {
+		for (i = 0; i < BMS_MAX_CELLS; i++) {
+			if (!(1<<i & dev->cell_info.cells_enabled))
+				break;
+			if (dev->cell_info.cells_v[i] < dev->cell_v_low) {
+				dev->full_battery = false;
+				hlog_info(BMS_JK_MODULE, "Battery %s is empty: cell %d is %3.2fV",
+						  dev->name, i, (float)(dev->cell_info.cells_v[i] * 0.001));
+				if (webhook_connected()) {
+					snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
+							 dev->name, "empty");
+					webhook_send(notify_buff, strlen(notify_buff), WH_HTTP_CMD, WH_HTTP_TYPE);
+				}
+				if (dev->ssr_trigger)
+					ssr_api_state_set(dev->ssr_id, !dev->ssr_norm_state, 0, 0);
+				break;
+			}
+		}
+	} else {
+		for (i = 0; i < BMS_MAX_CELLS; i++) {
+			if (!(1<<i & dev->cell_info.cells_enabled))
+				break;
+			if (dev->cell_info.cells_v[i] < dev->cell_v_high)
+				break;
+		}
+		if (!(1<<i & dev->cell_info.cells_enabled)) {
+			dev->full_battery = true;
+			hlog_info(BMS_JK_MODULE, "Battery %s is full", dev->name);
+			if (webhook_connected()) {
+				snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
+						 dev->name, "full");
+				webhook_send(notify_buff, strlen(notify_buff), WH_HTTP_CMD, WH_HTTP_TYPE);
+			}
+			if (dev->ssr_trigger)
+				ssr_api_state_set(dev->ssr_id, dev->ssr_norm_state, 0, 0);
+		}
+	}
+}
+
 static void bms_jk_frame_process(struct jk_bms_dev_t *dev)
 {
 	if (!dev->nbuff_ready)
@@ -323,6 +383,8 @@ static void bms_jk_frame_process(struct jk_bms_dev_t *dev)
 		if (BMC_DEBUG(dev->ctx))
 			hlog_info(BMS_JK_MODULE, "Got cell info");
 		jk_bt_process_cell_frame(dev);
+		if (dev->track_batt_level)
+			jk_bt_check_cell_levels(dev);
 		break;
 	case 0x03: /* device info */
 		if (BMC_DEBUG(dev->ctx))
@@ -432,6 +494,8 @@ static int bms_jk_read_cmd(struct jk_bms_dev_t *dev, uint8_t address, uint32_t v
 #define BMS_MODEL_STR   "JK"
 static bool get_bms_config(bms_context_t **ctx)
 {
+	char *bt_batt_switch = USER_PRAM_GET(BMS_BATT_SWITCH);
+	char *bt_batt_cell = USER_PRAM_GET(BMS_CELL_LEVELS);
 	char *bt_timeout = USER_PRAM_GET(BMS_TIMEOUT_SEC);
 	char *bt_mod = USER_PRAM_GET(BMS_MODEL);
 	char *bt_id = USER_PRAM_GET(BMS_BT);
@@ -440,7 +504,7 @@ static bool get_bms_config(bms_context_t **ctx)
 	char *rest, *rest1;
 	bt_addr_t address;
 	bool ret = false;
-	uint32_t  i;
+	uint32_t i;
 
 	(*ctx) = NULL;
 	if (!bt_mod || strlen(bt_mod) < 1)
@@ -450,6 +514,8 @@ static bool get_bms_config(bms_context_t **ctx)
 	(*ctx) = calloc(1, sizeof(bms_context_t));
 	if (!(*ctx))
 		goto out;
+
+	__bms_jk_context = *ctx;
 
 	rest = bt_id;
 	mod_rest = bt_mod;
@@ -483,9 +549,51 @@ static bool get_bms_config(bms_context_t **ctx)
 	}
 
 	if (bt_timeout && strlen(bt_timeout) >= 1) {
-		(*ctx)->timeout_msec = (int)strtol(bt_timeout, NULL, 0);
-		if ((*ctx)->timeout_msec > 0)
-			(*ctx)->timeout_msec *= 1000;
+		rest = bt_timeout;
+		i = 0;
+		while ((dev = strtok_r(rest, ";", &rest))) {
+			(*ctx)->devices[i]->timeout_msec = (int)strtol(dev, NULL, 0);
+			if ((*ctx)->devices[i]->timeout_msec > 0)
+				(*ctx)->devices[i]->timeout_msec *= 1000;
+			i++;
+			if (i >= (*ctx)->count)
+				break;
+		}
+	}
+
+	if (bt_batt_cell && strlen(bt_batt_cell) >= 1) {
+		rest = bt_batt_cell;
+		i = 0;
+		while ((dev = strtok_r(rest, ";", &rest))) {
+			rest1 = dev;
+			mod = strtok_r(rest1, ",", &rest1);
+			if (!mod || !rest1)
+				continue;
+			(*ctx)->devices[i]->cell_v_low = (uint16_t)(strtof(mod, NULL) * 1000);
+			(*ctx)->devices[i]->cell_v_high = (uint16_t)(strtof(rest1, NULL) * 1000);
+			if ((*ctx)->devices[i]->cell_v_low > 0 && (*ctx)->devices[i]->cell_v_high > 0)
+				(*ctx)->devices[i]->track_batt_level = true;
+			i++;
+			if (i >= (*ctx)->count)
+				break;
+		}
+	}
+
+	if (bt_batt_switch && strlen(bt_batt_switch) >= 1) {
+		rest = bt_batt_switch;
+		i = 0;
+		while ((dev = strtok_r(rest, ";", &rest))) {
+			rest1 = dev;
+			mod = strtok_r(rest1, "-", &rest1);
+			if (!mod || !rest1)
+				continue;
+			(*ctx)->devices[i]->ssr_id = (uint16_t)(strtol(mod, NULL, 0));
+			(*ctx)->devices[i]->ssr_norm_state = (bool)(strtol(rest1, NULL, 0));
+			(*ctx)->devices[i]->ssr_trigger = true;
+			i++;
+			if (i >= (*ctx)->count)
+				break;
+		}
 	}
 
 	if ((*ctx)->count > 0)
@@ -493,6 +601,10 @@ static bool get_bms_config(bms_context_t **ctx)
 out:
 	free(bt_id);
 	free(bt_mod);
+	if (bt_batt_cell)
+		free(bt_batt_cell);
+	if (bt_batt_switch)
+		free(bt_batt_switch);
 	if (!ret) {
 		if ((*ctx)) {
 			for (i = 0; i < (*ctx)->count; i++) {
@@ -569,19 +681,18 @@ static void bms_jk_timeout_check(bms_context_t *ctx)
 	uint64_t now;
 	uint32_t i;
 
-	if (ctx->timeout_msec < 1)
-		return;
-
 	now = time_ms_since_boot();
 	for (i = 0; i < ctx->count; i++) {
+		if (ctx->devices[i]->timeout_msec < 1)
+			continue;
 		if (ctx->devices[i]->state != BT_READY ||
 			!TERM_IS_ACTIVE(ctx->devices[i]) ||
 			!ctx->devices[i]->jk_term_charc.notify)
 				continue;
-		if ((now - ctx->devices[i]->last_reply) > ctx->timeout_msec)
+		if ((now - ctx->devices[i]->last_reply) > ctx->devices[i]->timeout_msec)
 			break;
 	}
-	if ( i >= ctx->count)
+	if (i >= ctx->count)
 		return;
 
 	time_msec2datetime(&date, now - ctx->devices[i]->last_reply);
@@ -720,6 +831,8 @@ static bool bms_jk_log(void *context)
 			  dev->jk_term_charc.notify ? "registered" : "not registered");
 	hlog_info(BMS_JK_MODULE, "\tLast valid response [%s] ago, connection count %d",
 			  tbuf, dev->connect_count);
+	if (dev->timeout_msec)
+		hlog_info(BMS_JK_MODULE, "\tInactivity timeout %lld sec", dev->timeout_msec / 1000);
 
 	if (!dev->dev_info.valid)
 		hlog_info(BMS_JK_MODULE, "\tNo valid device info received");
@@ -730,6 +843,16 @@ static bool bms_jk_log(void *context)
 		hlog_info(BMS_JK_MODULE, "\tNo valid cells info received");
 	else
 		bms_jk_log_cells(dev);
+
+	if (dev->track_batt_level) {
+		hlog_info(BMS_JK_MODULE, "\tTrack battery state between %3.2fV and %3.2fV",
+				  dev->cell_v_low * 0.001, dev->cell_v_high * 0.001);
+		hlog_info(BMS_JK_MODULE, "\tBattery level is %s", dev->full_battery ? "normal" : "low");
+		if (dev->ssr_trigger) {
+			hlog_info(BMS_JK_MODULE, "\tSwitch SSR %d on normal battery to %s",
+					  dev->ssr_id, dev->ssr_norm_state ? "ON" : "OFF");
+		}
+	}
 
 	idx++;
 	return false;
@@ -750,4 +873,16 @@ void bms_jk_register(void)
 	ctx->mod.context = ctx;
 
 	sys_module_register(&ctx->mod);
+}
+
+/* API */
+int bms_jk_is_battery_full(uint32_t bms_id)
+{
+	bms_context_t *ctx = bms_jk_context_get();
+
+	if (!ctx || bms_id >= ctx->count || !ctx->devices[bms_id]->track_batt_level)
+		return -1;
+	if (ctx->devices[bms_id]->state != BT_READY || !TERM_IS_ACTIVE(ctx->devices[bms_id]))
+		return -1;
+	return ctx->devices[bms_id]->full_battery;
 }
