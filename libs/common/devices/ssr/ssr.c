@@ -52,6 +52,13 @@ struct ssr_context_t {
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 };
 
+static struct ssr_context_t *__ssr_context;
+
+static struct ssr_context_t *ssr_context_get(void)
+{
+	return __ssr_context;
+}
+
 #define TIME_STR	64
 #define ADD_MQTT_MSG(_S_) { if ((len - count) < 0) { printf("%s: Buffer full\n\r", __func__); return -1; } \
 							count += snprintf(ctx->mqtt_payload + count, len - count, _S_); }
@@ -131,8 +138,12 @@ static int ssr_state_set(struct ssr_context_t *context, uint8_t id, bool state, 
 		return -1;
 	if (!delay) {
 		gpio_put(context->relays[id]->gpio_pin, state);
-		if (context->relays[id]->state_actual != state)
+		if (context->relays[id]->state_actual != state) {
 			context->relays[id]->mqtt_comp[SSR_MQTT_SENSOR_STATE].force = true;
+			if (context->debug)
+				hlog_info(SSR_MODULE, "Set %d to %s",
+						  id, state == context->on_state ? "ON" : "OFF");
+		}
 		context->relays[id]->state_actual = state;
 	}
 	if (context->relays[id]->state_desired != state)
@@ -269,6 +280,8 @@ static bool ssr_config_get(struct ssr_context_t **ctx)
 		goto out_error;
 	for (i = 0 ; i < MAX_SSR_COUNT; i++)
 		(*ctx)->relays[i]->gpio_pin = -1;
+	__ssr_context = *ctx;
+
 	tok = param_get(SSR_TRIGGER);
 	if (tok && strlen(tok) >= 1)
 		(*ctx)->on_state = (int)strtol(tok, NULL, 10);
@@ -433,3 +446,15 @@ void ssr_register(void)
 
 	sys_module_register(&ctx->mod);
 }
+
+/* API */
+int ssr_api_state_set(uint8_t id, bool state, uint32_t time, uint32_t delay)
+{
+	struct ssr_context_t *ctx = ssr_context_get();
+
+	if (!ctx)
+		return -1;
+
+	return ssr_state_set(ctx, id, state ? ctx->on_state : !ctx->on_state, time, delay);
+}
+
