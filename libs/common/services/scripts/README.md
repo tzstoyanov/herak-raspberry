@@ -7,6 +7,7 @@ The script engine runs scripts from files, saved in the file system of the devic
 `@desc <script description>` - optional, description of the script.  
 `@corn <cron string>` - optional, cron schedule for running the script.  
 `@cron_enable <0/1>` - optional, enable or disable the cron schedule of the script.  
+`@notify <0/1>` - optional, enable or disable sending the web hook notifications when the script is started.  
 `#` - any line starting with this symbol is a comment and is not parsed by the script engine.  
 `<module_name>?<command>[:<param1>:[param2]:...]` - command to be executed, one per line.  
 
