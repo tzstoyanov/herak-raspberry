@@ -9,10 +9,7 @@
 
 #include "solar.h"
 
-#define WH_HTTP_CMD		"POST"
-#define WH_HTTP_TYPE	"application/json"
-#define	WH_PAYLOAD_TEMPLATE "{ \"temperature\":%3.2f}"
-#define	WH_PAYLOAD_MAX_SIZE	32
+#define	WH_PAYLOAD_TEMPLATE "temperature: %3.2f"
 #define WH_SEND_DELAY_MS	5000
 #define WHLOG	"notify"
 
@@ -27,7 +24,7 @@ void wh_notify_send(void)
 	now = time_ms_since_boot();
 	if ((now - last_send) > WH_SEND_DELAY_MS) {
 		snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE, temperature_internal_get());
-		webhook_send(notify_buff, strlen(notify_buff), WH_HTTP_CMD, WH_HTTP_TYPE);
+		webhook_send(notify_buff);
 		last_send = now;
 	}
 }

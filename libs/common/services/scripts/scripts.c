@@ -25,10 +25,7 @@
 #define MQTT_DATA_LEN   512
 #define WH_SEND_DELAY_MS	60000
 #define CRON_CHECK_MS		30000
-#define	WH_PAYLOAD_MAX_SIZE	128
-#define WH_HTTP_CMD		"POST"
-#define WH_HTTP_TYPE	"application/json"
-#define	WH_PAYLOAD_TEMPLATE "{ \"message\":\"%s is %s\"}"
+#define	WH_PAYLOAD_TEMPLATE "Scripts [%s] is running"
 
 #define IS_DEBUG(C)	((C)->debug)
 
@@ -368,9 +365,8 @@ static void script_notify(struct script_t *script)
 
 	if (!webhook_connected())
 		return;
-	snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-			 script->name, "running");
-	if (!webhook_send(notify_buff, strlen(notify_buff), WH_HTTP_CMD, WH_HTTP_TYPE))
+	snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE, script->name);
+	if (!webhook_send(notify_buff))
 		script->notify = false;
 }
 

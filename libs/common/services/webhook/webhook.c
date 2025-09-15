@@ -35,6 +35,10 @@
 #define WH_UNLOCK(W)	mutex_exit(&((W)->lock))
 #define IS_DEBUG(C)	((C)->debug != 0)
 
+#define	WH_PAYLOAD_TEMPLATE "{ \"message\":\"(%s) %s\"}"
+#define WH_HTTP_CMD		"POST"
+#define WH_HTTP_TYPE	"application/json"
+
 enum tcp_state_t {
 	TCP_DISCONNECTED = 0,
 	TCP_CONNECTING,
@@ -62,6 +66,7 @@ struct webhook_t {
 	enum tcp_state_t tcp_state;
 	struct altcp_pcb *tcp_conn;
 	char buff[PACKET_BUFF_SIZE];
+	char payload[WH_PAYLOAD_MAX_SIZE];
 	int buff_p;
 	int buff_len;
 	mutex_t lock;
@@ -345,7 +350,7 @@ bool webhook_connected(void)
 	return true;
 }
 
-int webhook_send(char *data, int datalen, char *http_command, char *content_type)
+int webhook_send(char *message)
 {
 	struct wh_context_t *ctx = webhook_context_get();
 	struct webhook_t *wh;
@@ -364,15 +369,19 @@ int webhook_send(char *data, int datalen, char *http_command, char *content_type
 			goto out_err;
 		}
 
+		wh->payload[0] = 0;
+		snprintf(wh->payload, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
+				 system_get_hostname(), message);
+
 		wh->buff[0] = 0;
-		snprintf(wh->buff, PACKET_BUFF_SIZE, WH_HTTP_HEAD, http_command, wh->endpoint,
-				 wh->addr_str, wh->port, datalen, wh->keep_open?"":HTTP_CONNECTION_CLOSE,
-				 HTTP_USER_AGENT, content_type);
+		snprintf(wh->buff, PACKET_BUFF_SIZE, WH_HTTP_HEAD, WH_HTTP_CMD, wh->endpoint,
+				 wh->addr_str, wh->port, strlen(wh->payload),
+				 wh->keep_open ? "" : HTTP_CONNECTION_CLOSE, HTTP_USER_AGENT, WH_HTTP_TYPE);
 		wh->buff_len = strlen(wh->buff);
-		if (wh->buff_len + datalen >= PACKET_BUFF_SIZE)
+		if (wh->buff_len + strlen(wh->payload) >= PACKET_BUFF_SIZE)
 			goto out_err;
-		memcpy(wh->buff + wh->buff_len, data, datalen);
-		wh->buff_len += datalen;
+		memcpy(wh->buff + wh->buff_len, wh->payload, strlen(wh->payload));
+		wh->buff_len += strlen(wh->payload);
 		wh->sending = true;
 		wh->last_send = now;
 	WH_UNLOCK(wh);
