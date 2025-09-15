@@ -7,13 +7,15 @@ Configuration parameters in params.txt file:
 ```
 SOIL_D		            <id>:<gpio pin>;<id>:<gpio pin>
 SOIL_A		            <id>:<gpio pin>;<id>:<gpio pin>
+SOIL_NOTIFY             <0/1>
 ```
-Where `<id>` is an identifier of the sensor, `<gpio pin>` is the Raspberry PIN where this sensor is attached. The `SOIL_A` parameter is the analog output of the sensor, must be attached to one of the 3 Raspberry ADC GPIO pins - `26`, `27` or `28`. The `SOIL_D` parameter is the digital output of the sensor. Supported are up to `5` sensors, 3 of them can have analog outputs.
+Where `<id>` is an identifier of the sensor, `<gpio pin>` is the Raspberry PIN where this sensor is attached. The `SOIL_A` parameter is the analog output of the sensor, must be attached to one of the 3 Raspberry ADC GPIO pins - `26`, `27` or `28`. The `SOIL_D` parameter is the digital output of the sensor. Supported are up to `5` sensors, 3 of them can have analog outputs. The `SOIL_NOTIFY` parameter controls whether to send webhook notifications is digital soil sensors changes its state.
 
-Example configuration of five sensors. The first three have analog and digital outputs - attached to GPIO10;GPIO26, GPI11;GPIO27 and GPI12;GPIO28. The last two have only digital outputs, attached to GPIO14 and GPIO15.
+Example configuration of five sensors. The first three have analog and digital outputs - attached to GPIO10;GPIO26, GPI11;GPIO27 and GPI12;GPIO28. The last two have only digital outputs, attached to GPIO14 and GPIO15. A webhook notification is sent when a digital sensor changes its state.
 ```
 SOIL_D     0:10;1:11;2:12;3:13;4:14;5:15
 SOIL_A     0:26;1:27;2:28
+SOIL_NOTIFY 1
 ```
 
 ## Monitor

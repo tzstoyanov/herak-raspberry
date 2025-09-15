@@ -68,6 +68,7 @@ struct soil_context_t {
 	uint64_t mqtt_last_send;
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 	uint32_t debug;
+	bool wh_notify;
 };
 
 static void wh_notify_send(struct soil_context_t *ctx, int id)
@@ -174,7 +175,8 @@ static void measure_digital(struct soil_context_t *ctx, int id)
 	digital = gpio_get(ctx->sensors[id].digital_pin);
 	if (digital != ctx->sensors[id].last_digital) {
 		ctx->sensors[id].last_digital = digital;
-		ctx->sensors[id].wh_send = true;
+		if (ctx->wh_notify)
+			ctx->sensors[id].wh_send = true;
 		ctx->sensors[id].mqtt_comp.force = true;
 	}
 }
@@ -288,6 +290,7 @@ static bool soil_init(struct soil_context_t **ctx)
 {
 	char *digital = param_get(SOIL_D);
 	char *analog = param_get(SOIL_A);
+	char *wnotify = USER_PRAM_GET(SOIL_NOTIFY);
 	bool has_analog = false;
 	unsigned int cnt, i, j;
 
@@ -328,10 +331,15 @@ static bool soil_init(struct soil_context_t **ctx)
 		}
 	}
 
+	if (wnotify && strlen(wnotify) >= 1)
+		(*ctx)->wh_notify = (int)strtol(wnotify, NULL, 0);
+
 	if ((*ctx)->sensors_count < 1)
 		goto out_error;
 	free(digital);
 	free(analog);
+	if (wnotify)
+		free(wnotify);
 
 	if (has_analog) {
 		adc_init();
