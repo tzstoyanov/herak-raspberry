@@ -456,6 +456,9 @@ static void sys_scripts_run(void *context)
 {
 	struct scripts_context_t *ctx = (struct scripts_context_t *)context;
 
+	if (ctx->count < 1)
+		return;
+
 	if (ctx->run) {
 		script_run(ctx);
 		return;
@@ -534,6 +537,10 @@ static bool sys_scripts_init(struct scripts_context_t **ctx)
 		pico_dir_close(fd);
 
 	scripts_init(*ctx);
+	if ((*ctx)->count < 1) {
+		hlog_info(SCRIPTS_MODULE, "No scripts detected on the file system.");
+		return false;
+	}
 	scripts_mqtt_init(*ctx);
 	(*ctx)->cmd_ctx.type = CMD_CTX_SCRIPT;
 
