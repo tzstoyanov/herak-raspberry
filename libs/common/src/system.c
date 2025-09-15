@@ -46,6 +46,8 @@ static struct {
 	uint8_t log_status_count;
 	int log_status_progress;
 	bool reconnect;
+
+	char *host_name;
 } sys_context;
 
 static bool base_init(void)
@@ -243,4 +245,16 @@ void system_common_run(void)
 			LOOP_FUNC_RUN("syslog status", system_log_status);
 		}
 	}
+}
+
+char *system_get_hostname(void)
+{
+	if (sys_context.host_name)
+		return sys_context.host_name;
+
+	sys_context.host_name = USER_PRAM_GET(DEV_HOSTNAME);
+	if (sys_context.host_name)
+		return sys_context.host_name;
+
+	return "pico";
 }

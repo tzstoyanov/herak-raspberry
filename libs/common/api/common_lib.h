@@ -33,6 +33,7 @@ bool system_common_init(void);
 void system_common_run(void);
 void system_force_reboot(int delay_ms);
 void system_common_main(void);
+char *system_get_hostname(void);
 
 int sys_asprintf(char **strp, const char *fmt, ...);
 uint8_t sys_value_to_percent(uint32_t range_min, uint32_t range_max, uint32_t val);
