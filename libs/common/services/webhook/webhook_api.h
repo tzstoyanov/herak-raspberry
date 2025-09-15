@@ -10,8 +10,10 @@
 extern "C" {
 #endif
 
+#define	WH_PAYLOAD_MAX_SIZE	384
+
 bool webhook_connected(void);
-int webhook_send(char *data, int datalen, char *http_command, char *content_type);
+int webhook_send(char *message);
 
 #ifdef __cplusplus
 }

@@ -21,5 +21,5 @@ WEBHOOK_ENDPOINT    /api/webhook/-V1AFRE3zagLAUJh8FQxkbnUb
 ## API
 ```
 bool webhook_connected();
-int webhook_send( char *data, int datalen, char *http_command, char *content_type);
+int webhook_send( char *message);
 ```

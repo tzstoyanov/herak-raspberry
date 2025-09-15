@@ -25,10 +25,7 @@ static const uint8_t __in_flash() jk_request_pkt_start[] = {0xAA, 0x55, 0x90, 0x
 
 #define TIME_STR_LEN	64
 
-#define	WH_PAYLOAD_MAX_SIZE	128
-#define WH_HTTP_CMD		"POST"
-#define WH_HTTP_TYPE	"application/json"
-#define	WH_PAYLOAD_TEMPLATE "{ \"message\":\"Battery %s is %s\"}"
+#define	WH_PAYLOAD_TEMPLATE "Battery %s is %s"
 
 /*
 
@@ -339,11 +336,9 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 				dev->full_battery = false;
 				hlog_info(BMS_JK_MODULE, "Battery %s is empty: cell %d is %3.2fV",
 						  dev->name, i, (float)(dev->cell_info.cells_v[i] * 0.001));
-				if (webhook_connected()) {
-					snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-							 dev->name, "empty");
-					webhook_send(notify_buff, strlen(notify_buff), WH_HTTP_CMD, WH_HTTP_TYPE);
-				}
+				snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
+						 dev->name, "empty");
+				webhook_send(notify_buff);
 				if (dev->ssr_trigger)
 					ssr_api_state_set(dev->ssr_id, !dev->ssr_norm_state, 0, 0);
 				break;
@@ -359,11 +354,9 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 		if (!(1<<i & dev->cell_info.cells_enabled)) {
 			dev->full_battery = true;
 			hlog_info(BMS_JK_MODULE, "Battery %s is full", dev->name);
-			if (webhook_connected()) {
-				snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-						 dev->name, "full");
-				webhook_send(notify_buff, strlen(notify_buff), WH_HTTP_CMD, WH_HTTP_TYPE);
-			}
+			snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
+					 dev->name, "full");
+			webhook_send(notify_buff);
 			if (dev->ssr_trigger)
 				ssr_api_state_set(dev->ssr_id, dev->ssr_norm_state, 0, 0);
 		}

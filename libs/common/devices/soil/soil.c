@@ -29,11 +29,7 @@
 /* Filter out the 5 biggest and the 5 smallest */
 #define SOIL_MEASURE_DROP	5
 
-#define WH_HTTP_CMD		"POST"
-#define WH_HTTP_TYPE	"application/json"
-#define HTTP_OK	200
-#define	WH_PAYLOAD_MAX_SIZE	128
-#define	WH_PAYLOAD_TEMPLATE "{ \"Soil sensor\": %s-%d, \"status\": \"%s\", \"value\": %d }"
+#define	WH_PAYLOAD_TEMPLATE "Soil sensor %d: status %s (%d)"
 #define WH_SEND_DELAY_MS	5000
 #define MQTT_DATA_LEN   128
 
@@ -66,7 +62,6 @@ struct soil_sensor_t {
 
 struct soil_context_t {
 	sys_module_t mod;
-	char *dev_name;
 	uint32_t send_time;
 	int sensors_count;
 	struct soil_sensor_t sensors[MAX_SOIL_SENSORS_COUNT];
@@ -83,15 +78,14 @@ static void wh_notify_send(struct soil_context_t *ctx, int id)
 	if (!webhook_connected())
 		return;
 
-	now =  time_ms_since_boot();
+	now = time_ms_since_boot();
 	if ((now - ctx->sensors[id].wh_last_send) < WH_SEND_DELAY_MS)
 		return;
 
 	snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-			 ctx->dev_name ? ctx->dev_name : "Uknown", id,
-			 ctx->sensors[id].last_digital?"dry":"wet",
+			 id, ctx->sensors[id].last_digital?"dry":"wet",
 			 ctx->sensors[id].analog ? ctx->sensors[id].analog->percent : 0);
-	if (!webhook_send(notify_buff, strlen(notify_buff), WH_HTTP_CMD, WH_HTTP_TYPE))
+	if (!webhook_send(notify_buff))
 		ctx->sensors[id].wh_send = false;
 	ctx->sensors[id].wh_last_send = now;
 }
@@ -336,7 +330,6 @@ static bool soil_init(struct soil_context_t **ctx)
 
 	if ((*ctx)->sensors_count < 1)
 		goto out_error;
-	(*ctx)->dev_name = USER_PRAM_GET(DEV_HOSTNAME);
 	free(digital);
 	free(analog);
 
