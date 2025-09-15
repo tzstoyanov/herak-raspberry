@@ -9,8 +9,9 @@ BMS_MODEL       JK;JK ...
 BMS_TIMEOUT_SEC <seconds>;<seconds>...
 BMS_CELL_LEVELS <low>,<high>;<low>,<high>...
 BMS_BATT_SWITCH <ssrID>-<ssr state on normal battery>;<ssrID>-<ssr state on normal battery>...
+BMS_NOTIFY      <0/1>
 ```
-Where `<XX:XX:XX:XX:XX:XX>` is the bluetooth address of the BMS, `<pin>` is the pin code used for authorization. Up to 4 devices are supported, separated by `;`. All parameters follow the same list logic - configuration per BMS, separated by `;` and the order corresponds to the BMSs in the `BMS_BT` list. The `BMS_MODEL` parameter must be set to `JK`. The `BMS_TIMEOUT_SEC` parameter is optional. If set, the raspberry pico will be rebooted if there is no valid response from a connected BMS device since `<seconds>`. The optional `BMS_CELL_LEVELS` parameter is used to track if the battery level is low. If any cell voltage is below the configured `<low>` threshold, the battery state is considered `low`. If the voltages of all cells are above the configured `<high>` threshold, the battery state is considered `normal`. The optional `BMS_BATT_SWITCH` parameter is used to switch attached SSR depending on the battery state. The `<ssrID>` is the ID af an attached external [SSR](../ssr/README.md). The `<ssr state on normal battery>` is the desired state of that SSR when the battery level is normal.  
+Where `<XX:XX:XX:XX:XX:XX>` is the bluetooth address of the BMS, `<pin>` is the pin code used for authorization. Up to 4 devices are supported, separated by `;`. All parameters follow the same list logic - configuration per BMS, separated by `;` and the order corresponds to the BMSs in the `BMS_BT` list. The `BMS_MODEL` parameter must be set to `JK`. The `BMS_TIMEOUT_SEC` parameter is optional. If set, the raspberry pico will be rebooted if there is no valid response from a connected BMS device since `<seconds>`. The optional `BMS_CELL_LEVELS` parameter is used to track if the battery level is low. If any cell voltage is below the configured `<low>` threshold, the battery state is considered `low`. If the voltages of all cells are above the configured `<high>` threshold, the battery state is considered `normal`. The optional `BMS_BATT_SWITCH` parameter is used to switch attached SSR depending on the battery state. The `<ssrID>` is the ID af an attached external [SSR](../ssr/README.md). The `<ssr state on normal battery>` is the desired state of that SSR when the battery level is normal.  The `BMS_NOTIFY` parameter controls whether to send webhook notifications when the battery state changes, if the logic for battery level id enabled with the `BMS_CELL_LEVELS` parameter.
 Example configuration:
 ```
 BMS_BT                  11:2A:33:2B:3C:44,1234;22:3A:44:3B:4C:55,0000;
@@ -18,6 +19,7 @@ BMS_MODEL               JK;JK
 BMS_TIMEOUT_SEC         1200;600
 BMS_CELL_LEVELS         3.0,3.1;2.8,2.9
 BMS_BATT_SWITCH         0-1;2-1
+BMS_NOTIFY              1
 ```
 ## Monitor
 ### MQTT

@@ -147,6 +147,7 @@ typedef struct bms_context_type {
 	mutex_t lock;
 	uint32_t debug;
 	uint32_t count;
+	bool wh_notify;
 	struct jk_bms_dev_t *devices[BMS_MAX_DEVICES];
 } bms_context_t;
 
