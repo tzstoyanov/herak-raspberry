@@ -42,7 +42,6 @@ struct log_context_t {
 	uint32_t last_send;
 	ip_resolve_state_t sever_ip_state;
 	struct udp_pcb *log_pcb;
-	char *hostname;
 	int log_level;
 	mutex_t lock;
 	uint32_t debug;
@@ -160,7 +159,6 @@ static bool sys_log_init(struct log_context_t **ctx)
 		free(str);
 	}
 	mutex_init(&((*ctx)->lock));
-	(*ctx)->hostname = USER_PRAM_GET(DEV_HOSTNAME);
 	(*ctx)->log_level = HLOG_INFO;
 	(*ctx)->http_log = false;
 	__log_context = (*ctx);
@@ -309,7 +307,7 @@ void hlog_any(int severity, const char *topic, const char *fmt, ...)
 	LOG_LOCK(ctx);
 		LBUFF_PRINT("<%d>1 ", FACILITY*8 + severity);
 		LBUFF_PRINT("%s ", get_current_time_log_str(time_buff, 64));
-		LBUFF_PRINT("%s ", ctx ? ctx->hostname : "pico");
+		LBUFF_PRINT("%s ", system_get_hostname());
 		LBUFF_PRINT("%s: ", topic);
 
 		va_start(ap, fmt);

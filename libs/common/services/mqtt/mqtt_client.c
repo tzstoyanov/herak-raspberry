@@ -900,7 +900,7 @@ static bool sys_mqtt_init(struct mqtt_context_t  **ctx)
 	(*ctx)->state = MQTT_CLIENT_INIT;
 	snprintf((*ctx)->status_topic, MQTT_MAX_TOPIC_SIZE, STATUS_TOPIC_TEMPLATE, (*ctx)->state_topic);
 	snprintf((*ctx)->commands.cmd_topic, MQTT_MAX_TOPIC_SIZE, COMMAND_TOPIC_TEMPLATE, (*ctx)->state_topic);
-	(*ctx)->client_info.client_id = USER_PRAM_GET(DEV_HOSTNAME);
+	(*ctx)->client_info.client_id = system_get_hostname();
 	(*ctx)->client_info.keep_alive = MQTT_KEEPALIVE_S;
 	(*ctx)->client_info.will_topic = (*ctx)->status_topic;
 	(*ctx)->client_info.will_msg = OFFLINE_MSG;
