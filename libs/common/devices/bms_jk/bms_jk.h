@@ -131,6 +131,7 @@ struct jk_bms_dev_t {
 	/* track battery */
 	bool track_batt_level;
 	bool full_battery;		// true if the battery is not empty
+	bool batt_state_set;
 	uint16_t cell_v_low;	// threshold of cell voltage for empty battery
 	uint16_t cell_v_high;	// threshold of cell voltage for non-empty battery
 

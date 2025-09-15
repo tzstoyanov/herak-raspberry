@@ -336,7 +336,7 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 				dev->full_battery = false;
 				hlog_info(BMS_JK_MODULE, "Battery %s is empty: cell %d is %3.2fV",
 						  dev->name, i, (float)(dev->cell_info.cells_v[i] * 0.001));
-				if (dev->ctx->wh_notify) {
+				if (dev->ctx->wh_notify && dev->batt_state_set) {
 					snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
 							dev->name, "empty");
 					webhook_send(notify_buff);
@@ -356,7 +356,7 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 		if (!(1<<i & dev->cell_info.cells_enabled)) {
 			dev->full_battery = true;
 			hlog_info(BMS_JK_MODULE, "Battery %s is full", dev->name);
-			if (dev->ctx->wh_notify) {
+			if (dev->ctx->wh_notify && dev->batt_state_set) {
 				snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
 						dev->name, "full");
 				webhook_send(notify_buff);
@@ -365,6 +365,7 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 				ssr_api_state_set(dev->ssr_id, dev->ssr_norm_state, 0, 0);
 		}
 	}
+	dev->batt_state_set = true;
 }
 
 static void bms_jk_frame_process(struct jk_bms_dev_t *dev)
