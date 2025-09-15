@@ -37,18 +37,21 @@
 #define SCRIPT_PARAM_DESC			"@desc"
 #define SCRIPT_PARAM_CRON			"@cron"
 #define SCRIPT_PARAM_CRON_ENABLE	"@cron_enable"
+#define SCRIPT_PARAM_NOTIFY			"@notify"
 enum script_params_id {
 	SCRIPT_CFG_NAME = 0,
 	SCRIPT_CFG_DESC = 1,
 	SCRIPT_CFG_CRON_ENABLE = 2,
 	SCRIPT_CFG_CRON = 3,
-	SCRIPT_CFG_MAX	= 4,
+	SCRIPT_CFG_NOTIFY = 4,
+	SCRIPT_CFG_MAX	= 5,
 };
 static __in_flash() char *script_configs[SCRIPT_CFG_MAX] = {
 	 SCRIPT_PARAM_NAME,
 	 SCRIPT_PARAM_DESC,
 	 SCRIPT_PARAM_CRON_ENABLE,
 	 SCRIPT_PARAM_CRON,
+	 SCRIPT_PARAM_NOTIFY
 };
 
 struct script_cron_t {
@@ -74,6 +77,7 @@ struct script_t {
 	bool notify;
 	int exec_count;
 	int fd;
+	bool notify_enable;
 	uint64_t last_run;
 	time_t last_run_date;
 	struct script_cron_t cron;
@@ -200,6 +204,9 @@ static int script_param_load (struct script_t *script, char *param)
 		break;
 	case SCRIPT_CFG_CRON_ENABLE:
 		script->cron.enable = (bool)strtol(data, NULL, 0);
+		break;
+	case SCRIPT_CFG_NOTIFY:
+		script->notify_enable = (bool)strtol(data, NULL, 0);
 		break;
 	default:
 		return 0;
@@ -469,7 +476,8 @@ static void sys_scripts_run(void *context)
 	if (ctx->scripts[ctx->idx].run) {
 		ctx->run = &ctx->scripts[ctx->idx];
 		ctx->scripts[ctx->idx].run = false;
-		ctx->scripts[ctx->idx].notify = true;
+		if (ctx->scripts[ctx->idx].notify_enable)
+			ctx->scripts[ctx->idx].notify = true;
 		if (IS_DEBUG(ctx))
 			hlog_info(SCRIPTS_MODULE, "Run script [%s]", ctx->run->name);
 	}
