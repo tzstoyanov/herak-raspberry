@@ -71,7 +71,7 @@ struct bt_device_t {
 	char name[BT_DEV_MAX_NAME];
 	enum bt_dev_state_t state;
 	bool discovering;
-	uint32_t state_time;
+	uint64_t state_time;
 	struct bt_svc_t services[BT_MAX_SERVICES];
 	int svc_count;
 	int svc_current;
@@ -488,7 +488,7 @@ static void bt_new_characteristic(struct bt_device_t *dev, gatt_client_character
 	}
 	BT_LOCAL_LOCK(ctx);
 		btsvc->char_count++;
-		dev->state_time = to_ms_since_boot(get_absolute_time());
+		dev->state_time = time_ms_since_boot();
 	BT_LOCAL_UNLOCK(ctx);
 }
 
@@ -529,7 +529,7 @@ static void bt_new_service(struct bt_device_t *dev, gatt_client_service_t *svc)
 		BT_LOCAL_LOCK(ctx);
 	}
 	dev->svc_count++;
-	dev->state_time = to_ms_since_boot(get_absolute_time());
+	dev->state_time = time_ms_since_boot();
 out:
 	BT_LOCAL_UNLOCK(ctx);
 }
@@ -722,7 +722,7 @@ static void bt_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
 				dev->svc_count = 0;
 				memset(dev->services, 0, BT_MAX_SERVICES * sizeof(struct bt_svc_t));
 				dev->connection_handle = hci_subevent_le_connection_complete_get_connection_handle(packet);
-				dev->state_time = to_ms_since_boot(get_absolute_time());
+				dev->state_time = time_ms_since_boot();
 			BT_LOCAL_UNLOCK(ctx);
 			if (dev->user_cb)
 				dev->user_cb(dev->id, BT_CONNECTED, dev->name, strlen(dev->name)+1, dev->user_context);
@@ -778,7 +778,7 @@ static int bt_discover_next_char(struct bt_device_t *dev)
 		}
 		dev->state = BT_DEV_DISCOVERING_CHARACTERISTIC;
 		dev->discovering = true;
-		dev->state_time = to_ms_since_boot(get_absolute_time());
+		dev->state_time = time_ms_since_boot();
 	BT_LOCAL_UNLOCK(ctx);
 	if (IS_DEBUG(ctx))
 		hlog_info(BTLOG, "Device [%s], discovery characteristic for service "UUID_128_FMT, dev->name,
@@ -793,10 +793,10 @@ static int bt_discover_next_char(struct bt_device_t *dev)
 static int bt_device_state(struct bt_device_t *dev)
 {
 	struct bt_context_t *ctx = bt_get_context(dev);
-	uint32_t now;
+	uint64_t now;
 	int ret;
 
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	switch (dev->state) {
 	case BT_DEV_CONNECTED:
 		BT_LOCAL_LOCK(ctx);
@@ -808,7 +808,7 @@ static int bt_device_state(struct bt_device_t *dev)
 				goto out_err_unlock;
 			dev->discovering = true;
 			dev->state = BT_DEV_DISCOVERING_PRIMARY;
-			dev->state_time = to_ms_since_boot(get_absolute_time());
+			dev->state_time = now;
 		BT_LOCAL_UNLOCK(ctx);
 		break;
 	case BT_DEV_DISCOVERING_PRIMARY:
@@ -828,7 +828,7 @@ static int bt_device_state(struct bt_device_t *dev)
 						goto out_err_unlock;
 					dev->state = BT_DEV_DISCOVERING_SECONDARY;
 					dev->discovering = true;
-					dev->state_time = to_ms_since_boot(get_absolute_time());
+					dev->state_time = now;
 				} else { /* BT_DEV_DISCOVERING_SECONDARY or BT_DEV_DISCOVERING_CHARACTERISTIC */
 					if (dev->state == BT_DEV_DISCOVERING_SECONDARY)
 						dev->svc_current = -1;
@@ -839,7 +839,7 @@ static int bt_device_state(struct bt_device_t *dev)
 						dev->state = BT_DEV_READY;
 						dev->svc_current = -1;
 						//bms_bt_char_notify_enable();
-						dev->state_time = to_ms_since_boot(get_absolute_time());
+						dev->state_time = now;
 						if (IS_DEBUG(ctx))
 							hlog_info(BTLOG, "Discovery of [%s] completed, device is ready", dev->name);
 						BT_LOCAL_UNLOCK(ctx);
@@ -1058,7 +1058,7 @@ static void sys_bt_run(void *context)
 			BT_LOCAL_UNLOCK(ctx);
 				bt_reset_device(ctx->current_device, BT_DEV_CONNECTED);
 			BT_LOCAL_LOCK(ctx);
-			ctx->current_device->state_time = to_ms_since_boot(get_absolute_time());
+			ctx->current_device->state_time = time_ms_since_boot();
 			ctx->current_device = NULL;
 		} else if (ctx->current_device->state == BT_DEV_READY)
 			ctx->current_device = NULL;

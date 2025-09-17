@@ -39,7 +39,7 @@ struct log_context_t {
 	ip_addr_t server_addr;
 	bool	http_log;
 	uint32_t connect_count;
-	uint32_t last_send;
+	uint64_t last_send;
 	ip_resolve_state_t sever_ip_state;
 	struct udp_pcb *log_pcb;
 	int log_level;
@@ -187,7 +187,7 @@ static void sys_log_connect(void *context)
 	struct log_context_t *ctx = (struct log_context_t *)context;
 	bool resolving = false;
 	bool connected = false;
-	uint32_t now;
+	uint64_t now;
 	int res;
 
 	if (!ctx->server_url || !wifi_is_connected())
@@ -200,7 +200,7 @@ static void sys_log_connect(void *context)
 		if (IS_DEBUG(ctx))
 			hlog_info(LOG_MODULE, "Log server connect");
 
-		now = to_ms_since_boot(get_absolute_time());
+		now = time_ms_since_boot();
 		if (!ctx->log_pcb) {
 			LWIP_LOCK_START;
 				ctx->log_pcb = udp_new_ip_type(IPADDR_TYPE_ANY);
@@ -218,7 +218,7 @@ static void sys_log_connect(void *context)
 			LOG_LOCK(ctx);
 			if (res == ERR_INPROGRESS) {
 				ctx->sever_ip_state = IP_RESOLVING;
-				ctx->last_send = to_ms_since_boot(get_absolute_time());
+				ctx->last_send = now;
 				resolving = true;
 			} else if (res == ERR_OK) {
 				ctx->sever_ip_state = IP_RESOLVED;
@@ -284,7 +284,7 @@ static void slog_send(struct log_context_t *ctx, char *log_buff)
 	if (err != ERR_OK && err != ERR_MEM)
 		ctx->sever_ip_state = IP_NOT_RESOLEVED;
 	else
-		ctx->last_send = to_ms_since_boot(get_absolute_time());
+		ctx->last_send = time_ms_since_boot();
 }
 
 void hlog_any(int severity, const char *topic, const char *fmt, ...)
