@@ -296,14 +296,14 @@ out_err:
 static void sys_usb_run(void *context)
 {
 	struct usb_context_t *ctx = (struct usb_context_t *)context;
-	static uint32_t last;
-	uint32_t now;
+	static uint64_t last;
+	uint64_t now;
 	int i;
 
 	if (!ctx->dev_count && !ctx->force_init)
 		return;
 
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	if ((now - last) >= USB_RCV_REUQEST_PING_MS) {
 		last = now;
 		USB_LOCK(ctx);
