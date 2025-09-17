@@ -23,6 +23,8 @@
 #define LOG_STATUS_HOOKS_COUNT	128
 #define PERIODIC_LOG_MS	(60*60*1000) // 1 hour default
 
+#define LOG_STATUS_DELAY_MS	100
+
 typedef struct {
 	log_status_cb_t hook;
 	void *user_context;
@@ -32,6 +34,7 @@ struct sys_state_context_t {
 	sys_module_t mod;
 	uint32_t periodic_log_ms;
 	uint64_t last_log;
+	uint64_t last_run;
 	uint32_t debug;
 
 	log_status_hook_t log_status[LOG_STATUS_HOOKS_COUNT];
@@ -123,6 +126,7 @@ static void sys_state_periodic(struct sys_state_context_t  *ctx)
 static void sys_state_log_run(void *context)
 {
 	struct sys_state_context_t  *ctx = (struct sys_state_context_t *)context;
+	uint64_t now = time_ms_since_boot();
 	int idx = ctx->log_status_progress;
 	bool ret = true;
 
@@ -130,6 +134,9 @@ static void sys_state_log_run(void *context)
 		sys_state_periodic(ctx);
 		return;
 	}
+
+	if (now - ctx->last_run < LOG_STATUS_DELAY_MS)
+		return;
 
 	if (ctx->log_status[idx].hook)
 		ret = ctx->log_status[idx].hook(ctx->log_status[idx].user_context);
@@ -141,6 +148,8 @@ static void sys_state_log_run(void *context)
 		ctx->last_log = time_ms_since_boot();
 		ctx->log_status_progress = -1;
 	}
+
+	ctx->last_run = now;
 }
 
 void sys_state_register(void)
