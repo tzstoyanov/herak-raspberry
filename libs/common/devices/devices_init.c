@@ -51,7 +51,7 @@ void devices_register_and_init(void)
 
 #ifdef HAVE_TEMPERATURE
 	DEV_REGISTER(temperature_register);
-#endif /* HAVE_CHIP_TEMP */
+#endif /* HAVE_TEMPERATURE */
 
 #ifdef HAVE_SONAR
 	DEV_REGISTER(sonar_register);

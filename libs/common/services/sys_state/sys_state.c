@@ -98,7 +98,7 @@ static void sys_state_log_start(struct sys_state_context_t  *ctx)
 	hlog_info(SYS_STAT_MODULE, "----------- Status -----------");
 	hlog_info(SYS_STAT_MODULE, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
 			  get_uptime(), get_free_heap(),
-#ifdef HAVE_CHIP_TEMP
+#ifdef HAVE_TEMPERATURE
 			  temperature_internal_get()
 #else
 			  0
