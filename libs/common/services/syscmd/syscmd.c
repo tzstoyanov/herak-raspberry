@@ -100,8 +100,7 @@ static int sys_log_system(cmd_run_context_t *ctx, char *cmd, char *params, void 
 
 	hlog_info(SYSCMD_MODULE, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
 			  get_uptime(), get_free_heap(), temperature_internal_get());
-	log_sys_health();
-	stats_display();
+	sys_state_log_resources();
 
 	return 0;
 }

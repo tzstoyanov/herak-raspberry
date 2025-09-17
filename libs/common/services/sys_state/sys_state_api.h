@@ -13,4 +13,7 @@ void sys_state_set_periodic_log_ms(int ms);
 void sys_state_log_status(void);
 bool sys_state_log_in_progress(void);
 
+void sys_state_log_resources(void);
+bool sys_state_is_healthy(void);
+
 #endif /* _SYS_STATUS_API_H_ */

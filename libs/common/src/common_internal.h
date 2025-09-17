@@ -104,8 +104,6 @@ typedef enum {
 	IP_RESOLVED
 } ip_resolve_state_t;
 
-void log_sys_health(void);
-
 char *get_uptime(void);
 uint32_t get_free_heap(void);
 uint32_t get_total_heap(void);
