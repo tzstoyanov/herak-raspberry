@@ -246,7 +246,7 @@ out:
 	if (resolving)
 		hlog_info(LOG_MODULE, "Resolving %s ...", ctx->server_url);
 	if (connected)
-		system_log_status();
+		sys_state_log_status();
 }
 
 #define LBUFF_PRINT(A...) {\

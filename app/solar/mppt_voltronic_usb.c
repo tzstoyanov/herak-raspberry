@@ -735,7 +735,7 @@ bool mppt_solar_init(void)
 	if (!get_mppt_config())
 		return false;
 
-	add_status_callback(mppt_volt_log, NULL);
+	sys_state_callback_add(mppt_volt_log, NULL);
 
 	mppt_context.usb_idx = usb_add_known_device(mppt_context.vid, mppt_context.pid, mppt_usb_callback, NULL);
 	if (mppt_context.usb_idx < 0)

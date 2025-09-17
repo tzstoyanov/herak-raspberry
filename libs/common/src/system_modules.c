@@ -158,7 +158,7 @@ void sys_modules_init(void)
 						 sys_modules_context.modules[i]->name);
 #endif /* HAVE_COMMANDS */			
 		if (sys_modules_context.modules[i]->log) {
-			ret = add_status_callback(sys_modules_context.modules[i]->log, sys_modules_context.modules[i]->context);
+			ret = sys_state_callback_add(sys_modules_context.modules[i]->log, sys_modules_context.modules[i]->context);
 			if (ret < 0)
 				hlog_warning(SYSMODLOG, "LOG Failed to register log callback for module %s",
 							 sys_modules_context.modules[i]->name);

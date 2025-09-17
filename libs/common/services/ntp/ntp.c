@@ -134,7 +134,7 @@ static void sys_ntp_connect(void *context)
 				ctx->time_valid = true;
 				datetime_to_str(buff, 64, &ctx->datetime);
 				hlog_info(NTP_MODULE, "Time synched to [%s] UTC", buff);
-				system_log_status();
+				sys_state_log_status();
 			}
 		TIME_UNLOCK(ctx);
 		return;
