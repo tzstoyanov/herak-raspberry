@@ -78,4 +78,8 @@ void systems_register_and_init(void)
 	SYS_REGISTER(sys_scripts_register);
 #endif /* HAVE_SYS_SCRIPTS */
 
+#ifdef HAVE_SYS_STATE
+	SYS_REGISTER(sys_state_register);
+#endif /* HAVE_SYS_STATE */
+
 }

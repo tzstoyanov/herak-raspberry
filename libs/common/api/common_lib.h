@@ -56,10 +56,6 @@ void wd_update(void);
 uint64_t manchester_encode(uint32_t frame, bool invert);
 int manchester_decode(uint64_t mframe, bool invert, uint32_t *value);
 
-typedef bool (*log_status_cb_t) (void *context);
-int add_status_callback(log_status_cb_t cb, void *user_context);
-
-
 typedef void (*gpio_irq_cb_t) (void *context);
 int sys_add_irq_callback(int gpio_pin, gpio_irq_cb_t cb, uint32_t event_mask, void *user_context);
 
