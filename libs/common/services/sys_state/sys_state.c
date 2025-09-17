@@ -78,7 +78,7 @@ static void sys_state_debug_set(uint32_t lvl, void *context)
 	ctx->debug = lvl;
 }
 
-static bool sys_state_log_status(void *context)
+static bool sys_state_log(void *context)
 {
 	struct sys_state_context_t  *ctx = (struct sys_state_context_t *)context;
 
@@ -152,14 +152,14 @@ void sys_state_register(void)
 
 	ctx->mod.name = SYS_STAT_MODULE;
 	ctx->mod.run = sys_state_log_run;
-	ctx->mod.log = sys_state_log_status;
+	ctx->mod.log = sys_state_log;
 	ctx->mod.debug = sys_state_debug_set;
 	ctx->mod.context = ctx;
 	sys_module_register(&ctx->mod);
 }
 
 /* API */
-int add_status_callback(log_status_cb_t cb, void *user_context)
+int sys_state_callback_add(log_status_cb_t cb, void *user_context)
 {
 	struct sys_state_context_t *ctx = sys_state_get_context();
 
@@ -178,7 +178,7 @@ int add_status_callback(log_status_cb_t cb, void *user_context)
 	return idx;
 }
 
-void system_log_status(void)
+void sys_state_log_status(void)
 {
 	struct sys_state_context_t *ctx = sys_state_get_context();
 
@@ -191,7 +191,7 @@ void system_log_status(void)
 	sys_state_log_start(ctx);
 }
 
-void system_set_periodic_log_ms(int ms)
+void sys_state_set_periodic_log_ms(int ms)
 {
 	struct sys_state_context_t *ctx = sys_state_get_context();
 
@@ -204,7 +204,7 @@ void system_set_periodic_log_ms(int ms)
 		ctx->periodic_log_ms = PERIODIC_LOG_MS;
 }
 
-bool system_log_in_progress(void)
+bool sys_state_log_in_progress(void)
 {
 	struct sys_state_context_t *ctx = sys_state_get_context();
 

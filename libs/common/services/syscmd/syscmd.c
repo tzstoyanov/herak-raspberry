@@ -116,7 +116,7 @@ static int sys_status(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 	WEBCTX_SET_KEEP_OPEN(ctx, true);
 	WEBCTX_SET_KEEP_SILENT(ctx, true);
 	wctx->status_log = true;
-	system_log_status();
+	sys_state_log_status();
 	return 0;
 }
 
@@ -176,7 +176,7 @@ static int sys_debug_reset(cmd_run_context_t *ctx, char *cmd, char *params, void
 	UNUSED(wctx);
 
 	hlog_info(SYSCMD_MODULE, "\tGoing to reset debug state ...");
-	system_set_periodic_log_ms(-1);
+	sys_state_set_periodic_log_ms(-1);
 	log_level_set(HLOG_INFO);
 	sys_modules_debug_set(0);
 	return 0;
@@ -196,7 +196,7 @@ static int sys_periodic_log(cmd_run_context_t *ctx, char *cmd, char *params, voi
 		delay = atoi(params + 1);
 	if (delay < 0)
 		delay = 0;
-	system_set_periodic_log_ms((uint32_t)delay);
+	sys_state_set_periodic_log_ms((uint32_t)delay);
 	return 0;
 }
 
@@ -257,7 +257,7 @@ static void sys_commands_run(void *context)
 {
 	struct syscmd_context_t *ctx = (struct syscmd_context_t *)context;
 
-	if (ctx->status_log && !system_log_in_progress()) {
+	if (ctx->status_log && !sys_state_log_in_progress()) {
 		ctx->status_log = false;
 #ifdef HAVE_SYS_WEBSERVER
 		if (ctx->client_log >= 0)
