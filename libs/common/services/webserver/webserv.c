@@ -70,7 +70,7 @@ struct webclient_t {
 	char buff[PACKET_BUFF_SIZE];
 	int buff_p;
 	int buff_len;
-	uint32_t last_send;
+	uint64_t last_send;
 	struct altcp_pcb *tcp_client;
 	struct werbserv_context_t *ctx;
 };
@@ -211,7 +211,7 @@ static int webserv_client_send(int client_idx, char *data, int datalen, enum htt
 	struct werbserv_context_t *ctx = webserv_get_context();
 	struct webclient_t *client;
 	char date[32];
-	uint32_t now;
+	uint64_t now;
 
 	if (!ctx || client_idx >= MAX_CLIENTS || !ctx->client[client_idx].tcp_client)
 		return -1;
@@ -219,7 +219,7 @@ static int webserv_client_send(int client_idx, char *data, int datalen, enum htt
 		return -1;
 
 	client = &ctx->client[client_idx];
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	WC_LOCK(client);
 		if (client->sending)
 			goto out_err;
@@ -371,7 +371,7 @@ int webserv_client_send_data(int client_idx, char *data, int datalen)
 {
 	struct werbserv_context_t *ctx = webserv_get_context();
 	struct webclient_t *client;
-	uint32_t now;
+	uint64_t now;
 	int len;
 
 	if (!ctx || client_idx >= MAX_CLIENTS ||
@@ -379,7 +379,7 @@ int webserv_client_send_data(int client_idx, char *data, int datalen)
 		return -1;
 
 	client = &ctx->client[client_idx];
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	WC_LOCK(client);
 		if (client->sending)
 			goto out_err;
@@ -400,11 +400,11 @@ out_err:
 
 static void webclient_close_check(struct werbserv_context_t *ctx)
 {
-	uint32_t now;
+	uint64_t now;
 	bool close;
 	int i;
 
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	for (i = 0; i < MAX_CLIENTS; i++) {
 		if (!ctx->client[i].init)
 			continue;

@@ -56,7 +56,7 @@ struct webhook_t {
 	int port;				// webhook server TCP port
 	ip_addr_t addr;
 	ip_resolve_state_t ip_resolve;
-	uint32_t last_send;
+	uint64_t last_send;
 	uint32_t conn_count;
 	uint32_t send_count;
 	uint32_t recv_count;
@@ -283,7 +283,7 @@ static err_t wh_tcp_connect_cb(void *arg, struct altcp_pcb *tpcb, err_t err)
 	WH_LOCK(wh);
 		wh->tcp_state = TCP_CONNECTED;
 		wh->conn_count++;
-		wh->last_send = to_ms_since_boot(get_absolute_time());
+		wh->last_send = time_ms_since_boot();
 		if (!wh->keep_open)
 			hlog_info(WH_MODULE, "Connected to %s:%d", wh->addr_str, wh->port);
 	WH_UNLOCK(wh);
@@ -293,11 +293,11 @@ static err_t wh_tcp_connect_cb(void *arg, struct altcp_pcb *tpcb, err_t err)
 
 static void webhook_connect(struct webhook_t *wh)
 {
-	uint32_t last, now;
+	uint64_t last, now;
 	int st_tcp, st_res;
 	err_t err;
 
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	WH_LOCK(wh);
 		st_tcp = wh->tcp_state;
 		st_res = wh->ip_resolve;
@@ -354,13 +354,13 @@ int webhook_send(char *message)
 {
 	struct wh_context_t *ctx = webhook_context_get();
 	struct webhook_t *wh;
-	uint32_t now;
+	uint64_t now;
 
 	if (!ctx)
 		return -1;
 
 	wh = &ctx->wh_srv;
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	WH_LOCK(wh);
 		if (wh->sending)
 			goto out_err;
@@ -413,11 +413,11 @@ static void wh_server_found(const char *hostname, const ip_addr_t *ipaddr, void 
 
 static void webhook_resolve(struct wh_context_t *ctx)
 {
-	uint32_t last, now;
+	uint64_t last, now;
 	int ret;
 	int st;
 
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	WH_LOCK(&ctx->wh_srv);
 		st = ctx->wh_srv.ip_resolve;
 		last = ctx->wh_srv.last_send;
@@ -432,7 +432,7 @@ static void webhook_resolve(struct wh_context_t *ctx)
 		if (ret == ERR_INPROGRESS) {
 			hlog_info(WH_MODULE, "Resolving %s ...", ctx->wh_srv.addr_str);
 			WH_LOCK(&ctx->wh_srv);
-				ctx->wh_srv.last_send = to_ms_since_boot(get_absolute_time());
+				ctx->wh_srv.last_send = time_ms_since_boot();
 				ctx->wh_srv.ip_resolve = IP_RESOLVING;
 			WH_UNLOCK(&ctx->wh_srv);
 		} else if (ret == ERR_OK) {
@@ -456,9 +456,9 @@ static void webhook_resolve(struct wh_context_t *ctx)
 
 void webhook_timeout_check(struct wh_context_t *ctx)
 {
-	uint32_t now;
+	uint64_t now;
 
-	now = to_ms_since_boot(get_absolute_time());
+	now = time_ms_since_boot();
 	WH_LOCK(&ctx->wh_srv);
 		if (ctx->wh_srv.sending &&
 		   (now - ctx->wh_srv.last_send) > IP_TIMEOUT_MS) {
