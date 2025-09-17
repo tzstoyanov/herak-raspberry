@@ -176,7 +176,7 @@ static int sys_debug_reset(cmd_run_context_t *ctx, char *cmd, char *params, void
 	UNUSED(wctx);
 
 	hlog_info(SYSCMD_MODULE, "\tGoing to reset debug state ...");
-	system_set_periodic_log_ms(0);
+	system_set_periodic_log_ms(-1);
 	log_level_set(HLOG_INFO);
 	sys_modules_debug_set(0);
 	return 0;

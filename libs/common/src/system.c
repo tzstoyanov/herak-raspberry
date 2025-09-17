@@ -20,10 +20,6 @@
 #define COMMONSYSLOG	"system"
 #define WATCHDOG_TIMEOUT_MS	8300 /* The maximum is 8388ms, which is approximately 8.3 seconds */
 
-#define LOG_STATUS_HOOKS_COUNT	64
-
-#define PERIODIC_LOG_MS	0
-
 //#define MAIN_WAIT_MS	10
 #ifdef MAIN_WAIT_MS
 #define	BUSY_WAIT		busy_wait_ms(MAIN_WAIT_MS);
@@ -31,22 +27,9 @@
 #define	BUSY_WAIT
 #endif
 #define BLINK_INTERVAL	100
-
-typedef struct {
-	log_status_cb_t hook;
-	void *user_context;
-} log_status_hook_t;
-
 static struct {
-	uint32_t periodic_log_ms;
-	uint32_t last_loop;
 	uint64_t reboot_time;
-
-	log_status_hook_t log_status[LOG_STATUS_HOOKS_COUNT];
-	uint8_t log_status_count;
-	int log_status_progress;
 	bool reconnect;
-
 	char *host_name;
 } sys_context;
 
@@ -83,10 +66,7 @@ bool system_common_init(void)
 	wd_update();
 	LED_ON;
 
-	sys_context.log_status_count = 0;
-	sys_context.log_status_progress = -1;
 	sys_context.reboot_time = 0;
-	sys_context.periodic_log_ms = PERIODIC_LOG_MS;
 
 	wd_update();
 	sys_modules_init();
@@ -114,67 +94,6 @@ void system_common_main(void)
 		LED_OFF;
 		BUSY_WAIT;
 	}
-}
-
-bool system_log_in_progress(void)
-{
-	if (sys_context.log_status_progress >= 0 &&
-		sys_context.log_status_progress < sys_context.log_status_count)
-		return true;
-
-	return false;
-}
-
-void system_log_status(void)
-{
-	if (system_log_in_progress())
-		return;
-
-	hlog_info(COMMONSYSLOG, "----------- Status -----------");
-	hlog_info(COMMONSYSLOG, "Uptime: %s; free RAM: %d bytes; chip temperature: %3.2f *C",
-			  get_uptime(), get_free_heap(),
-#ifdef HAVE_CHIP_TEMP
-			  temperature_internal_get()
-#else
-			  0
-#endif
-			  );
-	log_sys_health();
-	sys_modules_log();
-	sys_context.log_status_progress = 0;
-}
-
-static void system_log_run(void)
-{
-	int idx = sys_context.log_status_progress;
-	bool ret = true;
-
-	if (idx < 0 || idx >= sys_context.log_status_count)
-		return;
-
-	if (sys_context.log_status[idx].hook)
-		ret = sys_context.log_status[idx].hook(sys_context.log_status[idx].user_context);
-
-	if (ret)
-		sys_context.log_status_progress++;
-	if (sys_context.log_status_progress >= sys_context.log_status_count) {
-		hlog_info(COMMONSYSLOG, "----------- Status end--------");
-		sys_context.log_status_progress = -1;
-	}
-}
-
-int add_status_callback(log_status_cb_t cb, void *user_context)
-{
-	int idx = sys_context.log_status_count;
-
-	if (sys_context.log_status_count >= LOG_STATUS_HOOKS_COUNT)
-		return -1;
-
-	sys_context.log_status[idx].hook = cb;
-	sys_context.log_status[idx].user_context = user_context;
-	sys_context.log_status_count++;
-
-	return idx;
 }
 
 static void log_wd_boot(void)
@@ -213,11 +132,6 @@ void system_force_reboot(int delay_ms)
 			  delay_ms > WATCHDOG_TIMEOUT_MS ? delay_ms : WATCHDOG_TIMEOUT_MS);
 }
 
-void system_set_periodic_log_ms(uint32_t ms)
-{
-	sys_context.periodic_log_ms = ms;
-}
-
 void wd_update(void)
 {
 	if (sys_context.reboot_time < 1)
@@ -229,22 +143,12 @@ void wd_update(void)
 
 void system_common_run(void)
 {
-	sys_context.last_loop = to_ms_since_boot(get_absolute_time());
 	LOOP_FUNC_RUN("log WD boot", log_wd_boot);
 	if (sys_context.reconnect) {
 		do_system_reconnect();
 		sys_context.reconnect = false;
 	}
-	LOOP_FUNC_RUN("slog", system_log_run);
 	sys_modules_run();
-	if (sys_context.periodic_log_ms > 0) {
-		static uint32_t llog;
-
-		if ((sys_context.last_loop - llog) > sys_context.periodic_log_ms) {
-			llog = sys_context.last_loop;
-			LOOP_FUNC_RUN("syslog status", system_log_status);
-		}
-	}
 }
 
 char *system_get_hostname(void)

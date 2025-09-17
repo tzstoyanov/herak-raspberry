@@ -97,7 +97,6 @@ void sys_modules_debug_set(int debug);
 void sys_irq_init(void);
 
 void system_reconnect(void);
-void system_set_periodic_log_ms(uint32_t ms);
 
 typedef enum {
 	IP_NOT_RESOLEVED = 0,
@@ -106,9 +105,6 @@ typedef enum {
 } ip_resolve_state_t;
 
 void log_sys_health(void);
-
-void system_log_status(void);
-bool system_log_in_progress(void);
 
 char *get_uptime(void);
 uint32_t get_free_heap(void);
