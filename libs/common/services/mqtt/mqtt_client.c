@@ -571,10 +571,11 @@ bool mqtt_is_discovery_sent(void)
 	return ret;
 }
 
-#define LOG_STEP	2
+#define LOG_STEP	20
 static bool sys_mqtt_log_status(void *context)
 {
 	struct mqtt_context_t  *ctx = (struct mqtt_context_t *)context;
+	static int log_idx;
 	int i;
 
 	if (!mqtt_is_connected_ctx(ctx)) {
@@ -582,34 +583,45 @@ static bool sys_mqtt_log_status(void *context)
 				ctx->server_url, ctx->connect_count);
 		return true;
 	}
-	hlog_info(MQTT_MODULE, "Connected to server %s, publish rate limit %lldppm, connect count %d",
-			ctx->server_url, MSEC_INSEC/ctx->mqtt_min_delay, ctx->connect_count);
-	if (ctx->commands.cmd_topic[0])
-		hlog_info(MQTT_MODULE, "Listen to topic [%s]", ctx->commands.cmd_topic);
 
-	if (ctx->status_topic[0]) {
-		hlog_info(MQTT_MODULE, "Sending status to [%s], sent %d",
-				  ctx->status_topic, ctx->config.status_send);
-	} else {
-		hlog_info(MQTT_MODULE, "No status is send.");
-	}
+	if (!log_idx) {
+		hlog_info(MQTT_MODULE, "Connected to server %s, publish rate limit %lldppm, connect count %d",
+				ctx->server_url, MSEC_INSEC/ctx->mqtt_min_delay, ctx->connect_count);
+		if (ctx->commands.cmd_topic[0])
+			hlog_info(MQTT_MODULE, "Listen to topic [%s]", ctx->commands.cmd_topic);
 
-	if (ctx->commands.cmd_topic[0]) {
-		hlog_info(MQTT_MODULE, "Listen for commands on [%s], subscribed %d",
-				  ctx->commands.cmd_topic, ctx->config.subscribe_send);
-	} else {
-		hlog_info(MQTT_MODULE, "Do not listen for commands");
+		if (ctx->status_topic[0]) {
+			hlog_info(MQTT_MODULE, "Sending status to [%s], sent %d",
+					ctx->status_topic, ctx->config.status_send);
+		} else {
+			hlog_info(MQTT_MODULE, "No status is send.");
+		}
+
+		if (ctx->commands.cmd_topic[0]) {
+			hlog_info(MQTT_MODULE, "Listen for commands on [%s], subscribed %d",
+					ctx->commands.cmd_topic, ctx->config.subscribe_send);
+		} else {
+			hlog_info(MQTT_MODULE, "Do not listen for commands");
+		}
+		hlog_info(MQTT_MODULE, "Registered %d devices", ctx->cmp_count);
+		hlog_info(MQTT_MODULE, "Sent %d discovery messages", ctx->config.discovery_send);
 	}
-	hlog_info(MQTT_MODULE, "Registered %d devices", ctx->cmp_count);
-	hlog_info(MQTT_MODULE, "Sent %d discovery messages", ctx->config.discovery_send);
-	for (i = 0; i < ctx->cmp_count; i++) {
+	for (i = log_idx; i < ctx->cmp_count; i++) {
 		hlog_info(MQTT_MODULE, "\t %s/%s %s\t[%s]",
 				  ctx->components[i]->module,
 				  ctx->components[i]->name,
 				  ctx->components[i]->platform,
 				  ctx->components[i]->state_topic);
+		if ((i - log_idx) >= LOG_STEP)
+			break;
 	}
 
+	if (i < ctx->cmp_count) {
+		log_idx = i;
+		return false;
+	}
+
+	log_idx = 0;
 	return true;
 }
 
