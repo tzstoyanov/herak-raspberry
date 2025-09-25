@@ -111,6 +111,7 @@ struct bms_context_type;
 struct jk_bms_dev_t {
 	bt_addr_t address;
 	char *name;
+	char *user_name;
 	char *pin;
 	int bt_index;
 	uint64_t send_time;

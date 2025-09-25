@@ -27,6 +27,8 @@ static const uint8_t __in_flash() jk_request_pkt_start[] = {0xAA, 0x55, 0x90, 0x
 
 #define	WH_PAYLOAD_TEMPLATE "Battery %s is %s"
 
+#define DEV_NAME(D) ((D)->user_name ? (D)->user_name : (D)->name)
+
 /*
 
 Device Information 0x180A
@@ -335,10 +337,10 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 			if (dev->cell_info.cells_v[i] < dev->cell_v_low) {
 				dev->full_battery = false;
 				hlog_info(BMS_JK_MODULE, "Battery %s is empty: cell %d is %3.2fV",
-						  dev->name, i, (float)(dev->cell_info.cells_v[i] * 0.001));
+						  DEV_NAME(dev), i, (float)(dev->cell_info.cells_v[i] * 0.001));
 				if (dev->ctx->wh_notify && dev->batt_state_set) {
 					snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-							dev->name, "empty");
+							 DEV_NAME(dev), "empty");
 					webhook_send(notify_buff);
 				}
 				if (dev->ssr_trigger)
@@ -355,10 +357,10 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 		}
 		if (!(1<<i & dev->cell_info.cells_enabled)) {
 			dev->full_battery = true;
-			hlog_info(BMS_JK_MODULE, "Battery %s is full", dev->name);
+			hlog_info(BMS_JK_MODULE, "Battery %s is full", DEV_NAME(dev));
 			if (dev->ctx->wh_notify && dev->batt_state_set) {
 				snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-						dev->name, "full");
+						 DEV_NAME(dev), "full");
 				webhook_send(notify_buff);
 			}
 			if (dev->ssr_trigger)
@@ -414,14 +416,14 @@ static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_le
 		dev->name = strdup(data);
 		charc_reset(dev);
 		if (dev->state != BT_CONNECTED)
-			hlog_info(BMS_JK_MODULE, "Connected to %s", dev->name);
+			hlog_info(BMS_JK_MODULE, "Connected to %s (%s)", DEV_NAME(dev), dev->name);
 		dev->state = BT_CONNECTED;
 		dev->last_reply = time_ms_since_boot();
 		dev->connect_count++;
 		break;
 	case BT_DISCONNECTED:
 		if (dev->state != BT_DISCONNECTED)
-			hlog_info(BMS_JK_MODULE, "Disconnected from %s", dev->name);
+			hlog_info(BMS_JK_MODULE, "Disconnected from %s (%s)", DEV_NAME(dev), dev->name);
 		charc_reset(dev);
 		dev->state = BT_DISCONNECTED;
 		free(dev->name);
@@ -429,7 +431,7 @@ static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_le
 		break;
 	case BT_READY:
 		if (dev->state != BT_READY)
-			hlog_info(BMS_JK_MODULE, "Device %s is ready", dev->name);
+			hlog_info(BMS_JK_MODULE, "Device %s (%s) is ready", DEV_NAME(dev), dev->name);
 		dev->state = BT_READY;
 		dev->last_reply = time_ms_since_boot();
 		break;
@@ -497,6 +499,7 @@ static bool get_bms_config(bms_context_t **ctx)
 	char *bt_timeout = USER_PRAM_GET(BMS_TIMEOUT_SEC);
 	char *bt_mod = USER_PRAM_GET(BMS_MODEL);
 	char *bt_id = USER_PRAM_GET(BMS_BT);
+	char *bt_name = USER_PRAM_GET(BMS_NAME);
 	char *bt_wh_notify = USER_PRAM_GET(BMS_NOTIFY);
 	char *dev, *addr, *ch;
 	char *mod, *mod_rest;
@@ -589,6 +592,17 @@ static bool get_bms_config(bms_context_t **ctx)
 			(*ctx)->devices[i]->ssr_id = (uint16_t)(strtol(mod, NULL, 0));
 			(*ctx)->devices[i]->ssr_norm_state = (bool)(strtol(rest1, NULL, 0));
 			(*ctx)->devices[i]->ssr_trigger = true;
+			i++;
+			if (i >= (*ctx)->count)
+				break;
+		}
+	}
+
+	if (bt_name && strlen(bt_name) >= 1) {
+		rest = bt_name;
+		i = 0;
+		while ((dev = strtok_r(rest, ";", &rest))) {
+			(*ctx)->devices[i]->user_name = dev;
 			i++;
 			if (i >= (*ctx)->count)
 				break;
@@ -701,8 +715,8 @@ static void bms_jk_timeout_check(bms_context_t *ctx)
 
 	time_msec2datetime(&date, now - ctx->devices[i]->last_reply);
 	time_date2str(tbuf, TIME_STR_LEN, &date);
-	hlog_info(BMS_JK_MODULE, "Timeout on device %s: %s, going to reboot ...",
-			  ctx->devices[i]->name, tbuf);
+	hlog_info(BMS_JK_MODULE, "Timeout on device %s (%s): %s, going to reboot ...",
+			  DEV_NAME(ctx->devices[i]), ctx->devices[i]->name, tbuf);
 
 	system_force_reboot(0);
 }
