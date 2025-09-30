@@ -14,7 +14,7 @@ function write_param() {
         echo "extern const int $2_len;" >> $fname.h
     fi
     echo -n "const char __in_flash() $2[] = {" >> $fname.c
-    cval=$(echo "$3" | tr -d '\r\n' | base64)
+    cval=$(echo "$3" | tr -d '\r\n' | base64 -w 0)
     length=${#cval}
     for ((i = 0; i < length; i++)); do
        vascii=$(echo -n "${cval:i:1}"|hexdump -ve '"%02X"')
