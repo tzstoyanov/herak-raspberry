@@ -22,6 +22,7 @@
 #define SOIL_MODULE	"soil"
 #define MAX_SOIL_SENSORS_COUNT 5
 #define MQTT_SEND_INTERVAL_MS 10000
+#define MEASURE_INTERVAL_MS 5000
 #define MAX_ANALOG_VALUE	4095
 
 /* For each measurements, take 30 samples */
@@ -68,6 +69,7 @@ struct soil_context_t {
 	uint64_t mqtt_last_send;
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 	uint32_t debug;
+	uint64_t last_run;
 	bool wh_notify;
 };
 
@@ -184,7 +186,11 @@ static void measure_digital(struct soil_context_t *ctx, int id)
 static void soil_run(void *context)
 {
 	struct soil_context_t *ctx = (struct soil_context_t *)context;
+	uint64_t now = time_ms_since_boot();
 	int i;
+
+	if ((now - ctx->last_run) < MEASURE_INTERVAL_MS)
+		return;
 
 	for (i = 0; i < ctx->sensors_count; i++) {
 		if (ctx->sensors[i].analog)
@@ -197,6 +203,7 @@ static void soil_run(void *context)
 	}
 
 	soil_mqtt_send(ctx);
+	ctx->last_run = now;
 }
 
 static int soil_read_pin_cfg(struct soil_context_t *ctx, char *config, bool digital)
