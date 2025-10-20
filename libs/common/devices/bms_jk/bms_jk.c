@@ -29,6 +29,8 @@ static const uint8_t __in_flash() jk_request_pkt_start[] = {0xAA, 0x55, 0x90, 0x
 
 #define DEV_NAME(D) ((D)->user_name ? (D)->user_name : (D)->name)
 
+#define BATT_STATE_COUNT_THR	3
+
 /*
 
 Device Information 0x180A
@@ -322,9 +324,42 @@ static void jk_bt_process_terminal(struct jk_bms_dev_t *dev, bt_characteristicva
 	}
 }
 
-static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
+static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
 {
 	char notify_buff[WH_PAYLOAD_MAX_SIZE];
+	int i;
+
+	if (empty && dev->full_battery) {
+		dev->full_battery = false;
+		if (dev->ctx->wh_notify && dev->batt_state_set) {
+			snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
+					 DEV_NAME(dev), "empty");
+			webhook_send(notify_buff);
+		}
+		if (dev->ssr_trigger)
+			ssr_api_state_set(dev->ssr_id, !dev->ssr_norm_state, 0, 0);
+	}
+
+	if (!empty && !dev->full_battery) {
+		dev->full_battery = true;
+		if (dev->ctx->wh_notify && dev->batt_state_set) {
+			snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
+					 DEV_NAME(dev), "full");
+			webhook_send(notify_buff);
+		}
+		if (dev->ssr_trigger)
+			ssr_api_state_set(dev->ssr_id, dev->ssr_norm_state, 0, 0);
+	}
+	for (i = 0; i < BMS_MAX_CELLS; i++) {
+		if (!(1<<i & dev->cell_info.cells_enabled))
+			break;
+		dev->cell_info.cells_low_count[i] = 0;
+		dev->cell_info.cells_high_count[i] = 0;
+	}
+}
+
+static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
+{
 	int i;
 
 	if (!dev->cell_info.valid)
@@ -334,17 +369,12 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 		for (i = 0; i < BMS_MAX_CELLS; i++) {
 			if (!(1<<i & dev->cell_info.cells_enabled))
 				break;
-			if (dev->cell_info.cells_v[i] < dev->cell_v_low) {
-				dev->full_battery = false;
+			if (dev->cell_info.cells_v[i] < dev->cell_v_low)
+				dev->cell_info.cells_low_count[i]++;
+			if (dev->cell_info.cells_low_count[i] >= BATT_STATE_COUNT_THR) {
 				hlog_info(BMS_JK_MODULE, "Battery %s is empty: cell %d is %3.2fV",
 						  DEV_NAME(dev), i, (float)(dev->cell_info.cells_v[i] * 0.001));
-				if (dev->ctx->wh_notify && dev->batt_state_set) {
-					snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-							 DEV_NAME(dev), "empty");
-					webhook_send(notify_buff);
-				}
-				if (dev->ssr_trigger)
-					ssr_api_state_set(dev->ssr_id, !dev->ssr_norm_state, 0, 0);
+				jk_bt_new_batt_state(dev, true);
 				break;
 			}
 		}
@@ -352,19 +382,18 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 		for (i = 0; i < BMS_MAX_CELLS; i++) {
 			if (!(1<<i & dev->cell_info.cells_enabled))
 				break;
-			if (dev->cell_info.cells_v[i] < dev->cell_v_high)
+			if (dev->cell_info.cells_v[i] >= dev->cell_v_high)
+				dev->cell_info.cells_high_count[i]++;
+		}
+		for (i = 0; i < BMS_MAX_CELLS; i++) {
+			if (!(1<<i & dev->cell_info.cells_enabled))
+				break;
+			if (dev->cell_info.cells_high_count[i] < BATT_STATE_COUNT_THR)
 				break;
 		}
 		if (!(1<<i & dev->cell_info.cells_enabled)) {
-			dev->full_battery = true;
 			hlog_info(BMS_JK_MODULE, "Battery %s is full", DEV_NAME(dev));
-			if (dev->ctx->wh_notify && dev->batt_state_set) {
-				snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-						 DEV_NAME(dev), "full");
-				webhook_send(notify_buff);
-			}
-			if (dev->ssr_trigger)
-				ssr_api_state_set(dev->ssr_id, dev->ssr_norm_state, 0, 0);
+			jk_bt_new_batt_state(dev, false);
 		}
 	}
 	dev->batt_state_set = true;
@@ -623,6 +652,8 @@ out:
 		free(bt_batt_switch);
 	if (bt_wh_notify)
 		free(bt_wh_notify);
+	if (bt_timeout)
+		free(bt_timeout);
 	if (!ret) {
 		if ((*ctx)) {
 			for (i = 0; i < (*ctx)->count; i++) {

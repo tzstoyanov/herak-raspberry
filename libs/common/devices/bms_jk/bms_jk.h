@@ -44,6 +44,9 @@ typedef struct {
 	bool cell_r_force;
 	bool data_force;
 	bool dev_force;
+	uint32_t cells_low_count[BMS_MAX_CELLS];
+	uint32_t cells_high_count[BMS_MAX_CELLS];
+
 	uint16_t cells_v[BMS_MAX_CELLS]; // * 0.001, V
 	uint16_t cells_res[BMS_MAX_CELLS]; // * 0.001, ohms
 	uint32_t cells_enabled;			// bitmask
