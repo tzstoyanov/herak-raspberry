@@ -29,6 +29,7 @@
 #define SHT20_CLOCK 100000
 #define SHT20_DATA_SIZE 3
 #define SHT20_CMD_RETRY 3
+#define SHT0_POWER_DELAY_MS	20
 
 				// no hold	// hold
 #define SHT20_TEMP		0xF3		// 0xE3
@@ -45,6 +46,8 @@
 #define SHT20_CFG_DISABLE_ONCHIP_HEATER	0x00
 #define SHT20_CFG_DISABLE_OTP_RELOAD    0x02
 
+#define CONN_ERR_THR	5
+
 static const int16_t __in_flash() POLYNOMIAL = 0x131;
 
 enum {
@@ -60,12 +63,17 @@ struct sht20_sensor {
 	uint8_t sht20_addr;
 	int sda_pin;
 	int scl_pin;
+	int power_pin;
 	float temperature;
 	float humidity;
 	float vpd;	//  Vapor Pressure Deficit
 	float dew_point;
 	bool force;
 	bool connected;
+	bool hard_reset;
+	uint16_t conn_err_count;
+	uint64_t hard_reset_count;
+	uint64_t soft_reset_count;
 	uint8_t config;
 	uint8_t read_cmd;
 	uint64_t read_requested;
@@ -105,9 +113,25 @@ static int sht20_sensor_init(struct sht20_sensor *sensor)
 	int ret = -1;
 
 	sensor->connected = false;
+	if (sensor->conn_err_count >= CONN_ERR_THR) {
+		sensor->hard_reset = true;
+		sensor->conn_err_count = 0;
+	}
+
+	if (sensor->power_pin >= GPIO_PIN_MIN && sensor->hard_reset) {
+		gpio_put(sensor->power_pin, 0);
+		sleep_ms(SHT0_POWER_DELAY_MS);
+		gpio_put(sensor->power_pin, 1);
+		sleep_ms(SHT0_POWER_DELAY_MS);
+		sensor->hard_reset = false;
+		sensor->hard_reset_count++;
+	} else {
+		sensor->soft_reset_count++;
+	}
+
 	if (sht20_sensor_write(sensor, SHT20_RESET))
 		goto out;
-	sleep_ms(20);
+	sleep_ms(SHT0_POWER_DELAY_MS);
 	if (sht20_sensor_write(sensor, SHT20_READ_USER_REG))
 		goto out;
 	if (sht20_sensor_read(sensor, &sensor->config, sizeof(sensor->config)))
@@ -122,10 +146,13 @@ static int sht20_sensor_init(struct sht20_sensor *sensor)
 		goto out;
 	if (sht20_sensor_write(sensor, sensor->config))
 		goto out;
+
 	sensor->read_cmd = SHT20_TEMP;
 	sensor->connected = true;
 	ret = 0;
 out:
+	if (!sensor->connected)
+		sensor->conn_err_count++;
 	sensor->last_read = time_ms_since_boot();
 	return ret;
 }
@@ -149,6 +176,12 @@ static void sht20_i2c_init(struct sht20_context_t *ctx)
 	int i;
 
 	for (i = 0; i < ctx->count; i++) {
+		if (ctx->sensors[i]->power_pin >= GPIO_PIN_MIN) {
+			gpio_init(ctx->sensors[i]->power_pin);
+			gpio_set_dir(ctx->sensors[i]->power_pin, GPIO_OUT);
+			gpio_put(ctx->sensors[i]->power_pin, 0);
+			ctx->sensors[i]->hard_reset = true;
+		}
 		i2c_init(ctx->sensors[i]->i2c, SHT20_CLOCK);
 		gpio_set_function(ctx->sensors[i]->sda_pin, GPIO_FUNC_I2C);
 		gpio_set_function(ctx->sensors[i]->scl_pin, GPIO_FUNC_I2C);
@@ -191,8 +224,10 @@ static bool init_sht20_i2c_params(struct sht20_sensor *sensor)
 static bool sht20_config_get(struct sht20_context_t **ctx)
 {
 	char *config = param_get(SHT20_SDA_PIN);
+	char *power = param_get(SHT20_POWER_PIN);
 	struct sht20_sensor sensor;
 	char *rest, *tok;
+	int p, i;
 
 	(*ctx) = NULL;
 	if (!config || strlen(config) < 1)
@@ -206,6 +241,7 @@ static bool sht20_config_get(struct sht20_context_t **ctx)
 	while ((tok = strtok_r(rest, ";", &rest))) {
 		memset(&sensor, 0, sizeof(sensor));
 		sensor.sda_pin = (int)strtol(tok, NULL, 0);
+		sensor.power_pin = -1;
 		if (!init_sht20_i2c_params(&sensor))
 			continue;
 		(*ctx)->sensors[(*ctx)->count] = calloc(1, sizeof(struct sht20_sensor));
@@ -215,6 +251,17 @@ static bool sht20_config_get(struct sht20_context_t **ctx)
 		(*ctx)->count++;
 		if ((*ctx)->count >= SHT20_SENORS_MAX)
 			break;
+	}
+
+	i = 0;
+	rest = power;
+	while ((tok = strtok_r(rest, ";", &rest))) {
+		if (i >= (*ctx)->count || !(*ctx)->sensors[i])
+			break;
+		p = (int)strtol(tok, NULL, 0);
+		if (p >= GPIO_PIN_MIN && p <= GPIO_PIN_MAX)
+			(*ctx)->sensors[i]->power_pin = p;
+		i++;
 	}
 
 out:
@@ -236,8 +283,12 @@ static bool sht20_log(void *context)
 		return true;
 	hlog_info(SHT20_MODULE, "Reading %d sensors:", ctx->count);
 	for (i = 0; i < ctx->count; i++) {
-		hlog_info(SHT20_MODULE, "\t %d (%s): Temperature %3.2f°C, Humidity %3.2f%%, VPD %3.2fkPa, Dew Point %3.2f%%",
-				  i,  ctx->sensors[i]->connected ? "connected" : "not connected",
+		hlog_info(SHT20_MODULE, "\tid %d attached to %d,%d(%s), resets (s: %lld; h: %lld), power pin (%d)",
+				  i, ctx->sensors[i]->sda_pin, ctx->sensors[i]->scl_pin,
+				  ctx->sensors[i]->connected ? "connected" : "not connected",
+				  ctx->sensors[i]->soft_reset_count, ctx->sensors[i]->hard_reset_count,
+				  ctx->sensors[i]->power_pin);
+		hlog_info(SHT20_MODULE, "\t\tTemperature %3.2f°C, Humidity %3.2f%%, VPD %3.2fkPa, Dew Point %3.2f%%",
 				  ctx->sensors[i]->temperature, ctx->sensors[i]->humidity,
 				  ctx->sensors[i]->vpd, ctx->sensors[i]->dew_point);
 	}
@@ -500,9 +551,9 @@ static bool sht20_init(struct sht20_context_t **ctx)
 	sht20_mqtt_components_add(*ctx);
 	hlog_info(SHT20_MODULE, "Initialise successfully %d sensors", (*ctx)->count);
 	for (i = 0; i < (*ctx)->count; i++)
-		hlog_info(SHT20_MODULE, "\tSensor %d attached to sda %d; scl %d",
-				   i, (*ctx)->sensors[i]->sda_pin, (*ctx)->sensors[i]->scl_pin);
-
+		hlog_info(SHT20_MODULE, "\tSensor %d attached to sda %d; scl %d; power %d",
+				   i, (*ctx)->sensors[i]->sda_pin, (*ctx)->sensors[i]->scl_pin,
+				   (*ctx)->sensors[i]->power_pin);
 
 	return true;
 }
