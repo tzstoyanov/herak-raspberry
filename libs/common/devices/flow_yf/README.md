@@ -5,13 +5,15 @@ Reads [Liquid Flow YF Sensor](../../../../docs/YF-Datasheet.pdf).
 ## Configuration
 Configuration parameters in params.txt file:
 ```
-FLOW_YF   <gpio pin>:<pps>;<gpio pin>:<ppl>;...
+FLOW_YF   <gpio pin>:<ppls>;<gpio pin>:<ppl>;...
+FLOW_ACC_SEC
 ```
-Where `<gpio pin>` is the Raspberry PIN where the YF sensor is attached, `<ppl>` is pulses per second per litre/minute of flow for that sensor, in float. Up to 6 sensors are supported. Each configured sensor has an ID, starting from 0.
+Where `<gpio pin>` is the Raspberry PIN where the YF sensor is attached, `<ppl>` is pulses per second per litre/minute of flow for that sensor, in float. Up to 6 sensors are supported. Each configured sensor has an ID, starting from 0. The `FLOW_ACC_SEC` defines the period in seconds for accumulating the measured flow. At the end of that period the accumulated value is sent over MQTT and reset the value. If `FLOW_ACC_SEC` is not defined, or set to `0`, the measured flow is accumulated until a `flow_yf?reset` command is executed and the value is sent over MQTT on each change.
 
-Example configuration of five sensors:
+Example configuration of five sensors that accumulate and report the flow on every 5 minutes:
 ```
 FLOW_YF   0:6.6;1:7.9;2:7.9;4:11.0;6:11.0
+FLOW_ACC_SEC    300
 ```
 Sensor 0 is attached to GPIO0, has 6.6 pps per litre/minute of flow.
 Sensor 1 is attached to GPIO1, has 7.9 pps per litre/minute of flow.

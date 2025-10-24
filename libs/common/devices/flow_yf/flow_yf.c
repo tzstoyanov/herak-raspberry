@@ -52,6 +52,7 @@ struct flow_yf_sensor {
 	time_t last_flow_date;
 	uint64_t total_flow_ml;
 	time_t last_reset_date;
+	bool send_total;
 	uint64_t total_ml;
 	bool connected;
 	mqtt_component_t mqtt_comp[FLOW_YF_MQTT_MAX];
@@ -62,12 +63,15 @@ struct flow_yf_context_t {
 	uint8_t count;
 	struct flow_yf_sensor *sensors[YF_SENORS_MAX];
 	uint32_t debug;
+	uint64_t acc_msec;
+	uint64_t acc_msec_last;
 	uint64_t mqtt_last_send;
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 };
 
 static bool flow_yf_config_get(struct flow_yf_context_t **ctx)
 {
+	char *acc_sec = USER_PRAM_GET(FLOW_ACC_SEC);
 	char *config = param_get(FLOW_YF);
 	char *rest, *rest1, *tok, *ptok;
 	float pps;
@@ -101,8 +105,11 @@ static bool flow_yf_config_get(struct flow_yf_context_t **ctx)
 		if ((*ctx)->count >= YF_SENORS_MAX)
 			break;
 	}
+	if (acc_sec && strlen(acc_sec) >= 1)
+		(*ctx)->acc_msec = (int)strtol(acc_sec, NULL, 0) * 1000;
 
 out:
+	free(acc_sec);
 	free(config);
 	if ((*ctx) && (*ctx)->count < 1) {
 		free(*ctx);
@@ -144,6 +151,8 @@ static bool flow_yf_log(void *context)
 		hlog_info(FLOW_YF_MODULE, "\t      Duration %lld min, Total %3.2f L",
 				  ctx->sensors[i]->duration_ms / 60000, (float)ctx->sensors[i]->total_flow_ml / 1000.0);
 	}
+	if (ctx->acc_msec)
+		hlog_info(FLOW_YF_MODULE, "Accumulating data on %lld seconds interval", ctx->acc_msec / 1000);
 
 	return true;
 }
@@ -172,7 +181,8 @@ static int flow_yf_mqtt_data_send(struct flow_yf_context_t *ctx, int idx)
 	ADD_MQTT_MSG("{");
 		ADD_MQTT_MSG_VAR("\"time\": \"%s\"", get_current_time_str(time_buff, TIME_STR));
 		ADD_MQTT_MSG_VAR(",\"flow\": \"%3.2f\"", ctx->sensors[idx]->flow);
-		ADD_MQTT_MSG_VAR(",\"total\": \"%3.2f\"", (float)ctx->sensors[idx]->total_ml / 1000.0); // ml -> l
+		if (ctx->sensors[idx]->send_total)
+			ADD_MQTT_MSG_VAR(",\"total\": \"%3.2f\"", (float)ctx->sensors[idx]->total_ml / 1000.0); // ml -> l
 		if (ctx->sensors[idx]->last_reset_date) {
 			time_to_datetime(ctx->sensors[idx]->last_reset_date, &dt);
 			datetime_to_str(time_buff, TIME_STR, &dt);
@@ -284,6 +294,8 @@ static void flow_yf_reset(struct flow_yf_sensor *sensor)
 static void flow_yf_run(void *context)
 {
 	struct flow_yf_context_t *ctx = (struct flow_yf_context_t *)context;
+	uint64_t now = time_ms_since_boot();
+	bool reset = false;
 	int i;
 
 	for (i = 0; i < ctx->count; i++) {
@@ -291,7 +303,24 @@ static void flow_yf_run(void *context)
 			flow_yf_reset(ctx->sensors[i]);
 		flow_yf_sensor_data(ctx, i);
 	}
+
+	if (ctx->acc_msec && ((now - ctx->acc_msec_last) >= ctx->acc_msec)) {
+		reset = true;
+		for (i = 0; i < ctx->count; i++) {
+			ctx->sensors[i]->force = true;
+			ctx->sensors[i]->send_total = true;
+		}
+	}
+
 	flow_yf_mqtt_send(ctx);
+
+	if (reset) {
+		for (i = 0; i < ctx->count; i++) {
+			flow_yf_reset(ctx->sensors[i]);
+			ctx->sensors[i]->send_total = false;
+		}
+		ctx->acc_msec_last = now;
+	}
 }
 
 static void flow_yf_mqtt_components_add(struct flow_yf_context_t *ctx)
@@ -372,6 +401,7 @@ static bool flow_yf_init(struct flow_yf_context_t **ctx)
 		return false;
 
 	for (i = 0; i < (*ctx)->count; i++) {
+		(*ctx)->sensors[i]->send_total = ((*ctx)->acc_msec > 0) ? false : true;
 		if (!sys_add_irq_callback((*ctx)->sensors[i]->pin, flow_yf_irq, GPIO_IRQ_EDGE_RISE, (*ctx)->sensors[i]))
 			c++;
 	}
