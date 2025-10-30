@@ -13,6 +13,7 @@
 #include "common_lib.h"
 
 #include "commands/cmd_api.h"
+#include "common/dev_lib.h"
 #include "fs/fs_api.h"
 #include "cfg_store/cfg_store_api.h"
 #include "log/log_api.h"
