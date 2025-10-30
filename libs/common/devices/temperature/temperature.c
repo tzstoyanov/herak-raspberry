@@ -18,15 +18,9 @@
 
 #define ADC_REF_VOLT	3.3f
 #define ADC_MAX			(1 << 12)
-#define ADC_INTERNAL_TEMP	4
-#define ADC_CONVERS(V)		(((float)(V))*(ADC_REF_VOLT / ((float)ADC_MAX)))
 
 #define T_KELVIN		273.15f
 #define T_KELVIN_25		(T_KELVIN + 25.0f)
-/* For each measurements, take 50 samples */
-#define ADC_MEASURE_COUNT	50
-/* Filter out the 5 biggest and the 5 smallest */
-#define ADC_MEASURE_DROP	5
 
 #define MAX_SENSORS		5
 #define MQTT_DATA_LEN   128
@@ -35,17 +29,6 @@
 #define NTC_PULLUP_RES		5000.0f
 
 #define IS_DEBUG(C)	((C)->debug)
-
-static struct {
-	int gp_id;
-	int adc_id;
-} adc_mapping[] = {
-		{26, 0},
-		{27, 1},
-		{28, 2},
-		{29, 3},
-		{-1, 4},	// Input 4 is the onboard temperature sensor.
-};
 
 enum {
 	TEMPERATURE_TYPE_INTERNAL,
@@ -59,15 +42,13 @@ struct temperature_ntc_t {
 	float nominal;		// NTC resistance @ 25*C
 	float coefficient;	// NTC Beta coefficient
 };
-
 struct temperature_t {
-	uint32_t	samples[ADC_MEASURE_COUNT];
+	struct adc_sensor_t *adc;
 	float		min;
 	float		max;
 	float		temperature;
 	uint64_t	last_read;
 	uint		count;
-	uint		adc_id;
 	int			type;
 	void		*params;
 	temperature_calc_cb_t calc;
@@ -139,25 +120,23 @@ static int temperature_add_sensor(struct temperature_context_t *ctx, int gpio_pi
 								  int type, float min, float max,
 								  temperature_calc_cb_t calc, void *params)
 {
-	uint i;
+	struct adc_sensor_t *adc;
 
 	if (ctx->count >= MAX_SENSORS)
 		return -1;
 
-	for (i = 0; i < ARRAY_SIZE(adc_mapping); i++) {
-		if (adc_mapping[i].gp_id == gpio_pin)
-			break;
-	}
-
-	if (i >= ARRAY_SIZE(adc_mapping))
+	adc = adc_sensor_init(gpio_pin, 0, 1);
+	if (!adc)
 		return -1;
 
 	ctx->sensors[ctx->count] = calloc(1, sizeof(struct temperature_t));
-	if (!ctx->sensors[ctx->count])
+	if (!ctx->sensors[ctx->count]) {
+		free(adc);
 		return -1;
+	}
 
 	ctx->sensors[ctx->count]->type = type;
-	ctx->sensors[ctx->count]->adc_id = adc_mapping[i].adc_id;
+	ctx->sensors[ctx->count]->adc = adc;
 	ctx->sensors[ctx->count]->min = min;
 	ctx->sensors[ctx->count]->max = max;
 	ctx->sensors[ctx->count]->calc = calc;
@@ -230,7 +209,6 @@ static void temperature_init_ntc(struct temperature_context_t *ctx)
 		params->coefficient = (int)strtol(tok_map[2], NULL, 0);
 		temperature_add_sensor(ctx, pin, TEMPERATURE_TYPE_NTC,
 							   -30.0, 60.0, temperature_calc_ntc, params);
-		adc_gpio_init(pin);
 	}
 }
 
@@ -243,12 +221,8 @@ static bool temperature_init(struct temperature_context_t **ctx)
 	if (temperature_add_sensor((*ctx), -1, TEMPERATURE_TYPE_INTERNAL,
 							   -30.0, 60.0, temperature_calc_internal, NULL) != 0)
 		goto out_err;
-	adc_init();
-	adc_irq_set_enabled(false);
-	adc_run(false);
-	adc_fifo_drain();
-	adc_set_temp_sensor_enabled(true);
 
+	adc_set_temp_sensor_enabled(true);
 	temperature_init_ntc(*ctx);
 
 	__temperature_ctx = (*ctx);
@@ -273,29 +247,16 @@ static void temperature_measure(struct temperature_context_t *ctx)
 {
 	uint64_t now = time_ms_since_boot();
 	struct temperature_t *sensor;
-	uint32_t av;
-	float vadc;
 	float temp;
-	int i;
 
 	if (ctx->idx >= ctx->count)
 		ctx->idx = 0;
 	sensor = ctx->sensors[ctx->idx];
 	if (now - sensor->last_read < READ_INTERVAL_MS)
 		goto out;
-	adc_select_input(sensor->adc_id);
-	if (adc_get_selected_input() != sensor->adc_id)
-		goto out;
-	adc_read();
-	sleep_us(100);
-	for (i = 0; i < ADC_MEASURE_COUNT; i++) {
-		sensor->samples[i] = adc_read();
-		sleep_us(20);
-	}
+	adc_sensor_measure(sensor->adc);
 
-	av = samples_filter(sensor->samples, ADC_MEASURE_COUNT, ADC_MEASURE_DROP);
-	vadc = ADC_CONVERS(av);
-	temp = sensor->calc(sensor, vadc);
+	temp = sensor->calc(sensor, adc_sensor_get_volt(sensor->adc));
 	if (temp < sensor->min || temp > sensor->max)
 		return;
 	if (sensor->temperature != temp) {
@@ -306,7 +267,8 @@ static void temperature_measure(struct temperature_context_t *ctx)
 	sensor->last_read = now;
 	if (IS_DEBUG(ctx))
 		hlog_info(TEMP_MODULE, "Measured [%s]: %3.2f*C / %3.2fV",
-				  temperature_type_str(sensor->type), sensor->temperature, vadc);
+				  temperature_type_str(sensor->type), sensor->temperature,
+				  adc_sensor_get_volt(sensor->adc));
 out:
 	ctx->idx++;
 }
