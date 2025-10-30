@@ -34,20 +34,8 @@
 #define WH_SEND_DELAY_MS	5000
 #define MQTT_DATA_LEN   128
 
-static struct {
-	int gp_id;
-	int adc_id;
-} adc_mapping[] = {
-		{26, 0},
-		{27, 1},
-		{28, 2},
-};
-
 struct soil_sensor_analog_t {
-	int adc_id;
-	uint32_t samples[SOIL_MEASURE_COUNT];
-	uint32_t last_analog;
-	uint8_t percent;
+	struct adc_sensor_t *adc;
 	mqtt_component_t mqtt_comp;
 };
 
@@ -87,7 +75,7 @@ static void wh_notify_send(struct soil_context_t *ctx, int id)
 
 	snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
 			 id, ctx->sensors[id].last_digital?"dry":"wet",
-			 ctx->sensors[id].analog ? ctx->sensors[id].analog->percent : 0);
+			 ctx->sensors[id].analog ? adc_sensor_get_percent(ctx->sensors[id].analog->adc) : 0);
 	if (!webhook_send(notify_buff))
 		ctx->sensors[id].wh_send = false;
 	ctx->sensors[id].wh_last_send = now;
@@ -111,7 +99,7 @@ static int soil_mqtt_sensor_send(struct soil_context_t *ctx, int idx)
 	ADD_MQTT_MSG_VAR(",\"id\": \"%d\"", idx);
 	ADD_MQTT_MSG_VAR(",\"value_d\": \"%d\"", ctx->sensors[idx].last_digital);
 	ADD_MQTT_MSG_VAR(",\"value_a\": \"%d\"",
-					 ctx->sensors[idx].analog ? ctx->sensors[idx].analog->percent : 0);
+					 ctx->sensors[idx].analog ? adc_sensor_get_percent(ctx->sensors[idx].analog->adc) : 0);
 	ADD_MQTT_MSG("}")
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;
 	ret = mqtt_msg_component_publish(&ctx->sensors[idx].mqtt_comp, ctx->mqtt_payload);
@@ -145,30 +133,6 @@ static void soil_mqtt_send(struct soil_context_t *ctx)
 		idx++;
 }
 
-static void measure_analog(struct soil_context_t *ctx, int id)
-{
-	uint32_t av;
-	int i, pcnt;
-
-	adc_select_input(ctx->sensors[id].analog->adc_id);
-	adc_read();
-	sleep_us(100);
-	/* read the samples */
-	for (i = 0; i < SOIL_MEASURE_COUNT; i++)
-		ctx->sensors[id].analog->samples[i] = adc_read();
-
-	/* filter biggest and smallest */
-	av = samples_filter(ctx->sensors[id].analog->samples, SOIL_MEASURE_COUNT, SOIL_MEASURE_DROP);
-	if (ctx->sensors[id].analog->last_analog != av) {
-		ctx->sensors[id].analog->last_analog = av;
-		pcnt = 100 - sys_value_to_percent(0, MAX_ANALOG_VALUE, av);
-		if (ctx->sensors[id].analog->percent != pcnt) {
-			ctx->sensors[id].analog->percent = pcnt;
-			ctx->sensors[id].mqtt_comp.force = true;
-		}
-	}
-}
-
 // 1 - dry; 0 - wet
 static void measure_digital(struct soil_context_t *ctx, int id)
 {
@@ -193,8 +157,8 @@ static void soil_run(void *context)
 		return;
 
 	for (i = 0; i < ctx->sensors_count; i++) {
-		if (ctx->sensors[i].analog)
-			measure_analog(ctx, i);
+		if (ctx->sensors[i].analog && adc_sensor_measure(ctx->sensors[i].analog->adc))
+			ctx->sensors[i].mqtt_comp.force = true;
 		if (ctx->sensors[i].digital_pin >= 0) {
 			measure_digital(ctx, i);
 			if (ctx->sensors[i].wh_send)
@@ -251,18 +215,13 @@ static int soil_read_pin_cfg(struct soil_context_t *ctx, char *config, bool digi
 static bool soil_log(void *context)
 {
 	struct soil_context_t *ctx = (struct soil_context_t *)context;
-	int s, p, i;
+	int i;
 
 	for (i = 0; i < ctx->sensors_count; i++) {
-		if (ctx->sensors[i].analog) {
-			s = ctx->sensors[i].analog->last_analog;
-			p = ctx->sensors[i].analog->percent;
-		} else {
-			s = -1;
-			p = -1;
-		}
-		hlog_info(SOIL_MODULE, "Sensor %d: digital %d, analog %d / %d%%",
-				  i, ctx->sensors[i].last_digital, s, p);
+		hlog_info(SOIL_MODULE, "Sensor %d: digital %d, analog %3.2f / %d%%",
+				  i, ctx->sensors[i].last_digital, 
+				  ctx->sensors[i].analog ? adc_sensor_get_value(ctx->sensors[i].analog->adc) : 0,
+				  ctx->sensors[i].analog ? adc_sensor_get_percent(ctx->sensors[i].analog->adc) : -1);
 	}
 
 	return true;
@@ -298,8 +257,7 @@ static bool soil_init(struct soil_context_t **ctx)
 	char *digital = param_get(SOIL_D);
 	char *analog = param_get(SOIL_A);
 	char *wnotify = USER_PRAM_GET(SOIL_NOTIFY);
-	bool has_analog = false;
-	unsigned int cnt, i, j;
+	unsigned int cnt, i;
 
 	(*ctx) = NULL;
 	if ((!digital || strlen(digital) < 1) && (!analog || strlen(analog) < 1))
@@ -320,21 +278,17 @@ static bool soil_init(struct soil_context_t **ctx)
 		goto out_error;
 
 	for (i = 0 ; i < MAX_SOIL_SENSORS_COUNT; i++) {
-		if ((*ctx)->sensors[i].digital_pin > 0)
+		if ((*ctx)->sensors[i].digital_pin >= 0)
 			(*ctx)->sensors_count++;
-		if ((*ctx)->sensors[i].analog_pin > 0) {
-			for (j = 0; j < ARRAY_SIZE(adc_mapping); j++) {
-				if (adc_mapping[j].gp_id == (*ctx)->sensors[i].analog_pin) {
-					(*ctx)->sensors[i].analog = calloc(1, sizeof(struct soil_sensor_analog_t));
-					if (!(*ctx)->sensors[i].analog)
-						break;
-					has_analog = true;
-					(*ctx)->sensors[i].analog->adc_id = adc_mapping[j].adc_id;
-					if ((*ctx)->sensors[i].digital_pin < 0)
-						(*ctx)->sensors_count++;
-					break;
-				}
-			}
+		if ((*ctx)->sensors[i].analog_pin >= 0) {
+			(*ctx)->sensors[i].analog = calloc(1, sizeof(struct soil_sensor_analog_t));
+			if (!(*ctx)->sensors[i].analog)
+				continue;
+			(*ctx)->sensors[i].analog->adc = adc_sensor_init((*ctx)->sensors[i].analog_pin, 0, 1);
+			if (!(*ctx)->sensors[i].analog->adc)
+				continue;
+			if ((*ctx)->sensors[i].digital_pin < 0)
+				(*ctx)->sensors_count++;
 		}
 	}
 
@@ -348,19 +302,12 @@ static bool soil_init(struct soil_context_t **ctx)
 	if (wnotify)
 		free(wnotify);
 
-	if (has_analog) {
-		adc_init();
-	    adc_set_round_robin(0);
-	}
-
 	for (i = 0 ; i < MAX_SOIL_SENSORS_COUNT; i++) {
-		if ((*ctx)->sensors[i].digital_pin > 0) {
+		if ((*ctx)->sensors[i].digital_pin >= 0) {
 			gpio_init((*ctx)->sensors[i].digital_pin);
 			gpio_set_dir((*ctx)->sensors[i].digital_pin, GPIO_IN);
 			gpio_put((*ctx)->sensors[i].digital_pin, 0);
 		}
-		if ((*ctx)->sensors[i].analog_pin > 0)
-			adc_gpio_init((*ctx)->sensors[i].analog_pin);
 	}
 	soil_mqtt_init(*ctx);
 
