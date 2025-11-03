@@ -165,6 +165,17 @@ static void flow_yf_debug_set(uint32_t debug, void *context)
 		ctx->debug = debug;
 }
 
+static void flow_yf_reset(struct flow_yf_sensor *sensor)
+{
+	datetime_t date;
+
+	sensor->total_ml = 0;
+	if (ntp_time_valid()) {
+		if (tz_datetime_get(&date))
+			datetime_to_time(&date, &sensor->last_reset_date);
+	}
+}
+
 #define ADD_MQTT_MSG(_S_) { if ((len - count) < 0) { printf("%s: Buffer full\n\r", __func__); return -1; } \
 							count += snprintf(ctx->mqtt_payload + count, len - count, _S_); }
 #define ADD_MQTT_MSG_VAR(_S_, ...) { if ((len - count) < 0) { printf("%s: Buffer full\n\r", __func__); return -1; } \
@@ -175,14 +186,19 @@ static int flow_yf_mqtt_data_send(struct flow_yf_context_t *ctx, int idx)
 	static char time_buff[TIME_STR];
 	int len = MQTT_DATA_LEN;
 	datetime_t dt = {0};
+	float tot = 0.0;
 	int count = 0;
 	int ret = -1;
 
 	ADD_MQTT_MSG("{");
 		ADD_MQTT_MSG_VAR("\"time\": \"%s\"", get_current_time_str(time_buff, TIME_STR));
 		ADD_MQTT_MSG_VAR(",\"flow\": \"%3.2f\"", ctx->sensors[idx]->flow);
-		if (ctx->sensors[idx]->send_total)
-			ADD_MQTT_MSG_VAR(",\"total\": \"%3.2f\"", (float)ctx->sensors[idx]->total_ml / 1000.0); // ml -> l
+		if (ctx->sensors[idx]->send_total) {
+			tot = (float)ctx->sensors[idx]->total_ml / 1000.0; // ml -> l
+			flow_yf_reset(ctx->sensors[idx]);
+			ctx->sensors[idx]->send_total = false;
+		}
+		ADD_MQTT_MSG_VAR(",\"total\": \"%3.2f\"", tot);
 		if (ctx->sensors[idx]->last_reset_date) {
 			time_to_datetime(ctx->sensors[idx]->last_reset_date, &dt);
 			datetime_to_str(time_buff, TIME_STR, &dt);
@@ -264,10 +280,10 @@ static void flow_yf_sensor_data(struct flow_yf_context_t *ctx, int idx)
 		sensor->total_ml += ((sensor->flow * 1000) / 60);
 		sensor->force = true;
 		if (IS_DEBUG(ctx)) {
-			hlog_info(FLOW_YF_MODULE, "Measured %3.2f L/min: %d ticks for %3.2f sec",
-					  sensor->flow, data, interval);
-			hlog_info(FLOW_YF_MODULE, "Flow total %lld ml for %lld ms, total %3.2f ml",
-					  sensor->total_flow_ml, sensor->duration_ms, sensor->total_ml);
+			hlog_info(FLOW_YF_MODULE, "%d: Measured %3.2f L/min: %d ticks for %3.2f sec",
+					  idx, sensor->flow, data, interval);
+			hlog_info(FLOW_YF_MODULE, "%d: Flow total %lld ml for %lld ms, total %lld ml",
+					  idx, sensor->total_flow_ml, sensor->duration_ms, sensor->total_ml);
 		}
 	} else if (sensor->flow) {
 		sensor->flow = 0;
@@ -280,22 +296,10 @@ static void flow_yf_sensor_data(struct flow_yf_context_t *ctx, int idx)
 	sensor->last_read = now;
 }
 
-static void flow_yf_reset(struct flow_yf_sensor *sensor)
-{
-	datetime_t date;
-
-	sensor->total_ml = 0;
-	if (ntp_time_valid()) {
-		if (tz_datetime_get(&date))
-			datetime_to_time(&date, &sensor->last_reset_date);
-	}
-}
-
 static void flow_yf_run(void *context)
 {
 	struct flow_yf_context_t *ctx = (struct flow_yf_context_t *)context;
 	uint64_t now = time_ms_since_boot();
-	bool reset = false;
 	int i;
 
 	for (i = 0; i < ctx->count; i++) {
@@ -305,7 +309,7 @@ static void flow_yf_run(void *context)
 	}
 
 	if (ctx->acc_msec && ((now - ctx->acc_msec_last) >= ctx->acc_msec)) {
-		reset = true;
+		ctx->acc_msec_last = now;
 		for (i = 0; i < ctx->count; i++) {
 			ctx->sensors[i]->force = true;
 			ctx->sensors[i]->send_total = true;
@@ -314,13 +318,6 @@ static void flow_yf_run(void *context)
 
 	flow_yf_mqtt_send(ctx);
 
-	if (reset) {
-		for (i = 0; i < ctx->count; i++) {
-			flow_yf_reset(ctx->sensors[i]);
-			ctx->sensors[i]->send_total = false;
-		}
-		ctx->acc_msec_last = now;
-	}
 }
 
 static void flow_yf_mqtt_components_add(struct flow_yf_context_t *ctx)
