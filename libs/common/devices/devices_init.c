@@ -61,4 +61,8 @@ void devices_register_and_init(void)
 	DEV_REGISTER(flow_yf_register);
 #endif /* HAVE_FLOW_YF */
 
+#ifdef HAVE_PRESS_ANALOG
+	DEV_REGISTER(apress_register);
+#endif /* HAVE_PRESS_ANALOG */
+
 }
