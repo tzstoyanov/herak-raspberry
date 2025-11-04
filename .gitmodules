@@ -10,3 +10,6 @@
 [submodule "libs/littlefs-lib"]
 	path = libs/littlefs-lib
 	url = https://github.com/tzstoyanov/pico-littlefs
+[submodule "libs/pico_fota_bootloader"]
+	path = libs/pico_fota_bootloader
+	url = https://github.com/JZimnol/pico_fota_bootloader
