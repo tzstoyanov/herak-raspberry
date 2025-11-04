@@ -2,6 +2,7 @@ set(PROJECT_NAME herak-common)
 set(HEAP_SIZE 32768)
 set(DEBUG_BUILD false)
 
+
 # Select the modules used in this application. ON / OFF
 option(ADD_ONE_WIRE "OneWire" ON)		# # libs/common/devices/one_wire/README.md 
 option(ADD_SSR "Solid State Relays" ON)		# libs/common/devices/ssr/README.md
@@ -11,7 +12,7 @@ option(ADD_OPENTHERM "OneTherm device" ON)	# libs/common/devices/opentherm/READM
 option(ADD_LCD "LCD HD44780" ON)		# libs/common/devices/lcd/README.md
 option(ADD_BMS_JK "JK BMS" ON)			# libs/common/devices/bms_jk/README.md
 option(ADD_SONAR "AJ-SR04M sonar sensor" ON)			# libs/common/devices/sonar/README.md
-option(-B6 "Water Flow YF sensor" ON)			# libs/common/devices/flow_yf/README.md
+option(ADD_FLOW_YF "Water Flow YF sensor" ON)			# libs/common/devices/flow_yf/README.md
 
 # CMake settings
 set(CMAKE_C_STANDARD 11)
