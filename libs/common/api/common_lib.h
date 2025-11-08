@@ -6,7 +6,7 @@
 #ifndef _LIB_COMMON_H_
 #define _LIB_COMMON_H_
 
-#include "pico/util/datetime.h"
+#include <time.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,10 +41,13 @@ uint8_t sys_value_to_percent(uint32_t range_min, uint32_t range_max, uint32_t va
 uint32_t samples_filter(uint32_t *samples, int total_count, int filter_count);
 char *get_current_time_str(char *buf, int buflen);
 char *get_current_time_log_str(char *buf, int buflen);
-bool tz_datetime_get(datetime_t *date);
-uint64_t time_msec2datetime(datetime_t *date, uint64_t msec);
-char *time_date2str(char *buf, int str_len, datetime_t *date);
+bool tz_datetime_get(struct tm *date);
+uint64_t time_msec2datetime(struct tm *date, uint64_t msec);
+char *time_date2str(char *buf, int str_len, struct tm *date);
 uint64_t time_ms_since_boot(void);
+time_t time2epoch(struct tm *time, time_t *epoch);
+void epoch2time(time_t *epoch, struct tm *time);
+void time_to_str(char *buf, uint buf_size, const struct tm *t);
 
 float temperature_internal_get(void);
 void dump_hex_data(char *topic, const uint8_t *data, int len);

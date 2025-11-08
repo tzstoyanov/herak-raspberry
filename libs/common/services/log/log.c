@@ -8,7 +8,6 @@
 
 #include "pico/stdlib.h"
 #include "pico/mutex.h"
-#include "hardware/rtc.h"
 #include "lwip/inet.h"
 #include "lwip/udp.h"
 #include "lwip/dns.h"

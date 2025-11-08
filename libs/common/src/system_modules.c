@@ -6,14 +6,13 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "common_lib.h"
-#include "common_internal.h"
 #include "pico/stdlib.h"
+
+#include "herak_sys.h"
+#include "common_internal.h"
 
 #include "devices_init.h"
 #include "systems_init.h"
-
-#include "herak_sys.h"
 
 #define MAX_MODULES 30
 #define SYSMODLOG   "sys_mod"

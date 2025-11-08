@@ -9,7 +9,6 @@
 #include "pico/stdlib.h"
 
 #include "herak_sys.h"
-#include "common_lib.h"
 #include "common_internal.h"
 
 #include "one_wire.h"

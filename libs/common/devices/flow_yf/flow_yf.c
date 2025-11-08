@@ -11,7 +11,6 @@
 #include "pico/float.h"
 
 #include "herak_sys.h"
-#include "common_lib.h"
 #include "common_internal.h"
 
 #include "base64.h"
@@ -123,7 +122,7 @@ static bool flow_yf_log(void *context)
 {
 	struct flow_yf_context_t *ctx = (struct flow_yf_context_t *)context;
 	static char time_buff[TIME_STR];
-	datetime_t dt = {0};
+	struct tm dt = {0};
 	int i;
 
 	if (!ctx)
@@ -133,8 +132,8 @@ static bool flow_yf_log(void *context)
 		hlog_info(FLOW_YF_MODULE, "\t %d: Current flow %3.2f L/min", i, ctx->sensors[i]->flow);
 
 		if (ctx->sensors[i]->last_reset_date) {
-			time_to_datetime(ctx->sensors[i]->last_reset_date, &dt);
-			datetime_to_str(time_buff, TIME_STR, &dt);
+			epoch2time(&ctx->sensors[i]->last_reset_date, &dt);
+			time_to_str(time_buff, TIME_STR, &dt);
 		} else {
 			strncpy(time_buff, "N/A", TIME_STR);
 		}
@@ -142,8 +141,8 @@ static bool flow_yf_log(void *context)
 					(float)ctx->sensors[i]->total_ml / 1000.0, time_buff);
 
 		if (ctx->sensors[i]->last_flow_date) {
-			time_to_datetime(ctx->sensors[i]->last_flow_date, &dt);
-			datetime_to_str(time_buff, TIME_STR, &dt);
+			epoch2time(&ctx->sensors[i]->last_flow_date, &dt);
+			time_to_str(time_buff, TIME_STR, &dt);
 		} else {
 			strncpy(time_buff, "N/A", TIME_STR);
 		}
@@ -167,12 +166,12 @@ static void flow_yf_debug_set(uint32_t debug, void *context)
 
 static void flow_yf_reset(struct flow_yf_sensor *sensor)
 {
-	datetime_t date;
+	struct tm date;
 
 	sensor->total_ml = 0;
 	if (ntp_time_valid()) {
 		if (tz_datetime_get(&date))
-			datetime_to_time(&date, &sensor->last_reset_date);
+			time2epoch(&date, &sensor->last_reset_date);
 	}
 }
 
@@ -185,7 +184,7 @@ static int flow_yf_mqtt_data_send(struct flow_yf_context_t *ctx, int idx)
 	uint64_t now = time_ms_since_boot();
 	static char time_buff[TIME_STR];
 	int len = MQTT_DATA_LEN;
-	datetime_t dt = {0};
+	struct tm dt = {0};
 	float tot = 0.0;
 	int count = 0;
 	int ret = -1;
@@ -200,16 +199,16 @@ static int flow_yf_mqtt_data_send(struct flow_yf_context_t *ctx, int idx)
 		}
 		ADD_MQTT_MSG_VAR(",\"total\": \"%3.2f\"", tot);
 		if (ctx->sensors[idx]->last_reset_date) {
-			time_to_datetime(ctx->sensors[idx]->last_reset_date, &dt);
-			datetime_to_str(time_buff, TIME_STR, &dt);
+			epoch2time(&ctx->sensors[idx]->last_reset_date, &dt);
+			time_to_str(time_buff, TIME_STR, &dt);
 			ADD_MQTT_MSG_VAR(",\"last_reset\": \"%s\"", time_buff);
 		} else {
 			ADD_MQTT_MSG(",\"last_reset\":\"N/A\"");
 		}
 		ADD_MQTT_MSG_VAR(",\"total_flow\": \"%3.2f\"", (float)ctx->sensors[idx]->total_flow_ml / 1000.0); // ml -> l
 		if (ctx->sensors[idx]->last_flow_date) {
-			time_to_datetime(ctx->sensors[idx]->last_flow_date, &dt);
-			datetime_to_str(time_buff, TIME_STR, &dt);
+			epoch2time(&ctx->sensors[idx]->last_flow_date, &dt);
+			time_to_str(time_buff, TIME_STR, &dt);
 			ADD_MQTT_MSG_VAR(",\"last_flow\": \"%s\"", time_buff);
 		} else {
 			ADD_MQTT_MSG(",\"last_flow\":\"N/A\"");
@@ -255,7 +254,7 @@ static void flow_yf_sensor_data(struct flow_yf_context_t *ctx, int idx)
 {
 	struct flow_yf_sensor *sensor = ctx->sensors[idx];
 	uint64_t now = time_ms_since_boot();
-	datetime_t date;
+	struct tm date;
 	float interval;
 	uint32_t data;
 
@@ -268,7 +267,7 @@ static void flow_yf_sensor_data(struct flow_yf_context_t *ctx, int idx)
 			sensor->flow_start = now;
 			sensor->total_flow_ml = 0;
 			if (tz_datetime_get(&date))
-				datetime_to_time(&date, &sensor->last_flow_date);
+				time2epoch(&date, &sensor->last_flow_date);
 			if (IS_DEBUG(ctx))
 				hlog_info(FLOW_YF_MODULE, "New flow detected on %d: %d", idx, data);
 		}

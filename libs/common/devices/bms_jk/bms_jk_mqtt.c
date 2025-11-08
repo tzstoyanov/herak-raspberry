@@ -128,7 +128,7 @@ static int mqtt_dev_info_send(struct jk_bms_dev_t *dev)
 {
 	int len = BMS_MQTT_DATA_LEN;
 	char time_buff[TIME_STR];
-	datetime_t date;
+	struct tm date;
 	int count = 0;
 	int ret;
 

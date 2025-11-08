@@ -5,12 +5,10 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-#include "hardware/rtc.h"
 #include "lwip/inet.h"
 #include "lwip/apps/sntp.h"
 #include "lwip/dns.h"
 #include "pico/time.h"
-#include "pico/util/datetime.h"
 #include "pico/mutex.h"
 
 #include "herak_sys.h"

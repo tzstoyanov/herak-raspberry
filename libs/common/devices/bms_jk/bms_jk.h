@@ -10,7 +10,6 @@
 #include "pico/mutex.h"
 
 #include "herak_sys.h"
-#include "common_lib.h"
 #include "common_internal.h"
 
 #define BMS_JK_MODULE	"bms_jk"

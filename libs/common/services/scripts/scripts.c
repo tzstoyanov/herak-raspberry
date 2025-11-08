@@ -101,7 +101,7 @@ static bool sys_scripts_log_status(void *context)
 {
 	struct scripts_context_t *ctx = (struct scripts_context_t *)context;
 	static char time_buff[TIME_STR];
-	datetime_t dt = {0};
+	struct tm dt = {0};
 	int i;
 
 	if (ctx->count) {
@@ -111,20 +111,18 @@ static bool sys_scripts_log_status(void *context)
 					   ctx->scripts[i].file, ctx->scripts[i].name, ctx->scripts[i].desc);
 		   hlog_info(SCRIPTS_MODULE, "\t  Executed %d times", ctx->scripts[i].exec_count);
 			if (ctx->scripts[i].last_run_date) {
-				if (time_to_datetime(ctx->scripts[i].last_run_date, &dt)) {
-					datetime_to_str(time_buff, TIME_STR, &dt);
-					hlog_info(SCRIPTS_MODULE, "\t  Last run: %s", time_buff);
-				}
+				epoch2time(&ctx->scripts[i].last_run_date, &dt);
+				time_to_str(time_buff, TIME_STR, &dt);
+				hlog_info(SCRIPTS_MODULE, "\t  Last run: %s", time_buff);
 			} else {
 				hlog_info(SCRIPTS_MODULE, "\t  Last run: N/A");
 			}
 			if (ctx->scripts[i].cron.valid) {
 				if (ctx->scripts[i].cron.enable) {
 					if (ctx->scripts[i].cron.next > 0) {
-						if (time_to_datetime(ctx->scripts[i].cron.next, &dt)) {
-							datetime_to_str(time_buff, TIME_STR, &dt);
-							hlog_info(SCRIPTS_MODULE, "\t  Next run: %s", time_buff);
-						}
+						epoch2time(&ctx->scripts[i].cron.next, &dt);
+						time_to_str(time_buff, TIME_STR, &dt);
+						hlog_info(SCRIPTS_MODULE, "\t  Next run: %s", time_buff);
 					} else {
 						hlog_info(SCRIPTS_MODULE, "\t  Next run: N/A");
 					}
@@ -149,22 +147,22 @@ static void sys_scripts_debug_set(uint32_t lvl, void *context)
 
 static void script_cron_set_next(struct scripts_context_t *ctx, struct script_t *script)
 {
-	datetime_t date;
+	struct tm date;
 	time_t tm;
 
 	if (!ntp_time_valid() || !script->cron.valid)
 		return;
 	if (!tz_datetime_get(&date))
 		return;
-	if (!datetime_to_time(&date, &tm))
+	if (!time2epoch(&date, &tm))
 		return;
 	script->cron.next = cron_next(&script->cron.schedule, tm);
 	script->mqtt.script.force = true;
 	if (IS_DEBUG(ctx)) {
 		char time_buff[TIME_STR];
 
-		time_to_datetime(script->cron.next, &date);
-		datetime_to_str(time_buff, TIME_STR, &date);
+		epoch2time(&script->cron.next, &date);
+		time_to_str(time_buff, TIME_STR, &date);
 		hlog_info(SCRIPTS_MODULE, "[%s] set next run to [%s]\n\r", script->name, time_buff);
 	}
 
@@ -326,7 +324,7 @@ out:
 
 static void script_run(struct scripts_context_t *ctx)
 {
-	datetime_t date;
+	struct tm date;
 	char *ldata;
 	int ret;
 
@@ -359,7 +357,7 @@ out_end:
 		ctx->run->fd = -1;
 		ctx->run->last_run = time_ms_since_boot();
 		if (tz_datetime_get(&date))
-			datetime_to_time(&date, &ctx->run->last_run_date);
+			time2epoch(&date, &ctx->run->last_run_date);
 		ctx->run->exec_count++;
 		ctx->run->mqtt.script.force = true;
 	}
@@ -386,7 +384,7 @@ static int script_mqtt_send(struct scripts_context_t *ctx, int idx)
 	uint64_t now = time_ms_since_boot();
 	static char time_buff[TIME_STR];
 	int len = MQTT_DATA_LEN;
-	datetime_t dt = {0};
+	struct tm dt = {0};
 	int count = 0;
 	int ret;
 
@@ -402,15 +400,15 @@ static int script_mqtt_send(struct scripts_context_t *ctx, int idx)
 	ADD_MQTT_MSG_VAR(",\"exec_count\": \"%d\"", ctx->scripts[idx].exec_count);
 	ADD_MQTT_MSG_VAR(",\"cron_enabled\": \"%d\"", ctx->scripts[idx].cron.enable);
 	if (ctx->scripts[idx].last_run_date) {
-		time_to_datetime(ctx->scripts[idx].last_run_date, &dt);
-		datetime_to_str(time_buff, TIME_STR, &dt);
+		epoch2time(&ctx->scripts[idx].last_run_date, &dt);
+		time_to_str(time_buff, TIME_STR, &dt);
 		ADD_MQTT_MSG_VAR(",\"last_run\":\"%s\"", time_buff);
 	} else {
 		ADD_MQTT_MSG(",\"last_run\":\"N/A\"");
 	}
 	if (ctx->scripts[idx].cron.next > 0) {
-		time_to_datetime(ctx->scripts[idx].cron.next, &dt);
-		datetime_to_str(time_buff, TIME_STR, &dt);
+		epoch2time(&ctx->scripts[idx].cron.next, &dt);
+		time_to_str(time_buff, TIME_STR, &dt);
 		ADD_MQTT_MSG_VAR(",\"next_run\":\"%s\"", time_buff);
 	} else {
 		ADD_MQTT_MSG(",\"next_run\":\"N/A\"");
@@ -428,7 +426,7 @@ static int script_mqtt_send(struct scripts_context_t *ctx, int idx)
 static void script_cron_check(struct scripts_context_t *ctx)
 {
 	uint64_t now = time_ms_since_boot();
-	datetime_t date_now;
+	struct tm date_now;
 	time_t time_now;
 	int i;
 
@@ -438,7 +436,7 @@ static void script_cron_check(struct scripts_context_t *ctx)
 		return;
 	if (!tz_datetime_get(&date_now))
 		return;
-	if (!datetime_to_time(&date_now, &time_now))
+	if (!time2epoch(&date_now, &time_now))
 		return;
 
 	for (i = 0; i < ctx->count; i++) {

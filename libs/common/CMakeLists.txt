@@ -60,7 +60,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/services/CMakeLists.txt)
 
 target_link_libraries(${lib_name} INTERFACE
 						pico_stdlib
-						hardware_rtc
+						pico_aon_timer
 					 	pico_cyw43_arch_lwip_threadsafe_background
 					 )
 

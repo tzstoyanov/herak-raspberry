@@ -10,7 +10,6 @@
 #include "pico/mutex.h"
 #include <btstack_util.h>
 #include "pico/platform/sections.h"
-#include "pico/util/datetime.h"
 
 #include "base64.h"
 #include "params.h"
@@ -726,7 +725,7 @@ static void bms_jk_send_request(struct jk_bms_dev_t *dev)
 static void bms_jk_timeout_check(bms_context_t *ctx)
 {
 	char tbuf[TIME_STR_LEN];
-	datetime_t date;
+	struct tm date;
 	uint64_t now;
 	uint32_t i;
 
@@ -863,7 +862,7 @@ static bool bms_jk_log(void *context)
 	struct jk_bms_dev_t *dev;
 	char tbuf[TIME_STR_LEN];
 	static uint32_t idx;
-	datetime_t date;
+	struct tm date;
 
 	if (idx >= ctx->count) {
 		idx = 0;

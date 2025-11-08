@@ -10,6 +10,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "lwipopts.h"
+
 #include "common_lib.h"
 
 #include "commands/cmd_api.h"

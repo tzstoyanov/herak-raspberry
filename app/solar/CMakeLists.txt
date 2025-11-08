@@ -96,7 +96,7 @@ endif()
 pico_add_extra_outputs(${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} ${PICO_PIO_USB}
-		      pico_stdlib hardware_i2c hardware_rtc hardware_adc
+		      pico_stdlib hardware_i2c pico_aon_timer hardware_adc
 		      hardware_dma hardware_pio
 		      pico_cyw43_arch_lwip_threadsafe_background
 		      pico_lwip_sntp herak_common)

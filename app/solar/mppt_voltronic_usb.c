@@ -157,7 +157,7 @@ struct voltron_data_t {
 	char	gen_model_name[MPPT_PARAM_FIXED_SIZE];	// QGMN
 	char	mode;								// QMOD
 	uint32_t pv_total_wh;						// QET
-	datetime_t date;							// QT
+	struct tm date;							// QT
 	struct voltron_qflags_data_t	status_flags;	// QFLAG
 	struct voltron_qpiws_data_t		warnings;		// QPIWS
 	struct voltron_qdi_data_t		qdi_data;		// QDI
@@ -433,7 +433,7 @@ int qgmn_cmd_process(void)
 // (20231231090017
 int qt_cmd_process(void)
 {
-	datetime_t date;
+	struct tm date;
 	char buf[5];
 	int d;
 
@@ -443,44 +443,47 @@ int qt_cmd_process(void)
 	buf[4] = 0;
 	if (sscanf(buf, "%d", &d) != 1)
 		goto broken;
-	date.year = d;
+	if (d > 1900)
+		date.tm_year = d - 1900;
+	else
+		date.tm_year = d;
 
 	memcpy(buf, mppt_context.cmd_buff+5, 2);
 	buf[2] = 0;
 	if (sscanf(buf, "%d", &d) != 1)
 		goto broken;
-	date.month = d;
+	date.tm_mon = d - 1;
 
 	memcpy(buf, mppt_context.cmd_buff+7, 2);
 	buf[2] = 0;
 	if (sscanf(buf, "%d", &d) != 1)
 		goto broken;
-	date.day = d;
+	date.tm_mday = d;
 
 	memcpy(buf, mppt_context.cmd_buff+9, 2);
 	buf[2] = 0;
 	if (sscanf(buf, "%d", &d) != 1)
 		goto broken;
-	date.hour = d;
+	date.tm_hour = d;
 
 	memcpy(buf, mppt_context.cmd_buff+11, 2);
 	buf[2] = 0;
 	if (sscanf(buf, "%d", &d) != 1)
 		goto broken;
-	date.min = d;
+	date.tm_min = d;
 
 	memcpy(buf, mppt_context.cmd_buff+13, 2);
 	buf[2] = 0;
 	if (sscanf(buf, "%d", &d) != 1)
 		goto broken;
-	date.sec = d;
+	date.tm_sec = d;
 
 	memcpy(&mppt_context.vdata.date, &date, sizeof(date));
 
 	DBG_LOG(MPPT, "QT reply: [%d.%d.%d %d:%d:%d]",
-			mppt_context.vdata.date.day, mppt_context.vdata.date.month,
-			mppt_context.vdata.date.year, mppt_context.vdata.date.hour,
-			mppt_context.vdata.date.min, mppt_context.vdata.date.sec);
+			mppt_context.vdata.date.tm_mday, mppt_context.vdata.date.tm_mon + 1,
+			mppt_context.vdata.date.tm_year + 1900, mppt_context.vdata.date.tm_hour,
+			mppt_context.vdata.date.tm_min, mppt_context.vdata.date.tm_sec);
 
 	return 0;
 
@@ -717,8 +720,9 @@ static bool mppt_volt_log(void *context)
 				  mppt_context.vdata.firmware_vesion, mppt_context.vdata.serial_number);
 		hlog_info(MPPT, "   Mode [%c], Device date [%.2d.%.2d.%.4d %.2dh], Total PV [%d] Wh",
 				  mppt_context.vdata.mode?mppt_context.vdata.mode:'?',
-				  mppt_context.vdata.date.day, mppt_context.vdata.date.month,
-				  mppt_context.vdata.date.year, mppt_context.vdata.date.hour, mppt_context.vdata.pv_total_wh);
+				  mppt_context.vdata.date.tm_mday, mppt_context.vdata.date.tm_mon + 1,
+				  mppt_context.vdata.date.tm_year + 1900, mppt_context.vdata.date.tm_hour,
+				  mppt_context.vdata.pv_total_wh);
 	} else {
 		hlog_info(MPPT, "Not connected to Voltronic");
 	}
@@ -785,10 +789,10 @@ static voltron_qcmd_t mppt_solar_cmd_next(void)
 static char *cmd_get(voltron_qcmd_t idx, int *len)
 {
 	char buf[PARAM_MAX_LEN];
-	datetime_t dt, *date = NULL;
+	struct tm dt, *date = NULL;
 	char *param = NULL;
 
-	if (mppt_context.vdata.date.year)
+	if (mppt_context.vdata.date.tm_year)
 		date = &mppt_context.vdata.date;
 	else if (tz_datetime_get(&dt))
 		date = &dt;
@@ -798,21 +802,21 @@ static char *cmd_get(voltron_qcmd_t idx, int *len)
 	case MPPT_QLY:
 		if (!date)
 			return NULL;
-		snprintf(buf, PARAM_MAX_LEN, "%4d", date->year);
+		snprintf(buf, PARAM_MAX_LEN, "%4d", 1900 + date->tm_year);
 		param = buf;
 		break;
 	case MPPT_QEM:
 	case MPPT_QLM:
 		if (!date)
 			return NULL;
-		snprintf(buf, PARAM_MAX_LEN, "%4d%2d", date->year, date->month);
+		snprintf(buf, PARAM_MAX_LEN, "%4d%2d", 1900 + date->tm_year, date->tm_mon + 1);
 		param = buf;
 		break;
 	case MPPT_QED:
 	case MPPT_QLD:
 		if (!date)
 			return NULL;
-		snprintf(buf, PARAM_MAX_LEN, "%4d%2d%2d", date->year, date->month, date->day);
+		snprintf(buf, PARAM_MAX_LEN, "%4d%2d%2d", 1900 + date->tm_year, date->tm_mon + 1, date->tm_mday);
 		param = buf;
 		break;
 	default:

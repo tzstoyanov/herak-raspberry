@@ -6,7 +6,6 @@
 #ifndef _INTERNAL_COMMON_H_
 #define _INTERNAL_COMMON_H_
 
-#include "pico/util/datetime.h"
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "herak_sys.h"

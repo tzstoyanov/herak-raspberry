@@ -5,12 +5,11 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-#include "hardware/rtc.h"
 #include "lwip/inet.h"
 #include "lwip/apps/sntp.h"
 #include "lwip/dns.h"
 #include "pico/time.h"
-#include "pico/util/datetime.h"
+#include "pico/aon_timer.h"
 #include "pico/mutex.h"
 
 #include "herak_sys.h"
@@ -31,7 +30,7 @@ struct ntp_context_t {
 	absolute_time_t connect_time;
 	absolute_time_t reolve_time;
 	ip_addr_t server_addr;
-	datetime_t datetime;
+	struct tm datetime;
 	bool time_synched;
 	bool time_valid;
 	uint32_t debug;
@@ -97,7 +96,6 @@ static bool sys_ntp_init(struct ntp_context_t **ctx)
 
 	mutex_init(&((*ctx)->lock));
 	hlog_info(NTP_MODULE, "Got %d NTP servers", i);
-	rtc_init();
 	sntp_setoperatingmode(SNTP_OPMODE_POLL);
 	sntp_servermode_dhcp(1);
 	i = 0;
@@ -132,7 +130,7 @@ static void sys_ntp_connect(void *context)
 			if (ctx->time_synched) {
 				ctx->time_synched = false;
 				ctx->time_valid = true;
-				datetime_to_str(buff, 64, &ctx->datetime);
+				time_to_str(buff, 64, &ctx->datetime);
 				hlog_info(NTP_MODULE, "Time synched to [%s] UTC", buff);
 				sys_state_log_status();
 			}
@@ -151,23 +149,15 @@ void herak_set_system_time(uint32_t sec)
 {
 	struct ntp_context_t *ctx  = ntp_get_context();
 	time_t epoch = sec;
-	struct tm time;
 
 	if (!ctx)
 		return;
 
-	gmtime_r(&epoch, &time);
-	ctx->datetime.year = (int16_t) (1900 + time.tm_year);
-	ctx->datetime.month = (int8_t) (time.tm_mon + 1);
-	ctx->datetime.day = (int8_t) time.tm_mday;
-	ctx->datetime.dotw = (int8_t) time.tm_wday;
-	ctx->datetime.hour = (int8_t) time.tm_hour;
-	ctx->datetime.min = (int8_t) time.tm_min;
-	ctx->datetime.sec = (int8_t) time.tm_sec;
+	gmtime_r(&epoch, &ctx->datetime);
 
 	/* Set time in UTC */
 	SYS_LOCK_START;
-		rtc_set_datetime(&(ctx->datetime));
+		aon_timer_set_time_calendar(&(ctx->datetime));
 	SYS_LOCK_END;
 
 	TIME_LOCK(ctx);

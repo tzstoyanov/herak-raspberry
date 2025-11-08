@@ -9,6 +9,7 @@
 
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "pico/aon_timer.h"
 #include "hardware/clocks.h"
 #include "hardware/watchdog.h"
 
@@ -43,6 +44,7 @@ static bool base_init(void)
 	busy_wait_ms(2000);
 	gpio_init(CYW43_WL_GPIO_LED_PIN);
 	gpio_set_dir(CYW43_WL_GPIO_LED_PIN, GPIO_OUT);
+	aon_timer_start_with_timeofday();
 
 	return true;
 }

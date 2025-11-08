@@ -11,7 +11,6 @@
 #include "hardware/adc.h"
 
 #include "herak_sys.h"
-#include "common_lib.h"
 #include "common_internal.h"
 
 #define MAX_ANALOG_VALUE	4095

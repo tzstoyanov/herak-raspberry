@@ -92,7 +92,7 @@ static int mqtt_stats_send(opentherm_context_t *ctx)
 {
 	static char time_buff[TIME_STR];
 	int len = OTH_MQTT_DATA_LEN;
-	datetime_t dt = {0};
+	struct tm dt = {0};
 	int count = 0;
 	int ret;
 

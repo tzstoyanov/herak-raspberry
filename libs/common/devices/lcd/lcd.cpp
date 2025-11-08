@@ -9,7 +9,6 @@
 #include "HD44780_LCD_PCF8574.hpp"
 
 #include "herak_sys.h"
-#include "common_lib.h"
 #include "common_internal.h"
 
 #include "base64.h"
