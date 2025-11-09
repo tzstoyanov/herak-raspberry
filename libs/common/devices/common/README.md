@@ -12,17 +12,17 @@ struct adc_sensor_t *adc_sensor_init(int pin, float a, float b)
 bool adc_sensor_measure(struct adc_sensor_t *sensor)
 ```
 
-- Get the last measured value of the sensor, calculated using the coefficients, in the range `a : (a + b*4095)`.  
+- Get the last measured value of the sensor, calculated using the coefficients, in the range `a .. (a + b*4095)`.  
 ```
 float adc_sensor_get_value(struct adc_sensor_t *sensor)
 ```
 
-- Get the last measured voltage of the sensor, calculated using the coefficients, in the range `a : (a + b*3.3)V`.  
+- Get the last measured voltage of the sensor, in the range `0.0 .. 3.3V`.  
 ```
 float adc_sensor_get_volt(struct adc_sensor_t *sensor)
 ```
 
-- Get the last measured value of the sensor as percent within the ADC range, `0-100%`.  
+- Get the last measured value of the sensor as percent within the ADC range, `0 .. 100%`.  
 ```
 int adc_sensor_get_percent(struct adc_sensor_t *sensor)
 ```

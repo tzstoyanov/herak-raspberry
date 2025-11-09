@@ -117,7 +117,7 @@ bool adc_sensor_measure(struct adc_sensor_t *sensor)
 	/* filter biggest and smallest */
 	av = samples_filter(sensor->samples, MEASURE_COUNT, MEASURE_DROP);
 
-	val = sensor->a + (ADC_CONVERS(av) * sensor->b);
+	val = ADC_CONVERS(av);
 	if (sensor->volt != val) {
 		sensor->volt = val;
 		ret = true;
@@ -129,7 +129,7 @@ bool adc_sensor_measure(struct adc_sensor_t *sensor)
 		ret = true;
 	}
 
-	p = 100 - sys_value_to_percent(0, MAX_ANALOG_VALUE, av);
+	p = sys_value_to_percent(0, MAX_ANALOG_VALUE, av);
 	if (sensor->percent != p) {
 		sensor->percent = p;
 		ret = true;
