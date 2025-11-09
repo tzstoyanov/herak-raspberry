@@ -19,8 +19,10 @@
 #define APRESS_MODULE	"apress"
 #define MAX_SENSORS_COUNT 4
 #define MQTT_SEND_INTERVAL_MS 10000
-#define MEASURE_INTERVAL_MS 5000
+#define MEASURE_INTERVAL_MS 2000
 #define MQTT_DATA_LEN   128
+
+// 0-3.3V; 0-10bar	->	a = 0, b = 0.002442
 
 struct apress_sensor_t {
 	struct adc_sensor_t *adc;
@@ -139,8 +141,8 @@ static bool apress_config_get(struct apress_context_t **ctx)
 	char *config_f = param_get(APRESS_CORR);
 	char *rest, *tok, *rest1, *tok1;
 	int pins[MAX_SENSORS_COUNT];
-	int a[MAX_SENSORS_COUNT];
-	int b[MAX_SENSORS_COUNT];
+	float a[MAX_SENSORS_COUNT];
+	float b[MAX_SENSORS_COUNT];
 	int p, c, j;
 
 	(*ctx) = NULL;
@@ -170,9 +172,9 @@ static bool apress_config_get(struct apress_context_t **ctx)
 		rest1 = tok;
 		while ((tok1 = strtok_r(rest1, ":", &rest1))) {
 			if (j == 0) {
-				a[c] = strtof(tok, NULL);
+				a[c] = strtof(tok1, NULL);
 			} else if (j == 1) {
-				b[c] = strtof(tok, NULL);
+				b[c] = strtof(tok1, NULL);
 				c++;
 				break;
 			}
