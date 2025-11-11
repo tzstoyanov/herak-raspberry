@@ -20,6 +20,7 @@ option(ADD_SYS_TFTP_SERVER "TFTP Server" ON)
 option(ADD_SYS_SCRIPTS "Scripts" ON)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")
+add_compile_definitions(PICO_PLATFORM_STR="${PICO_PLATFORM}")
 
 set(PARAMS_FILE params)
 set_source_files_properties(${CMAKE_BINARY_DIR}/${PARAMS_FILE}.c PROPERTIES GENERATED TRUE)
@@ -47,6 +48,25 @@ target_sources(${lib_name} INTERFACE
 )
 
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
+
+# Read version from file
+file(READ "${PROJECT_TOP_DIR}/VERSION" PROJECT_VERSION_CONTENT)
+string(STRIP "${PROJECT_VERSION_CONTENT}" PROJECT_VERSION)
+
+# Get current commit hash (short)
+execute_process(
+    COMMAND git rev-parse --short HEAD
+    WORKING_DIRECTORY ${PROJECT_TOP_DIR}
+    OUTPUT_VARIABLE GIT_COMMIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Generate version.h from template
+configure_file(
+    ${PROJECT_TOP_DIR}/version.h.in
+    ${PROJECT_TOP_DIR}/include/version.h
+    @ONLY
+)
 
 target_include_directories(${lib_name} INTERFACE
 							${dir}

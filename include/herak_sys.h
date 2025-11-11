@@ -12,6 +12,8 @@
 
 #include "lwipopts.h"
 
+#include "version.h"
+
 #include "common_lib.h"
 
 #include "commands/cmd_api.h"

@@ -10,6 +10,7 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "pico/aon_timer.h"
+#include "pico/binary_info.h"
 #include "hardware/clocks.h"
 #include "hardware/watchdog.h"
 
@@ -20,6 +21,15 @@
 
 #define COMMONSYSLOG	"system"
 #define WATCHDOG_TIMEOUT_MS	8300 /* The maximum is 8388ms, which is approximately 8.3 seconds */
+
+#define SYS_VERSION_STR	PROJECT_VERSION "-" GIT_COMMIT_HASH
+#define SYS_BUILD_DATE	BUILD_DATE " " BUILD_TIME
+
+bi_decl(bi_program_version_string(SYS_VERSION_STR));
+bi_decl(bi_program_build_date_string(SYS_BUILD_DATE));
+bi_decl(bi_program_name(CYW43_HOST_NAME));
+bi_decl(bi_program_description("Tzvetomir Stoyanov"));
+bi_decl(bi_program_url("github.com/tzstoyanov/herak-raspberry"));
 
 //#define MAIN_WAIT_MS	10
 #ifdef MAIN_WAIT_MS
@@ -60,8 +70,9 @@ bool system_common_init(void)
 	watchdog_enable(WATCHDOG_TIMEOUT_MS, true);
 
 	hlog_info(COMMONSYSLOG, "Booting ... %d", watchdog_enable_caused_reboot());
-	hlog_info(COMMONSYSLOG, "RAM: %d total / %d free bytes", get_total_heap(), get_free_heap());
-
+	hlog_info(COMMONSYSLOG, "%s compiled %s", SYS_VERSION_STR, SYS_BUILD_DATE);
+	hlog_info(COMMONSYSLOG, "[%s] RAM: %d total / %d free bytes",
+			  PICO_PLATFORM_STR, get_total_heap(), get_free_heap());
 	if (!base_init())
 		return false;
 

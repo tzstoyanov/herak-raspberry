@@ -1,0 +1,9 @@
+#ifndef __HERAK_VERSION_H__
+#define __HERAK_VERSION_H__
+
+#define PROJECT_VERSION "@PROJECT_VERSION@"
+#define GIT_COMMIT_HASH "@GIT_COMMIT_HASH@"
+#define BUILD_DATE __DATE__
+#define BUILD_TIME __TIME__
+
+#endif /* __HERAK_VERSION_H__  */

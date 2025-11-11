@@ -26,4 +26,4 @@ libs/pio-usb/*
 libs/pio-sdk/*
 *workspace
 .vscode/
-
+include/version.h
