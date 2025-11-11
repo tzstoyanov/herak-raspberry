@@ -1,7 +1,8 @@
 set(PROJECT_NAME herak-common)
 set(HEAP_SIZE 32768)
 set(DEBUG_BUILD false)
-
+# Supported boards are pico_w and pico2_w
+set(PICO_BOARD pico_w)
 
 # Select the modules used in this application. ON / OFF
 option(ADD_ONE_WIRE "OneWire" ON)		# # libs/common/devices/one_wire/README.md 
@@ -38,7 +39,6 @@ execute_process(
 # Init Pico SDK
 set(PROJECT_LIB_DIR ${PROJECT_TOP_DIR}/libs)
 set(ENV{PICO_SDK_PATH} "${PROJECT_LIB_DIR}/pico-sdk")
-set(PICO_BOARD pico_w)
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 project(${PROJECT_NAME} C CXX ASM)
 pico_sdk_init()
