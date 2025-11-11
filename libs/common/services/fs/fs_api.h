@@ -6,6 +6,7 @@
 #ifndef _LIB_SYS_FS_API_H_
 #define _LIB_SYS_FS_API_H_
 
+#ifdef HAVE_SYS_FS
 #include "pico_hal.h"
 
 #ifdef __cplusplus
@@ -24,9 +25,12 @@ int fs_gets(int fd, char *buff, int buff_size);
 int fs_read(int fd, char *buff, int buff_size);
 int fs_write(int fd, char *buff, int buff_size);
 
+
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* HAVE_SYS_FS */
 
 #endif /* _LIB_SYS_FS_API_H_ */
 
