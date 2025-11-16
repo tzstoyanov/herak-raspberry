@@ -59,7 +59,7 @@ uint64_t time_msec2datetime(struct tm *date, uint64_t msec)
 
 char *time_date2str(char *buf, int str_len, struct tm *date)
 {
-	if (date->tm_year)
+	if (date->tm_year > 0)
 		snprintf(buf, str_len, "%d years, %d days, %.2d:%.2d:%.2d hours",
 				date->tm_year + 1900, date->tm_yday, date->tm_hour, date->tm_min, date->tm_sec);
 	else if (date->tm_yday)
