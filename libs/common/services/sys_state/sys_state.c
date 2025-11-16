@@ -135,7 +135,7 @@ static bool sys_state_log(void *context)
 	struct sys_state_context_t  *ctx = (struct sys_state_context_t *)context;
 
 	if (ctx->periodic_log_ms)
-		hlog_info(SYS_STAT_MODULE, "Periodic system log is enabled on %d sec", ctx->periodic_log_ms);
+		hlog_info(SYS_STAT_MODULE, "Periodic system log is enabled on %d sec", ctx->periodic_log_ms / 1000);
 	else
 		hlog_info(SYS_STAT_MODULE, "Periodic system log is disabled");
 
