@@ -34,10 +34,13 @@ typedef struct {
 	do {if ((C)->type == CMD_CTX_WEB) {\
 		webserv_client_send_data(((run_context_web_t *)((C)->context))->client_idx, (S), strlen((S)));\
 	}} while (0)
+#define WEB_CLIENT_GET(C)\
+	((C)->type == CMD_CTX_WEB) ? ((run_context_web_t *)((C)->context))->client_idx : -1
 #else /* HAVE_SYS_WEBSERVER */
 #define WEBCTX_SET_KEEP_OPEN(C, S)  { (void)(C); (void)(S); }
 #define WEBCTX_SET_KEEP_SILENT(C, S)  { (void)(C); (void)(S); }
 #define WEB_CLIENT_REPLY(C, S)  { (void)(C); (void)(S); }
+#define WEB_CLIENT_GET(C)  -1
 #endif /* HAVE_SYS_WEBSERVER */
 
 int webserv_client_send_data(int client_idx, char *data, int datalen);
