@@ -12,11 +12,11 @@ option(ADD_SYS_COMMANDS "System Commands" ON)
 option(ADD_TEMPERATURE "Temperature sensors" ON) 
 option(ADD_COMMANDS "Commands engine" ON)
 option(ADD_SYS_STATE "System status log" ON)
+option(ADD_SYS_TFTP_CLIENT "TFTP Client" ON)
 
 # Depend on FS
 option(ADD_SYS_FS "File System" ON)
 option(ADD_SYS_CFG_STORE "Config Store" ON)
-option(ADD_SYS_TFTP_SERVER "TFTP Server" ON)
 option(ADD_SYS_SCRIPTS "Scripts" ON)
 
 add_compile_definitions(CYW43_HOST_NAME=\"${PROJECT_NAME}\")

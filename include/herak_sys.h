@@ -19,6 +19,7 @@
 #include "commands/cmd_api.h"
 #include "common/dev_lib.h"
 #include "fs/fs_api.h"
+#include "tftp_client/tftp_api.h"
 #include "cfg_store/cfg_store_api.h"
 #include "log/log_api.h"
 #include "wifi/wifi_api.h"

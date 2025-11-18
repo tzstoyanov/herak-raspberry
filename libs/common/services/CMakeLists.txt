@@ -44,8 +44,8 @@ if(ADD_SYS_COMMANDS)
    include(${CMAKE_CURRENT_LIST_DIR}/syscmd/CMakeLists.txt)
 endif()
 
-if(ADD_SYS_TFTP_SERVER)
-   include(${CMAKE_CURRENT_LIST_DIR}/tftp_srv/CMakeLists.txt)
+if(ADD_SYS_TFTP_CLIENT)
+   include(${CMAKE_CURRENT_LIST_DIR}/tftp_client/CMakeLists.txt)
 endif()
 
 if(ADD_COMMANDS)
