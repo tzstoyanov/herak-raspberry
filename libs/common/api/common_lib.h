@@ -23,6 +23,9 @@ extern "C" {
 #define GPIO_PIN_MIN	0
 #define GPIO_PIN_MAX	28
 
+#define SYS_VERSION_STR	PROJECT_VERSION "-" GIT_COMMIT_HASH
+#define SYS_BUILD_DATE	BUILD_DATE " " BUILD_TIME
+
 #define LED_ON	{ cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1); }
 #define LED_OFF { cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0); }
 #define param_get(X) base64_decode(X, X ## _len)

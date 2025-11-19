@@ -22,9 +22,6 @@
 #define COMMONSYSLOG	"system"
 #define WATCHDOG_TIMEOUT_MS	8300 /* The maximum is 8388ms, which is approximately 8.3 seconds */
 
-#define SYS_VERSION_STR	PROJECT_VERSION "-" GIT_COMMIT_HASH
-#define SYS_BUILD_DATE	BUILD_DATE " " BUILD_TIME
-
 bi_decl(bi_program_version_string(SYS_VERSION_STR));
 bi_decl(bi_program_build_date_string(SYS_BUILD_DATE));
 bi_decl(bi_program_name(CYW43_HOST_NAME));
