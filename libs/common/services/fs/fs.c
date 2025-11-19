@@ -184,6 +184,7 @@ static int fs_cp_params_parse(char *params, struct fs_file_copy_t *copy)
 {
 	char *src = NULL;
 	char *dst = NULL;
+	unsigned int i;
 	int fd;
 
 	fs_cp_reset(copy);
@@ -201,32 +202,30 @@ static int fs_cp_params_parse(char *params, struct fs_file_copy_t *copy)
 		goto out_err;
 	}
 
-	if (tftp_url_parse(dst, &(copy->dst))) {
-		if (dst[strlen(dst) - 1] == '/')
-			sys_asprintf(&copy->dst.fname, "%s%s", dst, copy->src.fname);
-		else
-			copy->dst.fname = strdup(dst);
-	}
+	tftp_url_parse(dst, &(copy->dst));
 
 	if (!copy->src.fname)
 		goto out_err;
 	if (copy->src.peer && copy->dst.peer)
 		goto out_err;
 
-	if (copy->dst.peer &&
-	    (!copy->dst.fname || strlen(copy->dst.fname) < 1 ||
-		  copy->dst.fname[strlen(copy->dst.fname) - 1] == '/')) {
-			src = copy->src.fname;
+	if (!copy->dst.fname || strlen(copy->dst.fname) < 1 ||
+		 copy->dst.fname[strlen(copy->dst.fname) - 1] == '/') {
+			i = strlen(copy->src.fname);
+			while (i) {
+				if (copy->src.fname[i] == '/')
+					break;
+				i--;
+			}
+			if (i == strlen(copy->src.fname))
+				goto out_err;
+			src = copy->src.fname + i + 1;
 			if (src[0] == '/')
 				src++;
-			if (copy->dst.fname) {
-				sys_asprintf(&dst, "%s%s", copy->dst.fname, src);
-				free(copy->dst.fname);
-				copy->dst.fname = dst;
-			} else {
-				copy->dst.fname = strdup(src);
-			}
-		}
+			sys_asprintf(&dst, "%s%s", copy->dst.fname ? copy->dst.fname : "/", src);
+			free(copy->dst.fname);
+			copy->dst.fname = dst;
+	}
 	if (!copy->dst.fname)
 		goto out_err;
 
@@ -271,6 +270,55 @@ out:
 		fs_close(dfd);
 	if (ret < 0)
 		pico_remove(dst);
+	return ret;
+}
+
+static int fs_mv_file(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	struct fs_context_t *wctx = (struct fs_context_t *)user_data;
+	struct fs_file_copy_t copy;
+	int ret = -1;
+
+	UNUSED(ctx);
+	UNUSED(cmd);
+
+	if (!params || params[0] != ':' || strlen(params) < 2) {
+		hlog_warning(FS_MODULE, "\tMissing parameters.");
+		return -1;
+	}
+	memset(&copy, 0, sizeof(copy));
+	copy.web_idx = -1;
+	copy.local_fd = -1;
+	if (fs_cp_params_parse(params + 1, &copy)) {
+		hlog_warning(FS_MODULE, "\tInvalid parameters.");
+		goto out;
+	}
+	if (!copy.src.fname || !copy.dst.fname) {
+		hlog_warning(FS_MODULE, "\tNo files are specified.");
+		goto out;
+	}
+
+	if (copy.src.peer || copy.dst.peer) {
+		hlog_warning(FS_MODULE, "\tOnly local files can be moved.");
+		goto out;
+	}
+
+	ret = pico_rename(copy.src.fname, copy.dst.fname);
+	if (ret != LFS_ERR_OK) {
+		hlog_warning(FS_MODULE, "\tFailed to move files: %s", fs_get_err_msg(ret));
+		ret = -1;
+		goto out;
+	}
+	hlog_info(FS_MODULE, "Completed");
+	if (IS_DEBUG(wctx))
+		hlog_info(FS_MODULE, "Moved %s to %s", copy.src.fname, copy.dst.fname);
+
+	ret = 0;
+out:
+	free(copy.dst.fname);
+	free(copy.dst.peer);
+	free(copy.src.fname);
+	free(copy.src.peer);
 	return ret;
 }
 
@@ -651,6 +699,7 @@ static app_command_t fs_cmd_requests[] = {
 	{"ls", ":[<path>] - optional, full path to a directory", fs_ls_dir},
 	{"rm", ":<path> - delete file or directory (the directory must be empty)", fs_rm_path},
 	{"cp", ":<src>?<dst> - copy file, src and dst can be local or tftp files", fs_cp_file},
+	{"mv", ":<src>?<dst> - move file", fs_mv_file},
 	{"close_all", " - close all opened files", fs_close_all_cmd},
 };
 

@@ -9,7 +9,8 @@ The commands can be sent to the device with a HTTP or a MQTT request. The result
 - `status`      - Current status of the file system.  
 - `rm:<path>`   - Delete file or directory (the directory must be empty).  
 - `close_all`   - Close all opened files.  
-- `cp:<source>?<destination>` - Copy `source` file to `destination`. Source and destination can be local files (with full path) or tftp url in format `tftp://<IP-ADDR>[:<PORT-NUM>]/<FILENAME>`. 
+- `mv:<source>?<destination>` - Move `source` file to `destination`. Both must be local files.   
+- `cp:<source>?<destination>` - Copy `source` file to `destination`. Source and destination can be local files (with full path) or tftp url in format `tftp://<IP-ADDR>[:<PORT-NUM>]/<FILENAME>`.  
 
 Example command for listing the content of the top directory. The device has address `192.168.1.1`, listens on HTTP port `8080` and uses MQTT topic `test/dev`  
 - Using HTTP: `curl http://192.168.1.1:8080/fs?ls:/`  
