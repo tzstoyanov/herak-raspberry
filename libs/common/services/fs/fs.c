@@ -13,12 +13,9 @@
 #include "common_internal.h"
 #include "base64.h"
 #include "params.h"
+#include "fs_internal.h"
 
 #define HAVE_CAT_COMMAND	1
-
-#define FS_MODULE	"fs"
-#define MAX_OPENED_FILES	10
-#define IS_DEBUG(C)	((C) && (C)->debug)
 
 static __in_flash() struct {
 	enum lfs_error err;
@@ -41,15 +38,9 @@ static __in_flash() struct {
 	{ LFS_ERR_NAMETOOLONG, "File name too long" }
 };
 
-struct fs_context_t {
-	sys_module_t mod;
-	uint32_t debug;
-	int open_fd[MAX_OPENED_FILES];
-};
-
 static struct fs_context_t *__fs_context;
 
-static struct fs_context_t *fs_context_get(void)
+struct fs_context_t *fs_context_get(void)
 {
 	return __fs_context;
 }
@@ -95,6 +86,8 @@ static bool sys_fs_init(struct fs_context_t **ctx)
 		if (pico_mount(true) < 0)
 			goto out_err;
 	}
+	(*ctx)->copy_job.local_fd = -1;
+	(*ctx)->copy_job.web_idx = -1;
 	for (i = 0; i < MAX_OPENED_FILES; i++)
 		(*ctx)->open_fd[i] = -1;
 
@@ -152,7 +145,7 @@ static int fs_rm_path(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 	UNUSED(ctx);
 
 	if (!params || params[0] != ':' || strlen(params) < 2) {
-		hlog_info(FS_MODULE, "\tInvalid path parameter ...");
+		hlog_info(FS_MODULE, "\tInvalid path parameter.");
 		goto out;
 	} else {
 		path = strtok_r(params, ":", &rest);
@@ -165,6 +158,179 @@ static int fs_rm_path(cmd_run_context_t *ctx, char *cmd, char *params, void *use
 		hlog_info(FS_MODULE, "\tDeleting [%s]: [%s]", path, fs_get_err_msg(ret));
 out:
 	return 0;
+}
+
+void fs_cp_reset(struct fs_file_copy_t *copy)
+{
+	if (!copy)
+		return;
+
+	free(copy->src.fname);
+	free(copy->src.peer);
+	free(copy->dst.fname);
+	free(copy->dst.peer);
+	memset(&copy->src, 0, sizeof(copy->src));
+	memset(&copy->dst, 0, sizeof(copy->dst));
+	if (copy->local_fd >= 0)
+		fs_close(copy->local_fd);
+	copy->local_fd = -1;
+	if (copy->web_idx >= 0)
+		webserv_client_close(copy->web_idx);
+	copy->web_idx = -1;
+	copy->started = 0;
+}
+
+static int fs_cp_params_parse(char *params, struct fs_file_copy_t *copy)
+{
+	char *src = NULL;
+	char *dst = NULL;
+	int fd;
+
+	fs_cp_reset(copy);
+	src = strtok_r(params, "?", &dst);
+	if (!src || !dst)
+		return -1;
+
+	if (src[0] == '/') {
+		fd = pico_open(src, LFS_O_RDONLY);
+		if (fd < 0)
+			goto out_err;
+		pico_close(fd);
+		copy->src.fname = strdup(src);
+	} else if (tftp_url_parse(src, &(copy->src))) {
+		goto out_err;
+	}
+
+	if (tftp_url_parse(dst, &(copy->dst))) {
+		if (dst[strlen(dst) - 1] == '/')
+			sys_asprintf(&copy->dst.fname, "%s%s", dst, copy->src.fname);
+		else
+			copy->dst.fname = strdup(dst);
+	}
+
+	if (!copy->src.fname)
+		goto out_err;
+	if (copy->src.peer && copy->dst.peer)
+		goto out_err;
+
+	if (copy->dst.peer &&
+	    (!copy->dst.fname || strlen(copy->dst.fname) < 1 ||
+		  copy->dst.fname[strlen(copy->dst.fname) - 1] == '/')) {
+			src = copy->src.fname;
+			if (src[0] == '/')
+				src++;
+			if (copy->dst.fname) {
+				sys_asprintf(&dst, "%s%s", copy->dst.fname, src);
+				free(copy->dst.fname);
+				copy->dst.fname = dst;
+			} else {
+				copy->dst.fname = strdup(src);
+			}
+		}
+	if (!copy->dst.fname)
+		goto out_err;
+
+	return 0;
+
+out_err:
+	return -1;
+}
+
+#define COPY_BUFF	64
+static int fs_cp_local(char *src, char *dst)
+{
+	char buff[COPY_BUFF];
+	int sfd = -1;
+	int dfd = -1;
+	int ret = -1;
+	int c;
+
+	sfd = fs_open(src, LFS_O_RDONLY);
+	if (sfd < 0)
+		goto out;
+
+	dfd = fs_open(dst, LFS_O_WRONLY|LFS_O_TRUNC|LFS_O_CREAT);
+	if (dfd < 0)
+		goto out;
+
+	do {
+		c = fs_read(sfd, buff, COPY_BUFF);
+		if (c > 0) {
+			ret = fs_write(dfd, buff, c);
+			if (ret != c)
+				goto out;
+		}
+	} while (c > 0);
+
+	if (!c)
+		ret = 0;
+out:
+	if (sfd >= 0)
+		fs_close(sfd);
+	if (dfd >= 0)
+		fs_close(dfd);
+	if (ret < 0)
+		pico_remove(dst);
+	return ret;
+}
+
+static int fs_cp_file(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	struct fs_context_t *wctx = (struct fs_context_t *)user_data;
+	int ret = -1;
+
+	UNUSED(cmd);
+
+	if (wctx->copy_job.started) {
+		hlog_warning(FS_MODULE, "\tAnother copy is running already.");
+		goto out_close;
+	}
+	if (!params || params[0] != ':' || strlen(params) < 2) {
+		hlog_warning(FS_MODULE, "\tMissing parameters.");
+		goto out_close;
+	}
+	if (fs_cp_params_parse(params + 1, &(wctx->copy_job))) {
+		hlog_warning(FS_MODULE, "\tInvalid parameters.");
+		goto out_close;
+	}
+
+	wctx->copy_job.started = time_ms_since_boot();
+	if (wctx->copy_job.dst.peer) {
+		// local -> remote
+		if (tftp_file_put(fs_tftp_hooks_get(), &wctx->copy_job.dst, &wctx->copy_job)) {
+			hlog_warning(FS_MODULE, "\tFail to get file from tftp");
+			goto out_close;
+		}
+		goto out_open;
+	}
+
+	if (wctx->copy_job.src.peer) {
+		// remote -> local
+		if (tftp_file_get(fs_tftp_hooks_get(), &wctx->copy_job.src, &wctx->copy_job)) {
+			hlog_warning(FS_MODULE, "\tFail to put file to tftp");
+			goto out_close;
+		}
+		goto out_open;
+	}
+
+	// local -> local
+	if (fs_cp_local(wctx->copy_job.src.fname, wctx->copy_job.dst.fname)) {
+		hlog_warning(FS_MODULE, "\tCopy %s to %s failed.",
+					 wctx->copy_job.src.fname, wctx->copy_job.dst.fname);
+		goto out_close;
+	}
+	hlog_info(FS_MODULE, "Completed");
+	ret = 0;
+out_close:
+	fs_cp_reset(&(wctx->copy_job));
+	return ret;
+
+out_open:
+	WEBCTX_SET_KEEP_OPEN(ctx, true);
+	WEBCTX_SET_KEEP_SILENT(ctx, true);
+	wctx->copy_job.web_idx = WEB_CLIENT_GET(ctx);
+	return 0;
+
 }
 
 static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
@@ -185,7 +351,7 @@ static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 		path = strtok_r(rest, ":", &rest);
 
 	if (!path) {
-		hlog_info(FS_MODULE, "\tInvalid path parameter ...");
+		hlog_info(FS_MODULE, "\tInvalid path parameter.");
 		goto out;
 	}
 
@@ -197,7 +363,7 @@ static int fs_ls_dir(cmd_run_context_t *ctx, char *cmd, char *params, void *user
 
 	fd = pico_dir_open(path);
 	if (fd < 0) {
-		hlog_info(FS_MODULE, "\t[%s] directory does not exist ...", path);
+		hlog_info(FS_MODULE, "\t[%s] directory does not exist.", path);
 		goto out;
 	}
 
@@ -249,7 +415,7 @@ static int fs_cat_file(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	UNUSED(user_data);
 
 	if (!params || params[0] != ':' || strlen(params) < 2) {
-		hlog_info(FS_MODULE, "\tInvalid path parameter ...");
+		hlog_info(FS_MODULE, "\tInvalid path parameter.");
 		goto out;
 	} else {
 		path = strtok_r(params, ":", &rest);
@@ -267,7 +433,7 @@ static int fs_cat_file(cmd_run_context_t *ctx, char *cmd, char *params, void *us
 	sz = pico_size(fd);
 	hlog_info(FS_MODULE, "\t[%s] %d bytes:", path, sz);
 	buff[sz] = 0;
-	hlog_info(FS_MODULE, "\t\t[%s]", buff);
+	hlog_info(FS_MODULE, "%s", buff);
 
 out:
 	if (fd >= 0)
@@ -363,7 +529,7 @@ int fs_open(char *path, enum lfs_open_flags flags)
 	}
 	ctx->open_fd[i] = fd;
 	if (IS_DEBUG(ctx))
-		hlog_info(FS_MODULE, "Opened files [%s]: %d %d", path, fd, i);
+		hlog_info(FS_MODULE, "Open file [%s]: %d %d", path, fd, i);
 
 	return i;
 }
@@ -484,6 +650,7 @@ static app_command_t fs_cmd_requests[] = {
 #endif /* HAVE_CAT_COMMAND */
 	{"ls", ":[<path>] - optional, full path to a directory", fs_ls_dir},
 	{"rm", ":<path> - delete file or directory (the directory must be empty)", fs_rm_path},
+	{"cp", ":<src>?<dst> - copy file, src and dst can be local or tftp files", fs_cp_file},
 	{"close_all", " - close all opened files", fs_close_all_cmd},
 };
 

@@ -3,6 +3,7 @@ add_compile_definitions(FS_SIZE=131072) #  128K File System size
 
 target_sources(${lib_name} INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/fs.c
+  ${CMAKE_CURRENT_LIST_DIR}/fs_tftp.c
 )
 
 target_include_directories(${lib_name} INTERFACE
