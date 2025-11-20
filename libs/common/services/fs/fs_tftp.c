@@ -140,9 +140,6 @@ static int fs_tftp_read(void *handle, void *buf, int bytes)
 		return -1;
 	}
 
-	if (IS_DEBUG(ctx->fs_ctx))
-		hlog_info(FS_MODULE, "Read %d bytes from fd %d", ret, ctx->local_fd);
-
 	return ret;
 }
 
@@ -180,9 +177,6 @@ static int fs_tftp_write(void *handle, struct pbuf *p)
 		bytes += ret;
 		p = p->next;
 	}
-
-	if (IS_DEBUG(ctx->fs_ctx))
-		hlog_info(FS_MODULE, "Wrote %d bytes to fd %d", bytes, ctx->local_fd);
 
 	return 0;
 }
