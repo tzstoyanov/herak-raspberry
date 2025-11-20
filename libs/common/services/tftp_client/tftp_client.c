@@ -18,12 +18,13 @@
 
 #define TFTP_CLIENT_MODULE		"tftp"
 #define TFTP_URL	"tftp://"
-#define MAX_CLIENT_JOBS		2
+#define MAX_CLIENT_JOBS		3
 
 #define JOB_TIMEOUT_MSEC	60000 // 1 min of inactivity
 #define IP_TIMEOUT_MS		10000 // 10sec
 
 #define IS_DEBUG(C)	((C) && (C)->debug)
+#define DEBUG_DUMP_MS		1000
 
 struct tftp_client_context_t;
 
@@ -32,6 +33,7 @@ struct tftp_client_job_t {
 	uint64_t last_activity;
 	bool requested;
 	bool get;
+	uint32_t total;
 	const struct tftp_context *hooks;
 	struct tftp_file_t *file;
 	ip_addr_t peer_addr;
@@ -43,6 +45,7 @@ struct tftp_client_job_t {
 struct tftp_client_context_t {
 	sys_module_t mod;
 	uint32_t debug;
+	uint64_t debug_last_dump;
 	struct tftp_client_job_t jobs[MAX_CLIENT_JOBS];
 };
 
@@ -95,6 +98,8 @@ static void sys_tftp_client_job_cancel(struct tftp_client_job_t *job)
 {
 	if (job->hooks)
 		job->hooks->error(job->user_context, ERR_TIMEOUT, TIMEOUT_STR, strlen(TIMEOUT_STR));
+	if (IS_DEBUG(job->ctx))
+		hlog_info(TFTP_CLIENT_MODULE, "Cancel %s %s. ", job->file->peer, job->file->fname);
 	memset(job, 0, sizeof(struct tftp_client_job_t));
 }
 
@@ -167,11 +172,11 @@ static void sys_tftp_client_job_run(struct tftp_client_job_t *job)
 		return;
 	}
 
-	if ((now - job->last_activity) > JOB_TIMEOUT_MSEC) {
+	if (now > job->last_activity && (now - job->last_activity) > JOB_TIMEOUT_MSEC) {
 		if (IS_DEBUG(job->ctx))
-			hlog_warning(TFTP_CLIENT_MODULE, "Timeout %s file %s %s server %s:%d.",
+			hlog_warning(TFTP_CLIENT_MODULE, "Timeout %s file %s %s server %s:%d. (%lld - %lld: %lld)",
 					     job->get ? "geting" : "puting", job->file->fname, job->get ? "from" : "to",
-						 job->file->peer, job->file->port);
+						 job->file->peer, job->file->port, now, job->last_activity, now - job->last_activity);
 		goto out_err;
 	}
 
@@ -183,12 +188,27 @@ out_err:
 static void sys_tftp_client_run(void *context)
 {
 	struct tftp_client_context_t *ctx = (struct tftp_client_context_t *)context;
+	uint64_t now;
 	int i;
 
 	for (i = 0; i < MAX_CLIENT_JOBS; i++) {
 		if (!ctx->jobs[i].started)
 			continue;
 		sys_tftp_client_job_run(&ctx->jobs[i]);
+	}
+	if (IS_DEBUG(ctx)) {
+		now = time_ms_since_boot();
+		if ((now - ctx->debug_last_dump) > DEBUG_DUMP_MS) {
+			ctx->debug_last_dump = now;
+			for (i = 0; i < MAX_CLIENT_JOBS; i++) {
+				if (!ctx->jobs[i].started)
+					continue;
+				hlog_info(TFTP_CLIENT_MODULE, "%s %s %s %s: %d bytes",
+					ctx->jobs[i].get ? "Getting" : "Putting", ctx->jobs[i].file->fname,
+					ctx->jobs[i].get ? "from" : "to", ctx->jobs[i].file->peer,
+					ctx->jobs[i].total);
+			}
+		}
 	}
 }
 
@@ -211,7 +231,7 @@ static void *tftp_client_open(const char *fname, const char *mode, u8_t is_write
 			return &ctx->jobs[i];
 		}
 	}
-
+	wd_update();
 	return NULL;
 }
 
@@ -227,34 +247,40 @@ static void tftp_client_close(void *handle)
 
 	job->hooks->close(job->user_context);
 	memset(job, 0, sizeof(struct tftp_client_job_t));
+	wd_update();
 }
 
 static int tftp_client_read(void *handle, void *buf, int bytes)
 {
 	struct tftp_client_job_t *job = (struct tftp_client_job_t *)handle;
+	int res;
 
 	if (!job || !job->started)
 		return -1;
 
-	if (IS_DEBUG(job->ctx))
-		hlog_info(TFTP_CLIENT_MODULE, "Read %s. %d bytes", job->file->fname, bytes);
-
 	job->last_activity = time_ms_since_boot();
-	return job->hooks->read(job->user_context, buf, bytes);
+	res = job->hooks->read(job->user_context, buf, bytes);
+	if (res > 0)
+		job->total += res;
+	wd_update();
+	return res;
 }
 
 static int tftp_client_write(void *handle, struct pbuf *p)
 {
 	struct tftp_client_job_t *job = (struct tftp_client_job_t *)handle;
+	int res;
 
 	if (!job || !job->started)
 		return -1;
 
-	if (IS_DEBUG(job->ctx))
-		hlog_info(TFTP_CLIENT_MODULE, "Write %d bytes in %s", p->len, job->file->fname);
-
 	job->last_activity = time_ms_since_boot();
-	return job->hooks->write(job->user_context, p);
+
+	res = job->hooks->write(job->user_context, p);
+	wd_update();
+	job->total += p->len;
+	return res;
+
 }
 
 #define MAX_MSG	100
@@ -277,6 +303,7 @@ static void tftp_client_error(void *handle, int err, const char *msg, int size)
 
 	job->hooks->error(job->user_context, err, msg, size);
 	memset(job, 0, sizeof(struct tftp_client_job_t));
+	wd_update();
 }
 
 static int tftp_clinet_new_job(const struct tftp_context *hooks, struct tftp_file_t *file, void *user_context, bool get)
