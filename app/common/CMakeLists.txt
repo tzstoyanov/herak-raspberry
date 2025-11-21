@@ -62,3 +62,8 @@ pico_add_extra_outputs(${PROJECT_NAME})
 # Enable usb output, disable uart output
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND "${PROJECT_TOP_DIR}/scripts/generate_meta.sh" "${PROJECT_TOP_DIR}" "${CMAKE_BINARY_DIR}"
+    COMMENT "Generating image meta file"
+)

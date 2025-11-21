@@ -49,9 +49,23 @@ target_sources(${lib_name} INTERFACE
 
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
+if(ADD_OTA)
+if (NOT BOOT_AES_KEY)
+set(APP_FILE ${PROJECT_NAME}_fota_image.bin)
+else()
+set(APP_FILE ${PROJECT_NAME}_fota_image_encrypted.bin)
+endif()
+else()
+set(APP_FILE ${PROJECT_NAME}.uf2)
+endif()
+
 # Read version from file
 file(READ "${PROJECT_TOP_DIR}/VERSION" PROJECT_VERSION_CONTENT)
 string(STRIP "${PROJECT_VERSION_CONTENT}" PROJECT_VERSION)
+string(TIMESTAMP BUILD_DATE "%d.%m.%Y")
+string(TIMESTAMP BUILD_TIME "%H:%M:%S")
+string(STRIP "${PROJECT_NAME}" IMAGE_NAME)
+string(STRIP "${APP_FILE}" IMAGE_FILE)
 
 # Get current commit hash (short)
 execute_process(
