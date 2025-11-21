@@ -357,6 +357,12 @@ bool sys_state_is_healthy(void)
 	return !errs;
 }
 
+void sys_state_log_version(void)
+{
+	hlog_info(SYS_STAT_MODULE, "Image %s %s compiled %s",
+			  IMAGE_NAME, SYS_VERSION_STR, SYS_BUILD_DATE);
+}
+
 void sys_state_log_resources(void)
 {
 	if (sys_state_is_healthy())

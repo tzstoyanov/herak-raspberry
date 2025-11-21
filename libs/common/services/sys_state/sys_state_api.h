@@ -16,4 +16,6 @@ bool sys_state_log_in_progress(void);
 void sys_state_log_resources(void);
 bool sys_state_is_healthy(void);
 
+void sys_state_log_version(void);
+
 #endif /* _SYS_STATUS_API_H_ */

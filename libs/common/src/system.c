@@ -67,7 +67,7 @@ bool system_common_init(void)
 	watchdog_enable(WATCHDOG_TIMEOUT_MS, true);
 
 	hlog_info(COMMONSYSLOG, "Booting ... %d", watchdog_enable_caused_reboot());
-	hlog_info(COMMONSYSLOG, "%s compiled %s", SYS_VERSION_STR, SYS_BUILD_DATE);
+	sys_state_log_version();
 	hlog_info(COMMONSYSLOG, "[%s] RAM: %d total / %d free bytes",
 			  PICO_PLATFORM_STR, get_total_heap(), get_free_heap());
 	if (!base_init())
