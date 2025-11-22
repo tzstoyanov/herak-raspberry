@@ -3,34 +3,104 @@ name: herak-raspberry CI
 on:
   push:
     branches: [main]
-  schedule:
-    - cron:  '0 15 * * THU'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: solar
+            app_dir: app/solar
+            board: pico_w
+            add_ota: OFF
+            files:
+              - herak-solar.uf2
+          - name: common-p1-nota
+            app_dir: app/common
+            board: pico_w
+            add_ota: OFF
+            files:
+              - herak-common.uf2
+              - herak-common.meta
+          - name: common-p2-nota
+            app_dir: app/common
+            board: pico2_w
+            add_ota: OFF
+            files:
+              - herak-common.uf2
+              - herak-common.meta
+          - name: common-p1-ota
+            app_dir: app/common
+            board: pico1_w
+            add_ota: ON
+            files:
+              - herak-common.uf2
+              - herak-common.meta
+              - herak-common_fota_image.bin
+              - herak-common_fota_image_encrypted.bin
+              - pico_fota_bootloader/pico_fota_bootloader.bin
+          - name: common-p2-ota
+            app_dir: app/common
+            board: pico2_w
+            add_ota: ON
+            files:
+              - herak-common.uf2
+              - herak-common.meta
+              - herak-common_fota_image.bin
+              - herak-common_fota_image_encrypted.bin
+              - pico_fota_bootloader/pico_fota_bootloader.bin
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      working-directory: ${{runner.workspace}}/
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install build-essential git cmake binutils-dev -y
-        sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib -y
-        cd ${{runner.workspace}}/herak-raspberry/
-        git submodule update --init --recursive
-        ./scripts/apply_patches.sh
-        cp -f ${{runner.workspace}}/herak-raspberry/scripts/params_all.txt /${{runner.workspace}}/herak-raspberry/app/solar/params.txt
-        mkdir ${{runner.workspace}}/herak-raspberry/build/solar-ci
-        cd ${{runner.workspace}}/herak-raspberry/build/solar-ci
-        cmake ../../app/solar
-        make
-        ls -al ${{runner.workspace}}/herak-raspberry/build/solar-ci/herak-solar.uf2
-        cp -f ${{runner.workspace}}/herak-raspberry/scripts/params_all.txt /${{runner.workspace}}/herak-raspberry/app/common/params.txt
-        mkdir ${{runner.workspace}}/herak-raspberry/build/common-ci
-        cd ${{runner.workspace}}/herak-raspberry/build/common-ci
-        cmake ../../app/common
-        make
-        ls -al ${{runner.workspace}}/herak-raspberry/build/common-ci/herak-common.uf2
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential git cmake binutils-dev \
+            gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+          pip install pycryptodome
+
+      - name: Initialize Repository
+        run: |
+          git submodule update --init --recursive
+          ./scripts/apply_patches.sh
+
+      - name: Copy params
+        run: |
+          cp -f ./scripts/params_all.txt \
+            ${{ matrix.target.app_dir }}/params.txt
+
+      - name: Create build directory
+        run: mkdir -p build/${{ matrix.target.name }}
+
+      - name: Configure CMake
+        working-directory: build/${{ matrix.target.name }}
+        run: |
+          cmake ../../${{ matrix.target.app_dir }} \
+            -DPICO_BOARD=${{ matrix.target.board }} \
+            -DADD_OTA=${{ matrix.target.add_ota }}
+      - name: Build
+        working-directory: build/${{ matrix.target.name }}
+        run: make -j
+
+      - name: Show output
+        run: |
+          BUILD_DIR="build/${{ matrix.target.name }}"
+
+          echo "Checking output files in: $BUILD_DIR"
+
+          for f in ${{ join(matrix.target.files, ' ') }}; do
+            FILE="$BUILD_DIR/$f"
+
+            if [[ -f "$FILE" ]]; then
+              echo "OK: $FILE exists"
+              ls -al "$FILE"
+            else
+              echo "ERROR: Missing expected file: $FILE"
+              exit 1
+            fi
+          done
