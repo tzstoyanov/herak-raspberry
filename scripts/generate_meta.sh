@@ -17,6 +17,7 @@ IFILE=$(ver_get IMAGE_FILE)
 BDATE=$(ver_get BUILD_DATE)
 BTIME=$(ver_get BUILD_TIME)
 COMMIT=$(ver_get GIT_COMMIT_HASH)
+DARCH=$(ver_get DEV_ARCH)
 
 if [ -z "$build_dir" ] || ! [ -f $build_dir/$IFILE ]; then
 	echo "Invalid build file."
@@ -39,3 +40,4 @@ echo "version: $VER" >> $build_dir/$meta_file
 echo "commit: $COMMIT" >> $build_dir/$meta_file
 echo "build date: $BDATE" >> $build_dir/$meta_file
 echo "build time: $BTIME" >> $build_dir/$meta_file
+echo "device arch: $DARCH" >> $build_dir/$meta_file

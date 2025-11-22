@@ -359,8 +359,8 @@ bool sys_state_is_healthy(void)
 
 void sys_state_log_version(void)
 {
-	hlog_info(SYS_STAT_MODULE, "Image %s %s compiled %s",
-			  IMAGE_NAME, SYS_VERSION_STR, SYS_BUILD_DATE);
+	hlog_info(SYS_STAT_MODULE, "Image %s %s compiled %s, running at %s",
+			  IMAGE_NAME, SYS_VERSION_STR, SYS_BUILD_DATE, DEV_ARCH);
 }
 
 void sys_state_log_resources(void)

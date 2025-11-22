@@ -7,5 +7,6 @@
 #define GIT_COMMIT_HASH "@GIT_COMMIT_HASH@"
 #define BUILD_DATE "@BUILD_DATE@"
 #define BUILD_TIME "@BUILD_TIME@"
+#define DEV_ARCH   "@DEV_ARCH@"
 
 #endif /* __HERAK_VERSION_H__  */

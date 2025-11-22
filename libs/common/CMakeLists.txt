@@ -66,6 +66,7 @@ string(TIMESTAMP BUILD_DATE "%d.%m.%Y")
 string(TIMESTAMP BUILD_TIME "%H:%M:%S")
 string(STRIP "${PROJECT_NAME}" IMAGE_NAME)
 string(STRIP "${APP_FILE}" IMAGE_FILE)
+string(STRIP "${PICO_PLATFORM}" DEV_ARCH)
 
 # Get current commit hash (short)
 execute_process(
