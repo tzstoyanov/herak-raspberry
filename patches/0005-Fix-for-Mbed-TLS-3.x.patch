@@ -1,0 +1,34 @@
+From 83970ce02248c95abb94b9a553dbb148cce1d56a Mon Sep 17 00:00:00 2001
+From: Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+Date: Tue, 11 Nov 2025 05:27:32 +0200
+Subject: [PATCH 5/5] Fix for Mbed TLS 3.x
+
+In Mbed TLS 3.x and later, some functions are renamed to match the new
+API conventions. Added compatibility check and defines to handle both
+old and new versions of the API.
+---
+ src/pico_fota_bootloader.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/libs/pico_fota_bootloader/src/pico_fota_bootloader.c b/libs/pico_fota_bootloader/src/pico_fota_bootloader.c
+index f10e3e7..392259d 100644
+--- a/libs/pico_fota_bootloader/src/pico_fota_bootloader.c
++++ b/libs/pico_fota_bootloader/src/pico_fota_bootloader.c
+@@ -154,6 +154,14 @@ bool pfb_is_after_rollback(void) {
+     return (__FLASH_INFO_IS_AFTER_ROLLBACK == PFB_IS_AFTER_ROLLBACK_MAGIC);
+ }
+ 
++#ifdef PFB_WITH_SHA256_HASHING
++#if MBEDTLS_VERSION_MAJOR >= 3
++#define mbedtls_sha256_starts_ret(ctx, is224)  mbedtls_sha256_starts(ctx, is224)
++#define mbedtls_sha256_update_ret(ctx, input, ilen)  mbedtls_sha256_update(ctx, input, ilen)
++#define mbedtls_sha256_finish_ret(ctx, output)  mbedtls_sha256_finish(ctx, output)
++#endif // MBEDTLS_VERSION_MAJOR
++#endif // PFB_WITH_SHA256_HASHING
++
+ int pfb_firmware_sha256_check(size_t firmware_size) {
+ #ifdef PFB_WITH_SHA256_HASHING
+     if (firmware_size % PFB_ALIGN_SIZE || firmware_size < PFB_ALIGN_SIZE) {
+-- 
+2.51.0
+
