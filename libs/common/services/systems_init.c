@@ -82,4 +82,8 @@ void systems_register_and_init(void)
 	SYS_REGISTER(sys_state_register);
 #endif /* HAVE_SYS_STATE */
 
+#ifdef HAVE_OTA
+	SYS_REGISTER(sys_ota_register);
+#endif /* HAVE_OTA */
+
 }

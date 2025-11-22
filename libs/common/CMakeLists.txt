@@ -14,6 +14,10 @@ option(ADD_COMMANDS "Commands engine" ON)
 option(ADD_SYS_STATE "System status log" ON)
 option(ADD_SYS_TFTP_CLIENT "TFTP Client" ON)
 
+if ( NOT DEFINED ADD_OTA )
+option(ADD_OTA "Bootloader and OTA updates" ON)
+endif()
+
 # Depend on FS
 option(ADD_SYS_FS "File System" ON)
 option(ADD_SYS_CFG_STORE "Config Store" ON)

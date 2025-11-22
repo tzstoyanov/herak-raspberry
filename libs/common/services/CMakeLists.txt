@@ -60,6 +60,10 @@ if(ADD_SYS_STATE)
    include(${CMAKE_CURRENT_LIST_DIR}/sys_state/CMakeLists.txt)
 endif()
 
+if(ADD_OTA)
+   include(${CMAKE_CURRENT_LIST_DIR}/ota/CMakeLists.txt)
+endif()
+
 target_sources(${lib_name} INTERFACE
    ${CMAKE_CURRENT_LIST_DIR}/systems_init.c
 )

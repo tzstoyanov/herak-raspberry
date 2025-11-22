@@ -20,6 +20,7 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - [System Commands](libs/common/services/syscmd/README.md)
 - [Persistent user configuration](libs/common/services/cfg_store/README.md)
 - [Scripts](libs/common/services/scripts/README.md)
+- [OTA Updates](libs/common/services/ota/README.md)
 - Watchdog
 
 ### Devices and Sensors:
@@ -66,12 +67,13 @@ Apply all mandatory patches, which are not yet released upstream. Run in the top
 ### Build
 - Copy [params-example.txt](app/params_example.txt) file as `params.txt` in the `app/common/` directory
 and modify it with your configuration. 
-- In the `app/common/CMakeLists.txt` file, modify the first lines with the configuration, specific to your application. Name of the project, heap size, target board, select the modules that will be compiled and linked to the project:
+- In the `app/common/CMakeLists.txt` file, modify the first lines with the configuration, specific to your application. Name of the project, heap size, target board, AES key for image encryption, select the modules that will be compiled and linked to the project:
 ```
 set(PROJECT_NAME herak-common)
 set(HEAP_SIZE 32768)
 set(DEBUG_BUILD false)
 set(PICO_BOARD pico_w)
+set(BOOT_AES_KEY "AES key")
 
 # Select the modules used in this application. ON / OFF
 option(ADD_SSR "Solid State Relays" ON)		# libs/common/devices/ssr/README.md
@@ -83,17 +85,49 @@ option(ADD_OPENTHERM "OneTherm device" ON)	# libs/common/devices/opentherm/READM
 ```
 - In the `build/common` directory, run `cmake ../../app/common`
 - In the `build/common` directory, run `make`
+ 
+### Generated files  
+ - `boot loader image` - build/common/pico_fota_bootloader/pico_fota_bootloader.uf2  
+ - `application image` - build/common/<application_name>.uf2  
+ - `application meta file` - build/common/<application_name>.meta  
+ - `OTA image` - build/common/<application_name>_fota_image.bin  
+ - `OTA encrypted image` - build/common/<application_name>_fota_image_encrypted.bin  
 
 ### Installation
-#### Manually
-- Attach to your Pico W over USB and start it in the bootloader mode (hold down the BOOTSEL button).
-- Copy the generated image `build/common/<application_name>.uf2` to your Pico.
-#### Using the helper script
+#### With OTA (default)
+By default, the image is compiled with additional boot loader to support [OTA Updates](libs/common/services/ota/README.md).
+ - On fresh device, first copy the `bootloader image` over USB.  
+ - When the bootloader starts, copy the `application image` over USB.  
+ - When the image runs, `OTA image` or `OTA encrypted image` can be used with [OTA commands](libs/common/services/ota/README.md) to update the device, using tftp.  
+
+ Encryption can be controlled in application CMakafile.txt using the `BOOT_AES_KEY` variable. If it is defined, both the bootloader and the image will use that key. The bootloader validates only the images, encrypted with that key. The image is encrypted with the key at build time. Both the bootloader and the image must be compiled using the same key. That validation is performed only for OTA updates. The application images copied over USB are not encrypted and not validated.
+ ```
+ # Must be 32 bytes long and contain only characters from the set [0-9a-zA-Z].
+set(BOOT_AES_KEY "AES key")
+ ```
+
+Max size of OTA images:
+- On PicoW / RP2040 `940K`
+- On Pico2W / RP2350 `1964K`
+
+#### Without OTA
+The OTA support can be disabled in application CMakefile.txt:
+```
+option(ADD_OTA "Bootloader and OTA updates" OFF)
+```
+In that case the bootloader is not compiled and only the `application image` is generated, that can be copied to device directly.
+
+### Copying image files to flash over USB 
+##### Manually
+- Attach to the device over USB and start it in the bootloader mode (hold down the BOOTSEL button).  
+- Pico will appear as storage device, just copy the image file to it. After the copy, the device will reboot automatically.  
+
+##### Using the helper script
 The `flash_pico.sh` script uses [picotool](https://github.com/raspberrypi/picotool) to copy image to the device.
 If that tool is available on your system, the script can be used to copy the generated image. Attach the device
 and run the script:
 ```
-./scripts/flash_pico.sh build/common/<application_name>.uf2
+./scripts/flash_pico.sh <image file>
 ```
 It automatically reboots the device in bootloader mode and copies the new image.
 

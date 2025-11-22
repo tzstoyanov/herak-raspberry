@@ -4,6 +4,11 @@ set(DEBUG_BUILD false)
 # Supported boards are pico_w and pico2_w
 set(PICO_BOARD pico_w)
 
+# Optional, AES key used to encrypt the image.
+# Used when ADD_OTA is enabled.
+# Must be 32 bytes long and contain only characters from the set [0-9a-zA-Z].
+set(BOOT_AES_KEY "AES key")
+
 # Select the modules used in this application. ON / OFF
 option(ADD_ONE_WIRE "OneWire" ON)		# # libs/common/devices/one_wire/README.md 
 option(ADD_SSR "Solid State Relays" ON)		# libs/common/devices/ssr/README.md
@@ -55,6 +60,10 @@ add_executable(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INLUDE_DIR})
 target_compile_options(${PROJECT_NAME} PRIVATE -DMEM_HEAP_SIZE=${HEAP_SIZE})
 target_link_libraries(${PROJECT_NAME} PRIVATE pico_stdlib herak_common)
+
+if(ADD_OTA)
+  pfb_compile_with_bootloader(${PROJECT_NAME})
+endif()
 
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage)
 
