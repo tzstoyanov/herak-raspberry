@@ -101,6 +101,10 @@ target_link_libraries(${PROJECT_NAME} ${TINY_USB_HOST} ${TINY_USB_BOARD} ${PICO_
 		      pico_cyw43_arch_lwip_threadsafe_background
 		      pico_lwip_sntp herak_common)
 
+if(ADD_OTA)
+  pfb_compile_with_bootloader(${PROJECT_NAME})
+endif()
+
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage)
 
 # Enable usb output, disable uart output
@@ -111,3 +115,8 @@ else()
 	pico_enable_stdio_usb(${PROJECT_NAME} 1)
 	pico_enable_stdio_uart(${PROJECT_NAME} 0)
 endif()
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND "${PROJECT_TOP_DIR}/scripts/generate_meta.sh" "${PROJECT_TOP_DIR}" "${CMAKE_BINARY_DIR}"
+    COMMENT "Generating image meta file"
+)
