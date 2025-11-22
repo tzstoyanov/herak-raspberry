@@ -7,7 +7,7 @@ set(PICO_BOARD pico_w)
 # Optional, AES key used to encrypt the image.
 # Used when ADD_OTA is enabled.
 # Must be 32 bytes long and contain only characters from the set [0-9a-zA-Z].
-set(BOOT_AES_KEY "AES key")
+set(BOOT_AES_KEY "AESkey")
 
 # Select the modules used in this application. ON / OFF
 option(ADD_ONE_WIRE "OneWire" ON)		# # libs/common/devices/one_wire/README.md 
