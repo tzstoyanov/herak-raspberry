@@ -20,6 +20,7 @@
 static struct {
 	int modules_count;
 	sys_module_t *modules[MAX_MODULES];
+	uint32_t job_state;
 } sys_modules_context;
 
 int sys_module_register(sys_module_t *module)
@@ -205,8 +206,21 @@ void sys_modules_run(void)
 	for (i = 0; i < sys_modules_context.modules_count; i++) {
 		if (!sys_modules_context.modules[i]->run)
 			continue;
+		if (sys_modules_context.job_state &&
+			!(sys_modules_context.job_state & sys_modules_context.modules[i]->job_flags))
+			continue;
 		LOOP_FUNC_RUN(sys_modules_context.modules[i]->name,
 					  sys_modules_context.modules[i]->run,
 					  sys_modules_context.modules[i]->context);
 	}
+}
+
+void sys_job_state_set(uint32_t job)
+{
+	sys_modules_context.job_state |= job;
+}
+
+void sys_job_state_clear(uint32_t job)
+{
+	sys_modules_context.job_state &= ~job;
 }

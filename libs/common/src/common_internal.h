@@ -76,10 +76,14 @@ typedef struct {
 
 typedef void (*sys_module_run_cb_t) (void *context);
 typedef void (*sys_module_debug_cb_t) (uint32_t debug, void *context);
+
+/* Module job_flags */
+#define  OTA_JOB	0x0001
 typedef struct {
 	char *name;
 	sys_commands_t commands;
 	void *context;
+	uint32_t job_flags;
 	/* Callbacks */
 	sys_module_run_cb_t run;
 	sys_module_run_cb_t reconnect;
@@ -93,6 +97,9 @@ void sys_modules_run(void);
 void sys_modules_log(void);
 void sys_modules_reconnect(void);
 void sys_modules_debug_set(int debug);
+void sys_job_state_set(uint32_t job);
+void sys_job_state_clear(uint32_t job);
+
 void sys_irq_init(void);
 
 void system_reconnect(void);
