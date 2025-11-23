@@ -6,7 +6,6 @@
 #include <stdio.h>
 
 #include "pico/stdlib.h"
-#include "pico/mutex.h"
 #include "pico/cyw43_arch.h"
 #include "lwip/sys.h"
 #include "lwip/inet.h"
@@ -41,12 +40,6 @@
 #define STATUS_TOPIC_TEMPLATE	"%s/status"
 #define ONLINE_MSG				"online"
 #define OFFLINE_MSG				"offline"
-
-//#define MQTT_CLIENT_LOCK(C)		do { if (C) mutex_enter_blocking(&((C)->lock)); } while (0)
-//#define MQTT_CLIENTL_UNLOCK(C)	do { if (C) mutex_exit(&((C)->lock)); } while (0)
-
-#define MQTT_CLIENT_LOCK(C)		{ (void)(C); }
-#define MQTT_CLIENTL_UNLOCK(C)	{ (void)(C); }
 
 #define MQTT_DISCOVERY_MAX_COUNT	512
 #define MQTT_DISCOVERY_BUFF_SIZE	640
@@ -112,7 +105,6 @@ typedef struct {
 	int send_in_progress;
 	uint64_t send_start;
 	uint64_t last_send;
-	mutex_t lock;
 	uint32_t connect_count;
 	uint32_t debug;
 	uint8_t send_err_count;
@@ -148,32 +140,26 @@ static void mqtt_incoming_publish(void *arg, const char *topic, u32_t tot_len)
 {
 	struct mqtt_context_t *ctx = (struct mqtt_context_t *)arg;
 
-	MQTT_CLIENT_LOCK(ctx);
 	if ( ctx->commands.cmd_msg_in_progress ||
 		 tot_len >= MQTT_OUTPUT_RINGBUF_SIZE)
-		goto out;
+		return;
 
 	if (strcmp(topic, ctx->commands.cmd_topic))
-		goto out;
+		return;
 
 	ctx->commands.cmd_msg_in_progress = true;
 	ctx->commands.cmd_msg_ready = false;
 	ctx->commands.cmd_msg_size = 0;
-
-out:
-	MQTT_CLIENTL_UNLOCK(ctx);
 }
 
 static void mqtt_incoming_data(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
 	struct mqtt_context_t *ctx = (struct mqtt_context_t *)arg;
 
-	MQTT_CLIENT_LOCK(ctx);
-
 	if (!ctx->commands.cmd_msg_in_progress || ctx->commands.cmd_msg_ready)
-		goto out;
+		return;
 	if ((ctx->commands.cmd_msg_size + len) >= (MQTT_OUTPUT_RINGBUF_SIZE-1))
-		goto out;
+		return;
 
 	memcpy(ctx->commands.cmd_msg + ctx->commands.cmd_msg_size, data, len);
 	ctx->commands.cmd_msg_size += len;
@@ -183,52 +169,39 @@ static void mqtt_incoming_data(void *arg, const u8_t *data, u16_t len, u8_t flag
 		ctx->commands.cmd_msg_ready = true;
 	}
 
-out:
-	MQTT_CLIENTL_UNLOCK(ctx);
 }
 
 static bool mqtt_incoming_ready(struct mqtt_context_t *ctx)
 {
-	bool ret = false;
 
-	MQTT_CLIENT_LOCK(ctx);
 	if (!ctx->commands.cmd_msg_ready)
-		goto out;
+		return false;
 #ifdef HAVE_COMMANDS
-	MQTT_CLIENTL_UNLOCK(ctx);
 	if (ctx->commands.cmd_msg_size >= 2)
 		cmd_exec(&ctx->cmd_ctx, ctx->commands.cmd_msg);
-	MQTT_CLIENT_LOCK(ctx);
 #endif
 	ctx->commands.cmd_msg_in_progress = false;
 	ctx->commands.cmd_msg_ready = false;
 	ctx->commands.cmd_msg_size = 0;
-	ret = true;
 
-out:
-	MQTT_CLIENTL_UNLOCK(ctx);
-	return ret;
+	return true;
 }
 
 static int mqtt_cmd_subscribe(struct mqtt_context_t *ctx)
 {
 	err_t ret = -1;
 
-	MQTT_CLIENT_LOCK(ctx);
 	if (ctx->state != MQTT_CLIENT_CONNECTED)
 		goto out;
 
-	MQTT_CLIENTL_UNLOCK(ctx);
 	LWIP_LOCK_START;
 		ret = mqtt_subscribe(ctx->client, ctx->commands.cmd_topic, MQTT_QOS, NULL, NULL);
 	LWIP_LOCK_END;
-	MQTT_CLIENT_LOCK(ctx);
 
 	if (!ret && IS_DEBUG(ctx))
 		hlog_info(MQTT_MODULE, "Subscribed to MQTT topic [%s]", ctx->commands.cmd_topic);
 
 out:
-	MQTT_CLIENTL_UNLOCK(ctx);
 	return ret;
 }
 
@@ -237,11 +210,9 @@ static void mqtt_publish_cb(void *arg, err_t result)
 	struct mqtt_context_t *ctx = (struct mqtt_context_t *)arg;
 
 	UNUSED(result);
-	MQTT_CLIENT_LOCK(ctx);
-		ctx->send_in_progress--;
-		if (result != ERR_OK)
-			ctx->send_err_count++;
-	MQTT_CLIENTL_UNLOCK(ctx);
+	ctx->send_in_progress--;
+	if (result != ERR_OK)
+		ctx->send_err_count++;
 }
 
 static int mqtt_msg_send(struct mqtt_context_t *ctx, char *topic, char *message)
@@ -257,17 +228,13 @@ static int mqtt_msg_send(struct mqtt_context_t *ctx, char *topic, char *message)
 	LWIP_LOCK_END;
 
 	if (err == ERR_OK) {
-		MQTT_CLIENT_LOCK(ctx);
-			ctx->send_err_count = 0;
-			ctx->send_in_progress++;
-			ctx->send_start = time_ms_since_boot();
-		MQTT_CLIENTL_UNLOCK(ctx);
+		ctx->send_err_count = 0;
+		ctx->send_in_progress++;
+		ctx->send_start = time_ms_since_boot();
 		if (IS_DEBUG(ctx))
 			hlog_info(MQTT_MODULE, "Published %d bytes to [%s]", strlen(message), topic);
 	} else {
-		MQTT_CLIENT_LOCK(ctx);
-			ctx->send_err_count++;
-		MQTT_CLIENTL_UNLOCK(ctx);
+		ctx->send_err_count++;
 		if (IS_DEBUG(ctx))
 			hlog_info(MQTT_MODULE, "Failed to publish the message: %d / %d", err, ctx->send_in_progress);
 		return -1;
@@ -393,9 +360,7 @@ static int mqtt_msg_discovery_send(struct mqtt_context_t *ctx)
 	if (ctx->discovery.send_idx >= ctx->cmp_count)
 		return -1;
 
-	MQTT_CLIENT_LOCK(ctx);
-		comp = ctx->components[ctx->discovery.send_idx];
-	MQTT_CLIENTL_UNLOCK(ctx);
+	comp = ctx->components[ctx->discovery.send_idx];
 	msize = mqtt_discovery_generate_component(ctx, comp);
 	if (msize > 0)
 		ret = mqtt_msg_send(ctx, ctx->discovery.topic, ctx->discovery.buff);
@@ -423,20 +388,18 @@ static void mqtt_config_send(struct mqtt_context_t *ctx)
 		return;
 
 	now = time_ms_since_boot();
-	MQTT_CLIENT_LOCK(ctx);
-		if (ctx->config.last_send == 0 ||
-		    (now - ctx->config.last_send) > CONFIG_INTERVAL_MSEC) {
-			ctx->config.discovery_dev = true;
-			if (ctx->cmp_count >  0) {
-				ctx->config.discovery_comp = true;
-				ctx->discovery.send_idx = 0;
-			}
-			if (ctx->status_topic[0])
-				ctx->config.status = true;
-			if (ctx->commands.cmd_topic[0])
-				ctx->config.subscribe = true;
+	if (ctx->config.last_send == 0 ||
+	    (now - ctx->config.last_send) > CONFIG_INTERVAL_MSEC) {
+		ctx->config.discovery_dev = true;
+		if (ctx->cmp_count >  0) {
+			ctx->config.discovery_comp = true;
+			ctx->discovery.send_idx = 0;
 		}
-	MQTT_CLIENTL_UNLOCK(ctx);
+		if (ctx->status_topic[0])
+			ctx->config.status = true;
+		if (ctx->commands.cmd_topic[0])
+			ctx->config.subscribe = true;
+	}
 
 	if (ctx->config.status) {
 		ret = mqtt_msg_send(ctx, ctx->status_topic, ONLINE_MSG);
@@ -480,11 +443,8 @@ static void mqtt_config_send(struct mqtt_context_t *ctx)
 		}
 	}
 out:
-	if (sent) {
-		MQTT_CLIENT_LOCK(ctx);
-			ctx->config.last_send = now;
-		MQTT_CLIENTL_UNLOCK(ctx);
-	}
+	if (sent)
+		ctx->config.last_send = now;
 }
 
 static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
@@ -492,16 +452,12 @@ static void mqtt_hook(mqtt_client_t *client, void *arg, mqtt_connection_status_t
 	struct mqtt_context_t *ctx = (struct mqtt_context_t *)arg;
 
 	UNUSED(client);
-	MQTT_CLIENT_LOCK(ctx);
-		ctx->send_in_progress = 0;
-	MQTT_CLIENTL_UNLOCK(ctx);
+	ctx->send_in_progress = 0;
 
 	switch (status) {
 	case MQTT_CONNECT_ACCEPTED:
 		if (ctx->state != MQTT_CLIENT_CONNECTED) {
-			MQTT_CLIENT_LOCK(ctx);
-				ctx->connect_count++;
-			MQTT_CLIENTL_UNLOCK(ctx);
+			ctx->connect_count++;
 			LWIP_LOCK_START;
 				mqtt_set_inpub_callback(client, mqtt_incoming_publish, mqtt_incoming_data, ctx);
 			LWIP_LOCK_END;
@@ -547,28 +503,21 @@ static void mqtt_server_found(const char *hostname, const ip_addr_t *ipaddr, voi
 	struct mqtt_context_t  *ctx = (struct mqtt_context_t  *)arg;
 
 	UNUSED(hostname);
-	MQTT_CLIENT_LOCK(ctx);
-		memcpy(&(ctx->server_addr), ipaddr, sizeof(ip_addr_t));
-		ctx->sever_ip_state = IP_RESOLVED;
-	MQTT_CLIENTL_UNLOCK(ctx);
+	memcpy(&(ctx->server_addr), ipaddr, sizeof(ip_addr_t));
+	ctx->sever_ip_state = IP_RESOLVED;
 }
 
 bool mqtt_is_discovery_sent(void)
 {
 	struct mqtt_context_t *ctx = mqtt_context_get();
-	bool ret = false;
 
 	if (!ctx)
 		return false;
 
-	MQTT_CLIENT_LOCK(ctx);
-		if (ctx->client &&
-			ctx->config.discovery_send >= ctx->cmp_count)
+	if (ctx->client && ctx->config.discovery_send >= ctx->cmp_count)
+		return true;
 
-			ret = true;
-	MQTT_CLIENTL_UNLOCK(ctx);
-
-	return ret;
+	return false;
 }
 
 #define LOG_STEP	20
@@ -656,10 +605,8 @@ int mqtt_msg_publish(char *topic, char *message, bool force)
 
 	ret = mqtt_msg_send(ctx, topic_str, message);
 	if (!ret) {
-		MQTT_CLIENT_LOCK(ctx);
-			ctx->data_send = false;
-			ctx->last_send = time_ms_since_boot();
-		MQTT_CLIENTL_UNLOCK(ctx);
+		ctx->data_send = false;
+		ctx->last_send = time_ms_since_boot();
 	}
 	return ret;
 }
@@ -683,37 +630,24 @@ int mqtt_msg_component_publish(mqtt_component_t *component, char *message)
 static void sys_mqtt_reconnect(void *context)
 {
 	struct mqtt_context_t  *ctx = (struct mqtt_context_t  *)context;
-	mqtt_client_t *clnt = NULL;
 
-	MQTT_CLIENT_LOCK(ctx);
-		ctx->send_err_count = 0;
-		ctx->send_start = 0;
-		if (ctx->state == MQTT_CLIENT_INIT) {
-			MQTT_CLIENTL_UNLOCK(ctx);
-			return;
-		}
-		ctx->state = MQTT_CLIENT_DISCONNECTED;
-		ctx->sever_ip_state = IP_NOT_RESOLEVED;
-		clnt = ctx->client;
-		ctx->client = NULL;
-	MQTT_CLIENTL_UNLOCK(ctx);
-	if (clnt) {
+	ctx->send_err_count = 0;
+	ctx->send_start = 0;
+	if (ctx->state == MQTT_CLIENT_INIT)
+		return;
+	ctx->state = MQTT_CLIENT_DISCONNECTED;
+	ctx->sever_ip_state = IP_NOT_RESOLEVED;
+
+	if (ctx->client) {
 		LWIP_LOCK_START;
-			mqtt_disconnect(clnt);
-			mqtt_client_free(clnt);
+			mqtt_disconnect(ctx->client);
 		LWIP_LOCK_END;
 	}
-	MQTT_CLIENT_LOCK(ctx);
-		hlog_info(MQTT_MODULE, "Disconnected form %s", ctx->server_url);
-	MQTT_CLIENTL_UNLOCK(ctx);
+	hlog_info(MQTT_MODULE, "Disconnected form %s", ctx->server_url);
 }
 
 static bool mqtt_connect(struct mqtt_context_t *ctx)
 {
-	enum mqtt_client_state_t st;
-	mqtt_client_t *clnt = NULL;
-	ip_resolve_state_t res;
-	uint64_t last_send;
 	uint64_t now;
 	int ret;
 
@@ -739,51 +673,33 @@ static bool mqtt_connect(struct mqtt_context_t *ctx)
 		return true;
 	}
 
-	MQTT_CLIENT_LOCK(ctx);
-		st = ctx->state;
-		last_send = ctx->last_send;
-	MQTT_CLIENTL_UNLOCK(ctx);
-
-	if (st == MQTT_CLIENT_CONNECTING) {
-		if ((now - last_send) < IP_TIMEOUT_MS)
+	if (ctx->state == MQTT_CLIENT_CONNECTING) {
+		if ((now - ctx->last_send) < IP_TIMEOUT_MS)
 			return false;
 		if (ctx->client) {
 			LWIP_LOCK_START;
 				mqtt_disconnect(ctx->client);
-				mqtt_client_free(ctx->client);
 			LWIP_LOCK_END;
-			ctx->client = NULL;
 		}
-		MQTT_CLIENT_LOCK(ctx);
-			ctx->state = MQTT_CLIENT_DISCONNECTED;
-			ctx->sever_ip_state = IP_NOT_RESOLEVED;
-		MQTT_CLIENTL_UNLOCK(ctx);
-
+		ctx->state = MQTT_CLIENT_DISCONNECTED;
+		ctx->sever_ip_state = IP_NOT_RESOLEVED;
 		hlog_info(MQTT_MODULE, "Connect to %s timeout", ctx->server_url);
 	}
 
-	MQTT_CLIENT_LOCK(ctx);
-		res = ctx->sever_ip_state;
-	MQTT_CLIENTL_UNLOCK(ctx);
-
-	switch (res) {
+	switch (ctx->sever_ip_state) {
 	case IP_NOT_RESOLEVED:
 		LWIP_LOCK_START;
 			ret = dns_gethostbyname(ctx->server_url, &ctx->server_addr, mqtt_server_found, ctx);
 		LWIP_LOCK_END;
 		if (ret == ERR_INPROGRESS) {
+			ctx->last_send = time_ms_since_boot();
+			ctx->sever_ip_state = IP_RESOLVING;
 			hlog_info(MQTT_MODULE, "Resolving %s ...", ctx->server_url);
-			MQTT_CLIENT_LOCK(ctx);
-				ctx->last_send = time_ms_since_boot();
-				ctx->sever_ip_state = IP_RESOLVING;
-			MQTT_CLIENTL_UNLOCK(ctx);
 			return false;
 		} else if (ret == ERR_OK) {
+			ctx->sever_ip_state = IP_RESOLVED;
 			if (IS_DEBUG(ctx))
 				hlog_info(MQTT_MODULE, "MQTT server resolved");
-			MQTT_CLIENT_LOCK(ctx);
-				ctx->sever_ip_state = IP_RESOLVED;
-			MQTT_CLIENTL_UNLOCK(ctx);
 		} else {
 			return false;
 		}
@@ -791,54 +707,42 @@ static bool mqtt_connect(struct mqtt_context_t *ctx)
 	case IP_RESOLVED:
 		break;
 	case IP_RESOLVING:
-		if ((now - last_send) > IP_TIMEOUT_MS) {
+		if ((now - ctx->last_send) > IP_TIMEOUT_MS) {
+			ctx->sever_ip_state = IP_NOT_RESOLEVED;
 			if (IS_DEBUG(ctx))
 				hlog_info(MQTT_MODULE, "Server resolving timeout");
-			MQTT_CLIENT_LOCK(ctx);
-				ctx->sever_ip_state = IP_NOT_RESOLEVED;
-			MQTT_CLIENTL_UNLOCK(ctx);
 		}
 		return false;
 	default:
 		return false;
 	}
 
-	MQTT_CLIENT_LOCK(ctx);
-		if (ctx->state == MQTT_CLIENT_INIT)
-			hlog_info(MQTT_MODULE, "Connecting to MQTT server %s (%s) ...", ctx->server_url, inet_ntoa(ctx->server_addr));
-		clnt = ctx->client;
-		ctx->client = NULL;
-	MQTT_CLIENTL_UNLOCK(ctx);
+	if (ctx->state == MQTT_CLIENT_INIT)
+		hlog_info(MQTT_MODULE, "Connecting to MQTT server %s (%s) ...", ctx->server_url, inet_ntoa(ctx->server_addr));
+
 	LWIP_LOCK_START;
-		if (clnt) {
-			mqtt_disconnect(clnt);
-			mqtt_client_free(clnt);
-		}
-		clnt = mqtt_client_new();
+		if (ctx->client)
+			mqtt_disconnect(ctx->client);
+		 else
+			ctx->client = mqtt_client_new();
 	LWIP_LOCK_END;
-	if (!clnt)
+	if (!ctx->client)
 		return false;
-	MQTT_CLIENT_LOCK(ctx);
-		ctx->client = clnt;
-		ctx->state = MQTT_CLIENT_CONNECTING;
-	MQTT_CLIENTL_UNLOCK(ctx);
+	ctx->state = MQTT_CLIENT_CONNECTING;
 
 	LWIP_LOCK_START;
 		ret = mqtt_client_connect(ctx->client, &ctx->server_addr,
 								  ctx->server_port, mqtt_hook, ctx, &ctx->client_info);
 	LWIP_LOCK_END;
-
-	MQTT_CLIENT_LOCK(ctx);
-		if (!ret) {
-			ctx->last_send = time_ms_since_boot();
-			if (IS_DEBUG(ctx))
-				hlog_info(MQTT_MODULE, "Connected to server %s", ctx->server_url);
-		} else {
-			ctx->state = MQTT_CLIENT_DISCONNECTED;
-			hlog_info(MQTT_MODULE, "Connecting to MQTT server %s (%s) failed: %d",
-					  ctx->server_url, inet_ntoa(ctx->server_addr), ret);
-		}
-	MQTT_CLIENTL_UNLOCK(ctx);
+	if (!ret) {
+		ctx->last_send = time_ms_since_boot();
+		if (IS_DEBUG(ctx))
+			hlog_info(MQTT_MODULE, "Connected to server %s", ctx->server_url);
+	} else {
+		ctx->state = MQTT_CLIENT_DISCONNECTED;
+		hlog_info(MQTT_MODULE, "Connecting to MQTT server %s (%s) failed: %d",
+				  ctx->server_url, inet_ntoa(ctx->server_addr), ret);
+	}
 
 	return false;
 }
@@ -907,8 +811,6 @@ static bool sys_mqtt_init(struct mqtt_context_t  **ctx)
 	if (mqtt_get_config(ctx))
 		return false;
 
-	mutex_init(&((*ctx)->lock));
-
 	(*ctx)->state = MQTT_CLIENT_INIT;
 	snprintf((*ctx)->status_topic, MQTT_MAX_TOPIC_SIZE, STATUS_TOPIC_TEMPLATE, (*ctx)->state_topic);
 	snprintf((*ctx)->commands.cmd_topic, MQTT_MAX_TOPIC_SIZE, COMMAND_TOPIC_TEMPLATE, (*ctx)->state_topic);
@@ -948,16 +850,14 @@ int mqtt_msg_component_register(mqtt_component_t *component)
 		return -1;
 	}
 
-	MQTT_CLIENT_LOCK(ctx);
-		component->force = true;
-		component->id = idx;
-		if (!component->state_topic)
-			sys_asprintf(&component->state_topic, "%s/%s/%s/status",
-						 ctx->state_topic, component->module, component->name);
-		ctx->components[idx] = component;
-		ctx->cmp_count++;
-		ctx->config.last_send = 0;
-	MQTT_CLIENTL_UNLOCK(ctx);
+	component->force = true;
+	component->id = idx;
+	if (!component->state_topic)
+		sys_asprintf(&component->state_topic, "%s/%s/%s/status",
+					 ctx->state_topic, component->module, component->name);
+	ctx->components[idx] = component;
+	ctx->cmp_count++;
+	ctx->config.last_send = 0;
 
 	if (IS_DEBUG(ctx))
 		hlog_info(MQTT_MODULE, "Registered discovery message for %s/%s", component->module, component->name);
