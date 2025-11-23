@@ -73,10 +73,9 @@ static void ota_reset(struct ota_update_t *update)
 	memset(&(update->sha), 0, sizeof(update->sha));
 	update->flash_offset = 0;
 	if (!update->apply) {
-		SYS_LOCK_START;
-			pfb_mark_download_slot_as_invalid();
-			pfb_initialize_download_slot();
-		SYS_LOCK_END;
+		pfb_mark_download_slot_as_invalid();
+		pfb_initialize_download_slot();
+		sys_job_state_clear(OTA_JOB);
 	}
 #ifdef HAVE_SYS_WEBSERVER
 	if (update->web_idx >= 0)
@@ -127,10 +126,9 @@ static void *ota_tftp_open(const char *fname, const char *mode, u8_t is_write)
 		return NULL;
 
 	hlog_info(OTA_MODULE, "Updating .... %s", fname);
-	SYS_LOCK_START;
-		pfb_mark_download_slot_as_invalid();
-		pfb_initialize_download_slot();
-	SYS_LOCK_END;
+	sys_job_state_set(OTA_JOB);
+	pfb_mark_download_slot_as_invalid();
+	pfb_initialize_download_slot();
 	mbedtls_sha256_init(&ctx->update.sha);
 	mbedtls_sha256_starts(&ctx->update.sha, 0);
 	ctx->update.buff_p = 0;
@@ -141,15 +139,18 @@ static void *ota_tftp_open(const char *fname, const char *mode, u8_t is_write)
 	return ctx;
 }
 
-static void ota_buff_commit(struct ota_context_t *ctx, int size)
+static int ota_buff_commit(struct ota_context_t *ctx, int size)
 {
-	SYS_LOCK_START;
-		pfb_write_to_flash_aligned_256_bytes(ctx->update.buff, ctx->update.flash_offset, BUFF_SIZE);
-	SYS_LOCK_END;
-	mbedtls_sha256_update(&ctx->update.sha, ctx->update.buff, size);
+	if (pfb_write_to_flash_aligned_256_bytes(ctx->update.buff, ctx->update.flash_offset, BUFF_SIZE))
+		return -1;
+
+	if (mbedtls_sha256_update(&ctx->update.sha, ctx->update.buff, size))
+		return -1;
+
 	ctx->update.flash_offset += size;
 	ctx->update.buff_p = 0;
 	memset(ctx->update.buff, 0, BUFF_SIZE);
+	return 0;
 }
 
 static void ota_tftp_close(void *handle)
@@ -190,8 +191,12 @@ static int ota_tftp_write(void *handle, struct pbuf *p)
 		wsize -= csize;
 		wp += csize;
 
-		if (ctx->update.buff_p == BUFF_SIZE)
-			ota_buff_commit(ctx, ctx->update.buff_p);
+		if (ctx->update.buff_p == BUFF_SIZE) {
+			if (ota_buff_commit(ctx, ctx->update.buff_p)) {
+				hlog_warning(OTA_MODULE, "Failed to save the image chunk");
+				return -1;
+			}
+		}
 	} while (wsize > 0);
 
 	return 0;
@@ -231,7 +236,7 @@ static int ota_validate(struct ota_context_t *ctx)
 {
 	char sha_buff[SHA_BUFF_STR] = {0};
 	uint8_t sha[32] = {0};
-	int ret = -1;
+	int res, ret = -1;
 	int i;
 
 	mbedtls_sha256_finish(&ctx->update.sha, sha);
@@ -247,17 +252,15 @@ static int ota_validate(struct ota_context_t *ctx)
 			goto out;
 		}
 	}
-
-	SYS_LOCK_START;
-		if (pfb_firmware_sha256_check(ctx->update.flash_offset)) {
-			hlog_warning(OTA_MODULE, "Invalid image");
-		} else {
-			hlog_info(OTA_MODULE, "Valid image, going to boot it ... ");
-			pfb_mark_download_slot_as_valid();
-			ctx->update.apply = time_ms_since_boot();
-			ret = 0;
-		}
-	SYS_LOCK_END;
+	res = pfb_firmware_sha256_check(ctx->update.flash_offset);
+	if (res) {
+		hlog_warning(OTA_MODULE, "Invalid image");
+	} else {
+		hlog_info(OTA_MODULE, "Valid image, going to boot it ... ");
+		pfb_mark_download_slot_as_valid();
+		ctx->update.apply = time_ms_since_boot();
+		ret = 0;
+	}
 
 out:
 	ota_reset(&ctx->update);
@@ -366,6 +369,7 @@ void sys_ota_register(void)
 	ctx->mod.run = sys_ota_run;
 	ctx->mod.log = sys_ota_log_status;
 	ctx->mod.debug = sys_ota_debug_set;
+	ctx->mod.job_flags = OTA_JOB;
 	ctx->mod.commands.hooks = ota_cmd_requests;
 	ctx->mod.commands.count = ARRAY_SIZE(ota_cmd_requests);
 	ctx->mod.commands.description = "OTA update";
