@@ -11,6 +11,7 @@ endif()
 
 target_sources(${lib_name} INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/ota.c
+  ${CMAKE_CURRENT_LIST_DIR}/ota_update.c
 )
 
 target_include_directories(${lib_name} INTERFACE
