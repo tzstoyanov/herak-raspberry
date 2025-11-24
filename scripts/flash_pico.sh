@@ -1,7 +1,8 @@
 #!/bin/bash
 
 TTYDEV=/dev/ttyACM0
-PICOMOUNT=/run/media/$USER/RPI-RP2/
+PICO_MOUNT=/run/media/$USER/RPI-RP2/
+PICO2_MOUNT="/run/media/$USER/RP2350"
 PITOOL=picotool
 
 if [ -z "$1" ]; then
@@ -11,7 +12,12 @@ fi
 
 sudo stty -F $TTYDEV 1200
 echo waiting
-while [ ! -d $PICOMOUNT ]; do sleep 0.1; done
+PICOMOUNT=""
+while true; do
+    if [ -d "$PICO_MOUNT" ]; then PICOMOUNT="$PICO_MOUNT"; break; fi
+    if [ -d "$PICO2_MOUNT" ]; then PICOMOUNT="$PICO2_MOUNT"; break; fi
+    sleep 0.1
+done
 sleep 0.5
 if [ "$*" = "" ]; then echo rebooting; sudo $PITOOL reboot; exit; fi
 echo copying
