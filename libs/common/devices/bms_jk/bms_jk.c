@@ -335,8 +335,10 @@ static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
 					 DEV_NAME(dev), "empty");
 			webhook_send(notify_buff);
 		}
+#ifdef HAVE_SSR
 		if (dev->ssr_trigger)
 			ssr_api_state_set(dev->ssr_id, !dev->ssr_norm_state, 0, 0);
+#endif
 	}
 
 	if (!empty && !dev->full_battery) {
@@ -346,8 +348,10 @@ static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
 					 DEV_NAME(dev), "full");
 			webhook_send(notify_buff);
 		}
+#ifdef HAVE_SSR
 		if (dev->ssr_trigger)
 			ssr_api_state_set(dev->ssr_id, dev->ssr_norm_state, 0, 0);
+#endif
 	}
 	for (i = 0; i < BMS_MAX_CELLS; i++) {
 		if (!(1<<i & dev->cell_info.cells_enabled))
