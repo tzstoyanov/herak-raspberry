@@ -13,7 +13,7 @@
 #include "params.h"
 #include "ota_internal.h"
 
-#define UPDATE_TIMEOUT_MS	1800000 // 30 min
+#define UPDATE_TIMEOUT_MS	300000 // 5 min
 
 #define DEBUG_DUMP_MS		1000
 #define APPLY_DELAY_MS		2000
