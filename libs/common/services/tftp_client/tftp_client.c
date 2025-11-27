@@ -377,6 +377,7 @@ void sys_tftp_client_register(void)
 	ctx->mod.log = sys_tftp_client_log_status;
 	ctx->mod.debug = sys_tftp_client_debug_set;
 	ctx->mod.commands.description = "TFTP Client";
+	ctx->mod.job_flags = OTA_JOB;
 	ctx->mod.context = ctx;
 	sys_module_register(&ctx->mod);
 }
