@@ -170,9 +170,16 @@ void sys_modules_log(void)
 {
 	int i;
 
+	if (sys_modules_context.job_state)
+		hlog_info(SYSMODLOG, "  Running job 0x%04X", sys_modules_context.job_state);
 	hlog_info(SYSMODLOG, "  Registered %d modules:", sys_modules_context.modules_count);
-	for (i = 0; i < sys_modules_context.modules_count; i++)
-		hlog_info(SYSMODLOG, "    [%s]", sys_modules_context.modules[i]->name);
+	for (i = 0; i < sys_modules_context.modules_count; i++) {
+		hlog_info(SYSMODLOG, "    [%s]%s",
+				  sys_modules_context.modules[i]->name,
+				  (sys_modules_context.job_state &&
+				  !(sys_modules_context.job_state & sys_modules_context.modules[i]->job_flags)) ?
+				  "\t\tpaused" : "");
+	}
 }
 
 void sys_modules_reconnect(void)
