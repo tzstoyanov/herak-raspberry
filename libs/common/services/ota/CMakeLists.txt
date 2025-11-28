@@ -12,13 +12,13 @@ endif()
 target_sources(${lib_name} INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/ota.c
   ${CMAKE_CURRENT_LIST_DIR}/ota_update.c
+  ${CMAKE_CURRENT_LIST_DIR}/ota_check.c
 )
 
 target_include_directories(${lib_name} INTERFACE
 							 ${CMAKE_CURRENT_LIST_DIR}
 							 ${PROJECT_LIB_DIR}/pico_fota_bootloader)
 add_subdirectory(${PROJECT_LIB_DIR}/pico_fota_bootloader  ${CMAKE_BINARY_DIR}/pico_fota_bootloader)
-
 
 target_link_libraries(${lib_name} INTERFACE pico_fota_bootloader_lib pico_lwip_tftp pico_mbedtls)
 

@@ -11,15 +11,20 @@
 #include "common_internal.h"
 #include "ota_internal.h"
 
-#define TFTP_MODE	"octet"
+#define DEBUG_DUMP_MS		1000
+#define APPLY_DELAY_MS		2000
 
-static void *ota_tftp_open(const char *fname, const char *mode, u8_t is_write)
+static void *ota_tftp_update_open(const char *fname, const char *mode, u8_t is_write)
 {
 	struct ota_update_t *update = ota_update_context_get();
 
 	UNUSED(mode);
 
-	if (!is_write || !update || !update->started)
+	if (!is_write || !update || !update->started || !fname)
+		return NULL;
+	if (strlen(fname) != strlen(update->file.fname))
+		return NULL;
+	if (strcmp(fname, update->file.fname))
 		return NULL;
 
 	hlog_info(OTA_MODULE, "Updating .... %s", fname);
@@ -50,7 +55,7 @@ static int ota_buff_commit(struct ota_update_t *update, int size)
 	return 0;
 }
 
-static void ota_tftp_close(void *handle)
+static void ota_tftp_update_close(void *handle)
 {
 	struct ota_update_t *ctx = (struct ota_update_t *)handle;
 
@@ -66,7 +71,7 @@ static void ota_tftp_close(void *handle)
 	ctx->ready = true;
 }
 
-static int ota_tftp_write(void *handle, struct pbuf *p)
+static int ota_tftp_update_write(void *handle, struct pbuf *p)
 {
 	struct ota_update_t *ctx = (struct ota_update_t *)handle;
 	int bsize, csize, wp = 0;
@@ -76,7 +81,7 @@ static int ota_tftp_write(void *handle, struct pbuf *p)
 		return -1;
 
 	if (!ctx->in_progress)
-		ota_tftp_open(ctx->file.fname, TFTP_MODE, true);
+		ota_tftp_update_open(ctx->file.fname, TFTP_MODE, true);
 	if (!ctx->in_progress)
 		return -1;
 
@@ -99,7 +104,7 @@ static int ota_tftp_write(void *handle, struct pbuf *p)
 	return 0;
 }
 
-static int ota_tftp_read(void *handle, void *buff, int bytes)
+static int ota_tftp_update_read(void *handle, void *buff, int bytes)
 {
 	UNUSED(buff);
 	UNUSED(bytes);
@@ -109,7 +114,7 @@ static int ota_tftp_read(void *handle, void *buff, int bytes)
 	return -1;
 }
 
-static void ota_tftp_error(void *handle, int err, const char *msg, int size)
+static void ota_tftp_update_error(void *handle, int err, const char *msg, int size)
 {
 	struct ota_update_t *update = (struct ota_update_t *)handle;
 
@@ -121,12 +126,12 @@ static void ota_tftp_error(void *handle, int err, const char *msg, int size)
 	ota_update_reset(update);
 }
 
-static const struct tftp_context ota_tftp = {
-	ota_tftp_open,
-	ota_tftp_close,
-	ota_tftp_read,
-	ota_tftp_write,
-	ota_tftp_error
+static const struct tftp_context ota_tftp_update = {
+	ota_tftp_update_open,
+	ota_tftp_update_close,
+	ota_tftp_update_read,
+	ota_tftp_update_write,
+	ota_tftp_update_error
 };
 
 void ota_update_reset(struct ota_update_t *update)
@@ -135,8 +140,6 @@ void ota_update_reset(struct ota_update_t *update)
 	update->started = 0;
 	update->buff_p = 0;
 	update->ready = false;
-	free(update->file.fname);
-	free(update->file.peer);
 	memset(update->buff, 0, BUFF_SIZE);
 	memset(update->sha_verify, 0, SHA_BUFF_STR);
 	memset(&(update->sha), 0, sizeof(update->sha));
@@ -153,7 +156,7 @@ void ota_update_reset(struct ota_update_t *update)
 	update->web_idx = -1;
 }
 
-int ota_update_validate(struct ota_update_t *update)
+static int ota_update_validate(struct ota_update_t *update)
 {
 	char sha_buff[SHA_BUFF_STR] = {0};
 	uint8_t sha[32] = {0};
@@ -190,9 +193,43 @@ out:
 
 int ota_update_start(struct ota_update_t *update)
 {
-	if (tftp_file_get(&ota_tftp, &(update->file), update))
+	if (tftp_file_get(&ota_tftp_update, &(update->file), update))
 		return -1;
+
+	if (IS_DEBUG(update->ota))
+		hlog_info(OTA_MODULE, "Going to apply update %s from %s",
+				  update->file.fname, update->file.peer);
 
 	update->started = time_ms_since_boot();
 	return 0;
+}
+
+void ota_update_run(struct ota_update_t *update)
+{
+	uint64_t now;
+
+	now = time_ms_since_boot();
+	if (update->apply) {
+		if ((now - update->apply) > APPLY_DELAY_MS)
+			pfb_perform_update();
+		return;
+	}
+
+	if (update->ready) {
+		ota_update_validate(update);
+		return;
+	}
+
+	if ((now - update->started) > UPDATE_TIMEOUT_MS) {
+		hlog_warning(OTA_MODULE, "Timeout reading file %s from server %s:%d.",
+				  update->file.fname, update->file.peer, update->file.port);
+		ota_update_reset(update);
+		return;
+	}
+
+	if (((now - update->debug_last_dump) > DEBUG_DUMP_MS)) {
+		update->debug_last_dump = now;
+		hlog_info(OTA_MODULE, "Updating %s from %s: %d bytes",
+				  update->file.fname, update->file.peer, update->flash_offset);
+	}
 }
