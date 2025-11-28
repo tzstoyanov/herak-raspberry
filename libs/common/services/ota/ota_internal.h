@@ -50,8 +50,8 @@ struct ota_check_t {
 	char buff[META_SIZE];
 	uint32_t buff_p;
 	uint64_t started;
+	int apply;
 	bool ready;
-	bool apply;
 	bool new_version;
 	bool check_newer;
 	bool check_ver;

@@ -14,6 +14,7 @@
 #include "ota_internal.h"
 
 #define TIME_STR	64
+#define APPLY_RETRIES	3
 
 static struct ota_context_t *__ota_context;
 
@@ -114,8 +115,10 @@ static void sys_ota_run(void *context)
 		ctx->mqtt_last_send = now;
 	}
 
-	if (ctx->check.new_version && ctx->check.apply)
+	if (ctx->check.new_version && ctx->check.apply) {
+		ctx->check.apply--;
 		ota_update_apply(&ctx->check);
+	}
 }
 
 static int ota_udate_start_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
@@ -187,7 +190,10 @@ static int ota_udate_check_run(struct ota_context_t *ctx, char *params, bool app
 			ctx->check.file.fname = fname;
 		}
 	}
-	ctx->check.apply = apply;
+	if (apply)
+		ctx->check.apply = APPLY_RETRIES;
+	else
+		ctx->check.apply = 0;
 	ret = ota_check_start(&(ctx->check));
 
 out:
@@ -285,7 +291,7 @@ static int ota_udate_cancel_cmd(cmd_run_context_t *ctx, char *cmd, char *params,
 		hlog_info(OTA_MODULE, "Cancel update %s from %s:%d",
 				  wctx->update.file.fname, wctx->update.file.peer, wctx->update.file.port);
 	ota_update_reset(&wctx->update);
-	wctx->update.apply = false;
+	wctx->update.apply = 0;
 	return 0;
 }
 

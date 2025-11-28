@@ -314,7 +314,7 @@ void ota_check_reset(struct ota_check_t *check)
 
 	check->started = 0;
 	check->in_progress = false;
-	check->apply = false;
+	check->apply = 0;
 	check->ready = false;
 	check->new_version = false;
 	check->ota->mqtt_comp[0].force = true;
