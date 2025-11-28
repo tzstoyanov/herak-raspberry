@@ -384,7 +384,7 @@ void sys_tftp_client_register(void)
 
 /* APIs */
 
-// tftp://<IP-ADDR>[:<PORT-NUM>]/<FILENAME>
+// tftp://<IP-ADDR>[:<PORT-NUM>][/<FILENAME>]
 // tftp://1.1.1.1/FILENAME
 // tftp://zico.biz/FILENAME
 // tftp://1.1.1.1:5050/FILENAME
@@ -408,10 +408,13 @@ int tftp_url_parse(char *url, struct tftp_file_t *file)
 	free(file->fname);
 	free(file->peer);
 	memset(file, 0, sizeof(struct tftp_file_t));
-	if (fname)
+	if (fname && strlen(fname) > 1) {
 		file->fname = strdup(fname);
+		if (!file->fname)
+			goto out_err;
+	}
 	file->peer = strdup(addr);
-	if (!file->fname || !file->peer)
+	if (!file->peer)
 		goto out_err;
 	if (port)
 		file->port = (int)strtol(port, NULL, 0);
