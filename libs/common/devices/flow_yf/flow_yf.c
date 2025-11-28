@@ -328,7 +328,7 @@ static void flow_yf_mqtt_components_add(struct flow_yf_context_t *ctx)
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].platform = "sensor";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].dev_class = "volume_flow_rate";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].unit = "L/min";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].value_template = "{{ value_json.flow }}";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].value_template = "{{ value_json['flow'] }}";
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].name, "Flow_%d", i);
 		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW]));
 
@@ -336,7 +336,7 @@ static void flow_yf_mqtt_components_add(struct flow_yf_context_t *ctx)
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].platform = "sensor";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].dev_class = "volume_storage";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].unit = "L";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].value_template = "{{ value_json.total_flow }}";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].value_template = "{{ value_json['total_flow'] }}";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].state_topic =
 										ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].state_topic;
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL_FLOW].name, "Flow_%d_total_flow", i);
@@ -344,7 +344,7 @@ static void flow_yf_mqtt_components_add(struct flow_yf_context_t *ctx)
 
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].module = FLOW_YF_MODULE;
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].platform = "sensor";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].value_template = "{{ value_json.last_flow }}";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].value_template = "{{ value_json['last_flow'] }}";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].state_topic =
 										ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].state_topic;
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_FLOW].name, "Flow_%d_last_flow", i);
@@ -354,7 +354,7 @@ static void flow_yf_mqtt_components_add(struct flow_yf_context_t *ctx)
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].platform = "sensor";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].dev_class = "duration";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].unit = "min";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].value_template = "{{ value_json.duration_flow }}";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].value_template = "{{ value_json['duration_flow'] }}";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].state_topic =
 										ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].state_topic;
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_DURATION_FLOW].name, "Flow_%d_duration_flow", i);
@@ -364,7 +364,7 @@ static void flow_yf_mqtt_components_add(struct flow_yf_context_t *ctx)
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].platform = "sensor";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].dev_class = "volume_storage";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].unit = "L";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].value_template = "{{ value_json.total }}";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].value_template = "{{ value_json['total'] }}";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].state_topic =
 										ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].state_topic;
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_TOTAL].name, "Flow_%d_total", i);
@@ -372,7 +372,7 @@ static void flow_yf_mqtt_components_add(struct flow_yf_context_t *ctx)
 
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].module = FLOW_YF_MODULE;
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].platform = "sensor";
-		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].value_template = "{{ value_json.last_reset }}";
+		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].value_template = "{{ value_json['last_reset'] }}";
 		ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].state_topic =
 										ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_FLOW].state_topic;
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[FLOW_YF_MQTT_LAST_RESET].name, "Flow_%d_last_reset", i);

@@ -148,7 +148,7 @@ static int temperature_add_sensor(struct temperature_context_t *ctx, int gpio_pi
 	ctx->sensors[ctx->count]->mqtt_comp.unit = "°C";
 	sys_asprintf(&ctx->sensors[ctx->count]->mqtt_comp.name, "temperature_%s_%d",
 				 temperature_type_str(type), ctx->count);
-	sys_asprintf(&ctx->sensors[ctx->count]->mqtt_comp.value_template, "{{ value_json.%s }}",
+	sys_asprintf(&ctx->sensors[ctx->count]->mqtt_comp.value_template, "{{ value_json['%s'] }}",
 				 ctx->sensors[ctx->count]->mqtt_comp.name);
 	if (ctx->count > 1)
 		ctx->sensors[ctx->count]->mqtt_comp.state_topic = ctx->sensors[0]->mqtt_comp.state_topic;

@@ -59,7 +59,7 @@ static void sys_state_mqtt_init(struct sys_state_context_t *ctx)
 	/* Device uptime */
 	ctx->mqtt_comp[0].module = SYS_STAT_MODULE;
 	ctx->mqtt_comp[0].platform = "sensor";
-	ctx->mqtt_comp[0].value_template = "{{ value_json.sys_uptime }}";
+	ctx->mqtt_comp[0].value_template = "{{ value_json['sys_uptime'] }}";
 	ctx->mqtt_comp[0].name = "sys_uptime";
 	mqtt_msg_component_register(&(ctx->mqtt_comp[0]));
 
@@ -68,7 +68,7 @@ static void sys_state_mqtt_init(struct sys_state_context_t *ctx)
 	ctx->mqtt_comp[1].platform = "binary_sensor";
 	ctx->mqtt_comp[1].payload_on = "1";
 	ctx->mqtt_comp[1].payload_off = "0";
-	ctx->mqtt_comp[1].value_template = "{{ value_json.sys_error }}";
+	ctx->mqtt_comp[1].value_template = "{{ value_json['sys_error'] }}";
 	ctx->mqtt_comp[1].name = "sys_error";
 	ctx->mqtt_comp[1].state_topic = ctx->mqtt_comp[0].state_topic;
 	mqtt_msg_component_register(&(ctx->mqtt_comp[1]));

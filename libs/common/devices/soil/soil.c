@@ -236,14 +236,14 @@ static void soil_mqtt_init(struct soil_context_t *ctx)
 		ctx->sensors[i].mqtt_comp.dev_class = "moisture";
 		ctx->sensors[i].mqtt_comp.payload_on = "0";
 		ctx->sensors[i].mqtt_comp.payload_off = "1";
-		ctx->sensors[i].mqtt_comp.value_template = "{{ value_json.value_d }}";
+		ctx->sensors[i].mqtt_comp.value_template = "{{ value_json['value_d'] }}";
 		sys_asprintf(&ctx->sensors[i].mqtt_comp.name, "Soil_%d", i);
 		mqtt_msg_component_register(&ctx->sensors[i].mqtt_comp);
 		if (ctx->sensors[i].analog) {
 			ctx->sensors[i].analog->mqtt_comp.module = SOIL_MODULE;
 			ctx->sensors[i].analog->mqtt_comp.platform = "sensor";
 			ctx->sensors[i].analog->mqtt_comp.dev_class = "moisture";
-			ctx->sensors[i].analog->mqtt_comp.value_template = "{{ value_json.value_a }}";
+			ctx->sensors[i].analog->mqtt_comp.value_template = "{{ value_json['value_a'] }}";
 			sys_asprintf(&ctx->sensors[i].analog->mqtt_comp.name, "SoilA_%d", i);
 			ctx->sensors[i].analog->mqtt_comp.state_topic = ctx->sensors[i].mqtt_comp.state_topic;
 			mqtt_msg_component_register(&ctx->sensors[i].analog->mqtt_comp);

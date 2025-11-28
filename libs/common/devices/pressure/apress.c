@@ -130,7 +130,7 @@ static void apress_mqtt_init(struct apress_context_t *ctx)
 		ctx->sensors[i].mqtt_comp.platform = "sensor";
 		ctx->sensors[i].mqtt_comp.dev_class = "pressure";
 		ctx->sensors[i].mqtt_comp.unit = "bar";
-		ctx->sensors[i].mqtt_comp.value_template = "{{ value_json.pressure }}";
+		ctx->sensors[i].mqtt_comp.value_template = "{{ value_json['pressure'] }}";
 		sys_asprintf(&ctx->sensors[i].mqtt_comp.name, "Pressure_%d", i);
 		mqtt_msg_component_register(&ctx->sensors[i].mqtt_comp);
 	}

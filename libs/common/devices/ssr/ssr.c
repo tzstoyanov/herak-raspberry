@@ -231,7 +231,7 @@ static int ssr_mqtt_components_add(struct ssr_context_t *ctx)
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].platform = "binary_sensor";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].payload_on = "1";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].payload_off = "0";
-		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].value_template = "{{ value_json.ssr_state }}";
+		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].value_template = "{{ value_json['ssr_state'] }}";
 		sys_asprintf(&ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].name, "Relay_%d", i);
 		mqtt_msg_component_register(&(ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE]));
 
@@ -239,7 +239,7 @@ static int ssr_mqtt_components_add(struct ssr_context_t *ctx)
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].platform = "sensor";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].dev_class = "duration";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].unit = "s";
-		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].value_template = "{{ value_json.run_time }}";
+		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].value_template = "{{ value_json['run_time'] }}";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].state_topic =
 					ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].state_topic;
 		sys_asprintf(&ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_TIME].name, "Relay_%d_run_time", i);
@@ -250,7 +250,7 @@ static int ssr_mqtt_components_add(struct ssr_context_t *ctx)
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].platform = "sensor";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].dev_class = "duration";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].unit = "s";
-		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].value_template = "{{ value_json.delay }}";
+		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].value_template = "{{ value_json['delay'] }}";
 		ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].state_topic =
 					ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_STATE].state_topic;
 		sys_asprintf(&ctx->relays[i]->mqtt_comp[SSR_MQTT_SENSOR_DELAY].name, "Relay_%d_delay", i);

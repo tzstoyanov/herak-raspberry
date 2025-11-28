@@ -175,7 +175,7 @@ static void one_wire_mqtt_init(struct one_wire_context_t *ctx, int line)
 		ctx->lines[line]->sensors[i].mqtt_comp.platform = CONST_STR("sensor");
 		ctx->lines[line]->sensors[i].mqtt_comp.dev_class = CONST_STR("temperature");
 		ctx->lines[line]->sensors[i].mqtt_comp.unit = CONST_STR("°C");
-		ctx->lines[line]->sensors[i].mqtt_comp.value_template = CONST_STR("{{ value_json.temperature }}");
+		ctx->lines[line]->sensors[i].mqtt_comp.value_template = CONST_STR("{{ value_json['temperature'] }}");
 		sys_asprintf(&ctx->lines[line]->sensors[i].mqtt_comp.name, "Temperature_0x%llX",
 					 ctx->lines[line]->sensors[i].address);
 		mqtt_msg_component_register(&ctx->lines[line]->sensors[i].mqtt_comp);

@@ -37,7 +37,7 @@ static int mqtt_mppt_discovery_add(mqtt_mppt_data_t *mppt)
 	comps[0].platform = "sensor";
 	comps[0].dev_class = "temperature";
 	comps[0].unit = "°C";
-	comps[0].value_template = "{{value_json.in_temp}}";
+	comps[0].value_template = "{{value_json['in_temp']}}";
 
 	return mqtt_msg_component_register(&mqtt_solar_context.components[0]);
 }

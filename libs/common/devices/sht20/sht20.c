@@ -505,7 +505,7 @@ static void sht20_mqtt_components_add(struct sht20_context_t *ctx)
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].platform = "sensor";
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].dev_class = "temperature";
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].unit = "°C";
-		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].value_template = "{{ value_json.temperature }}";
+		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].value_template = "{{ value_json['temperature'] }}";
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].name, "Temperature_%d", i);
 		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE]));
 
@@ -513,7 +513,7 @@ static void sht20_mqtt_components_add(struct sht20_context_t *ctx)
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_HUMIDITY].platform = "sensor";
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_HUMIDITY].dev_class = "humidity";
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_HUMIDITY].unit = "%";
-		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_HUMIDITY].value_template = "{{ value_json.humidity }}";
+		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_HUMIDITY].value_template = "{{ value_json['humidity'] }}";
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[SHT20_MQTT_HUMIDITY].name, "Humidity_%d", i);
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_HUMIDITY].state_topic = ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].state_topic;
 		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[SHT20_MQTT_HUMIDITY]));
@@ -522,7 +522,7 @@ static void sht20_mqtt_components_add(struct sht20_context_t *ctx)
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_VPD].platform = "sensor";
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_VPD].dev_class = "pressure";
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_VPD].unit = "kPa";
-		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_VPD].value_template = "{{ value_json.vpd }}";
+		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_VPD].value_template = "{{ value_json['vpd'] }}";
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[SHT20_MQTT_VPD].name, "VPD_%d", i);
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_VPD].state_topic = ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].state_topic;
 		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[SHT20_MQTT_VPD]));
@@ -531,7 +531,7 @@ static void sht20_mqtt_components_add(struct sht20_context_t *ctx)
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_DEW_POINT].platform = "sensor";
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_DEW_POINT].dev_class = "temperature";
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_DEW_POINT].unit = "°C";
-		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_DEW_POINT].value_template = "{{ value_json.dew_point }}";
+		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_DEW_POINT].value_template = "{{ value_json['dew_point'] }}";
 		sys_asprintf(&ctx->sensors[i]->mqtt_comp[SHT20_MQTT_DEW_POINT].name, "DewPoint_%d", i);
 		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_DEW_POINT].state_topic = ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].state_topic;
 		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[SHT20_MQTT_DEW_POINT]));

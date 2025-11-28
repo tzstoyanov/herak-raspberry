@@ -493,13 +493,13 @@ static void scripts_mqtt_init(struct scripts_context_t *ctx)
 	for (i = 0; i < ctx->count; i++) {
 		ctx->scripts[i].mqtt.script.module = SCRIPTS_MODULE;
 		ctx->scripts[i].mqtt.script.platform = "sensor";
-		ctx->scripts[i].mqtt.script.value_template = "{{ value_json.name }}";
+		ctx->scripts[i].mqtt.script.value_template = "{{ value_json['name'] }}";
 		sys_asprintf(&ctx->scripts[i].mqtt.script.name, "%s_script", ctx->scripts[i].name);
 		mqtt_msg_component_register(&ctx->scripts[i].mqtt.script);
 
 		ctx->scripts[i].mqtt.last_run.module = SCRIPTS_MODULE;
 		ctx->scripts[i].mqtt.last_run.platform = "sensor";
-		ctx->scripts[i].mqtt.last_run.value_template = "{{ value_json.last_run }}";
+		ctx->scripts[i].mqtt.last_run.value_template = "{{ value_json['last_run'] }}";
 		sys_asprintf(&ctx->scripts[i].mqtt.last_run.name, "%s_last_run", ctx->scripts[i].name);
 		ctx->scripts[i].mqtt.last_run.state_topic = ctx->scripts[i].mqtt.script.state_topic;
 		mqtt_msg_component_register(&ctx->scripts[i].mqtt.last_run);
@@ -507,7 +507,7 @@ static void scripts_mqtt_init(struct scripts_context_t *ctx)
 
 		ctx->scripts[i].mqtt.next_run.module = SCRIPTS_MODULE;
 		ctx->scripts[i].mqtt.next_run.platform = "sensor";
-		ctx->scripts[i].mqtt.next_run.value_template = "{{ value_json.next_run }}";
+		ctx->scripts[i].mqtt.next_run.value_template = "{{ value_json['next_run'] }}";
 		sys_asprintf(&ctx->scripts[i].mqtt.next_run.name, "%s_next_run", ctx->scripts[i].name);
 		ctx->scripts[i].mqtt.next_run.state_topic = ctx->scripts[i].mqtt.script.state_topic;
 		mqtt_msg_component_register(&ctx->scripts[i].mqtt.next_run);
@@ -517,7 +517,7 @@ static void scripts_mqtt_init(struct scripts_context_t *ctx)
 		ctx->scripts[i].mqtt.corn.platform = "binary_sensor";
 		ctx->scripts[i].mqtt.corn.payload_on = "1";
 		ctx->scripts[i].mqtt.corn.payload_off = "0";
-		ctx->scripts[i].mqtt.corn.value_template = "{{ value_json.cron_enabled }}";
+		ctx->scripts[i].mqtt.corn.value_template = "{{ value_json['cron_enabled'] }}";
 		sys_asprintf(&ctx->scripts[i].mqtt.corn.name, "%s_cron_enabled", ctx->scripts[i].name);
 		ctx->scripts[i].mqtt.corn.state_topic = ctx->scripts[i].mqtt.script.state_topic;
 		mqtt_msg_component_register(&ctx->scripts[i].mqtt.corn);

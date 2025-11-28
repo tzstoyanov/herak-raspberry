@@ -156,7 +156,7 @@ static void sonar_mqtt_init(struct sonar_context_t *ctx)
 	ctx->mqtt_comp.platform = "sensor";
 	ctx->mqtt_comp.dev_class = "distance";
 	ctx->mqtt_comp.unit = "cm";
-	ctx->mqtt_comp.value_template = "{{ value_json.distance }}";
+	ctx->mqtt_comp.value_template = "{{ value_json['distance'] }}";
 	ctx->mqtt_comp.name = "sonar_sensor";
 	mqtt_msg_component_register(&ctx->mqtt_comp);
 }

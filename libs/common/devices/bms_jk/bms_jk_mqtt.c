@@ -276,12 +276,12 @@ void bms_jk_mqtt_init(bms_context_t *ctx, int idx)
 	mqtt->mqtt_comp[i].dev_class = "voltage";
 	mqtt->mqtt_comp[i].unit = "V";
 	mqtt->mqtt_comp[i].name = "cell_0_v";
-	mqtt->mqtt_comp[i].value_template = "{{ value_json.cell_0_v }}";
+	mqtt->mqtt_comp[i].value_template = "{{ value_json['cell_0_v'] }}";
 	mqtt->cells_v->force = true;
 	mqtt_msg_component_register(&mqtt->mqtt_comp[i++]);
 	for (j = 1; j < BMS_MAX_CELLS; j++) {
 		sys_asprintf(&name, "cell_%d_v", j);
-		sys_asprintf(&templ, "{{ value_json.cell_%d_v }}", j);
+		sys_asprintf(&templ, "{{ value_json['cell_%d_v'] }}", j);
 		MQTT_ADD_CELL_V(templ, name);
 	}
 
@@ -291,12 +291,12 @@ void bms_jk_mqtt_init(bms_context_t *ctx, int idx)
 	mqtt->mqtt_comp[i].platform = "sensor";
 	mqtt->mqtt_comp[i].unit = "ohms";
 	mqtt->mqtt_comp[i].name = "cell_0_r";
-	mqtt->mqtt_comp[i].value_template = "{{ value_json.cell_0_r }}";
+	mqtt->mqtt_comp[i].value_template = "{{ value_json['cell_0_r'] }}";
 	mqtt->cells_res->force = true;
 	mqtt_msg_component_register(&mqtt->mqtt_comp[i++]);
 	for (j = 1; j < BMS_MAX_CELLS; j++) {
 		sys_asprintf(&name, "cell_%d_r", j);
-		sys_asprintf(&templ, "{{ value_json.cell_%d_r }}", j);
+		sys_asprintf(&templ, "{{ value_json['cell_%d_r'] }}", j);
 		MQTT_ADD_CELL_RES(templ, name);
 	}
 
@@ -307,32 +307,32 @@ void bms_jk_mqtt_init(bms_context_t *ctx, int idx)
 	mqtt->mqtt_comp[i].dev_class = "voltage";
 	mqtt->mqtt_comp[i].unit = "V";
 	mqtt->mqtt_comp[i].name = "v_avg";
-	mqtt->mqtt_comp[i].value_template = "{{ value_json.v_avg }}";
+	mqtt->mqtt_comp[i].value_template = "{{ value_json['v_avg'] }}";
 	mqtt->bms_data->force = true;
 	mqtt_msg_component_register(&mqtt->mqtt_comp[i++]);
-	MQTT_ADD_BMS_DATA("{{ value_json.v_delta }}", "v_delta", "voltage", "V");
-	MQTT_ADD_BMS_DATA("{{ value_json.cell_v_min }}", "cell_v_min", NULL, NULL);
-	MQTT_ADD_BMS_DATA("{{ value_json.cell_v_max }}", "cell_v_max", NULL, NULL);
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_action }}", "batt_action", NULL, NULL);
-	MQTT_ADD_BMS_DATA("{{ value_json.power_temp }}", "power_temp", "temperature", "°C");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_temp1 }}", "batt_temp1", "temperature", "°C");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_temp2 }}", "batt_temp2", "temperature", "°C");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_temp_mos }}", "batt_temp_mos", "temperature", "°C");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_volt }}", "batt_volt", "voltage", "V");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_power }}", "batt_power", NULL, NULL);
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_state }}", "batt_state", NULL, "%");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_cycles }}", "batt_cycles", NULL, NULL);
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_charge_curr }}", "batt_charge_curr", "current", "A");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_balance_curr }}", "batt_balance_curr", "current", "A");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_cap_rem }}", "batt_cap_rem", NULL, "Ah");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_cap_nom }}", "batt_cap_nom", NULL, "Ah");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_cycles_cap }}", "batt_cycles_cap", NULL, "Ah");
-	MQTT_ADD_BMS_DATA("{{ value_json.soh }}", "soh", NULL, "%");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_v }}", "batt_v", "voltage", "V");
-	MQTT_ADD_BMS_DATA("{{ value_json.batt_heat_a }}", "batt_heat_a", "current", "A");
+	MQTT_ADD_BMS_DATA("{{ value_json['v_delta'] }}", "v_delta", "voltage", "V");
+	MQTT_ADD_BMS_DATA("{{ value_json['cell_v_min'] }}", "cell_v_min", NULL, NULL);
+	MQTT_ADD_BMS_DATA("{{ value_json['cell_v_max'] }}", "cell_v_max", NULL, NULL);
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_action'] }}", "batt_action", NULL, NULL);
+	MQTT_ADD_BMS_DATA("{{ value_json['power_temp'] }}", "power_temp", "temperature", "°C");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_temp1'] }}", "batt_temp1", "temperature", "°C");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_temp2'] }}", "batt_temp2", "temperature", "°C");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_temp_mos'] }}", "batt_temp_mos", "temperature", "°C");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_volt'] }}", "batt_volt", "voltage", "V");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_power'] }}", "batt_power", NULL, NULL);
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_state'] }}", "batt_state", NULL, "%");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_cycles'] }}", "batt_cycles", NULL, NULL);
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_charge_curr'] }}", "batt_charge_curr", "current", "A");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_balance_curr'] }}", "batt_balance_curr", "current", "A");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_cap_rem'] }}", "batt_cap_rem", NULL, "Ah");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_cap_nom'] }}", "batt_cap_nom", NULL, "Ah");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_cycles_cap'] }}", "batt_cycles_cap", NULL, "Ah");
+	MQTT_ADD_BMS_DATA("{{ value_json['soh'] }}", "soh", NULL, "%");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_v'] }}", "batt_v", "voltage", "V");
+	MQTT_ADD_BMS_DATA("{{ value_json['batt_heat_a'] }}", "batt_heat_a", "current", "A");
 	mqtt->mqtt_comp[i].module = mod_name;
 	mqtt->mqtt_comp[i].platform = "binary_sensor";
-	mqtt->mqtt_comp[i].value_template = "{{ value_json.batt_low }}";
+	mqtt->mqtt_comp[i].value_template = "{{ value_json['batt_low'] }}";
 	mqtt->mqtt_comp[i].payload_on = "1";
 	mqtt->mqtt_comp[i].payload_off = "0";
 	mqtt->mqtt_comp[i].name = "batt_low";
@@ -344,13 +344,13 @@ void bms_jk_mqtt_init(bms_context_t *ctx, int idx)
 	mqtt->mqtt_comp[i].module = mod_name;
 	mqtt->mqtt_comp[i].platform = "sensor";
 	mqtt->mqtt_comp[i].name = "Vendor";
-	mqtt->mqtt_comp[i].value_template = "{{ value_json.Vendor }}";
+	mqtt->mqtt_comp[i].value_template = "{{ value_json['Vendor'] }}";
 	mqtt->bms_info->force = true;
 	mqtt_msg_component_register(&mqtt->mqtt_comp[i]);
-	MQTT_ADD_BMS_DEV("{{ value_json.Model }}", "Model");
-	MQTT_ADD_BMS_DEV("{{ value_json.Hardware }}", "Hardware");
-	MQTT_ADD_BMS_DEV("{{ value_json.Software }}", "Software");
-	MQTT_ADD_BMS_DEV("{{ value_json.SerialN }}", "SerialN");
-	MQTT_ADD_BMS_DEV("{{ value_json.Uptime }}", "Uptime");
-	MQTT_ADD_BMS_DEV("{{ value_json.PowerOnCount }}", "PowerOnCount");
+	MQTT_ADD_BMS_DEV("{{ value_json['Model'] }}", "Model");
+	MQTT_ADD_BMS_DEV("{{ value_json['Hardware'] }}", "Hardware");
+	MQTT_ADD_BMS_DEV("{{ value_json['Software'] }}", "Software");
+	MQTT_ADD_BMS_DEV("{{ value_json['SerialN'] }}", "SerialN");
+	MQTT_ADD_BMS_DEV("{{ value_json['Uptime'] }}", "Uptime");
+	MQTT_ADD_BMS_DEV("{{ value_json['PowerOnCount'] }}", "PowerOnCount");
 }
