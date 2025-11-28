@@ -137,20 +137,16 @@ static int ota_meta_parse(struct ota_check_t *check)
 
 	if (check->buff_p < 1)
 		return -1;
-printf("\n\r ota_meta_parse [%s]\n\r", check->buff);
+
 	for (i = 0; i < OTA_MAX_ID; i++) {
 		ota_update_mdata[i].value = strstr(check->buff, ota_update_mdata[i].name);
-		if (!ota_update_mdata[i].value) {
-			printf("\n\r 1: %d\n\r", i);
+		if (!ota_update_mdata[i].value)
 			return -1;
-		}
 		ota_update_mdata[i].value += strlen(ota_update_mdata[i].name);
 		while (*(ota_update_mdata[i].value) == ' ' || *(ota_update_mdata[i].value) == '\t')
 			ota_update_mdata[i].value++;
-		if (*(ota_update_mdata[i].value) == '\0') {
-			printf("\n\r 2: %d\n\r", i);
+		if (*(ota_update_mdata[i].value) == '\0')
 			return -1;
-		}
 	}
 	for (i = 0; i < OTA_MAX_ID; i++) {
 		j = 0;
