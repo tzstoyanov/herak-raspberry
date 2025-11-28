@@ -174,9 +174,9 @@ static void sys_tftp_client_job_run(struct tftp_client_job_t *job)
 
 	if (now > job->last_activity && (now - job->last_activity) > JOB_TIMEOUT_MSEC) {
 		if (IS_DEBUG(job->ctx))
-			hlog_warning(TFTP_CLIENT_MODULE, "Timeout %s file %s %s server %s:%d. (%lld - %lld: %lld)",
+			hlog_warning(TFTP_CLIENT_MODULE, "Timeout %s file %s %s server %s:%d.",
 					     job->get ? "geting" : "puting", job->file->fname, job->get ? "from" : "to",
-						 job->file->peer, job->file->port, now, job->last_activity, now - job->last_activity);
+						 job->file->peer, job->file->port);
 		goto out_err;
 	}
 
