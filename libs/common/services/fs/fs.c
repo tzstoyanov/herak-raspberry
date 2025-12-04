@@ -180,11 +180,29 @@ void fs_cp_reset(struct fs_file_copy_t *copy)
 	copy->started = 0;
 }
 
+static char *fs_get_basename(char *path)
+{
+	unsigned int i = strlen(path);
+	char *fname;
+
+	while (i) {
+		if (path[i] == '/')
+			break;
+		i--;
+	}
+	if (i == strlen(path))
+		return NULL;
+	fname = path + i + 1;
+	if (fname[0] == '/')
+		fname++;
+	return fname;
+}
+
 static int fs_cp_params_parse(char *params, struct fs_file_copy_t *copy)
 {
 	char *src = NULL;
 	char *dst = NULL;
-	unsigned int i;
+	char *dst_new = NULL;
 	int fd;
 
 	fs_cp_reset(copy);
@@ -209,23 +227,30 @@ static int fs_cp_params_parse(char *params, struct fs_file_copy_t *copy)
 	if (copy->src.peer && copy->dst.peer)
 		goto out_err;
 
-	if (!copy->dst.fname || strlen(copy->dst.fname) < 1 ||
-		 copy->dst.fname[strlen(copy->dst.fname) - 1] == '/') {
-			i = strlen(copy->src.fname);
-			while (i) {
-				if (copy->src.fname[i] == '/')
-					break;
-				i--;
-			}
-			if (i == strlen(copy->src.fname))
+	if (!copy->dst.fname || strlen(copy->dst.fname) < 1) {
+		/* destination is local file */
+		if (!dst) {
+			copy->dst.fname = strdup(copy->src.fname);
+		} else if (dst[strlen(dst) - 1] == '/') {
+			src = fs_get_basename(copy->src.fname);
+			if (!src)
 				goto out_err;
-			src = copy->src.fname + i + 1;
-			if (src[0] == '/')
-				src++;
-			sys_asprintf(&dst, "%s%s", copy->dst.fname ? copy->dst.fname : "/", src);
+			sys_asprintf(&dst_new, "%s%s", dst, src);
+			if (!dst_new)
+				goto out_err;
 			free(copy->dst.fname);
-			copy->dst.fname = dst;
+			copy->dst.fname = dst_new;
+		}
+	} else if (copy->dst.fname[strlen(copy->dst.fname) - 1] == '/') {
+		/* destination is tftp directory */
+		src = fs_get_basename(copy->src.fname);
+		if (!src)
+			goto out_err;
+		sys_asprintf(&dst_new, "%s%s", copy->dst.fname, src);
+		free(copy->dst.fname);
+		copy->dst.fname = dst_new;
 	}
+
 	if (!copy->dst.fname)
 		goto out_err;
 
