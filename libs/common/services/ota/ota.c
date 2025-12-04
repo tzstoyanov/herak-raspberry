@@ -182,7 +182,7 @@ static int ota_udate_check_run(struct ota_context_t *ctx, char *params, bool app
 
 		if (!ctx->check.file.fname) {
 			ctx->check.file.fname = strdup(ctx->check.meta_file_name);
-		} else if (ctx->check.file.fname[strlen(ctx->check.file.fname)] == '/') {
+		} else if (ctx->check.file.fname[strlen(ctx->check.file.fname) - 1] == '/') {
 			sys_asprintf(&fname, "%s%s", ctx->check.file.fname, ctx->check.meta_file_name);
 			if (!fname)
 				goto out;
