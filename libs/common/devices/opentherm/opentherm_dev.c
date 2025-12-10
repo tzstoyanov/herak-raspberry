@@ -19,6 +19,8 @@
 
 #define IS_CMD_LOG(C) ((C) && LOG_OCMD_DEBUG)
 
+#define FLAME_MIN_UA	10
+
 opentherm_cmd_response_t
 opentherm_dev_read(opentherm_context_t *ctx, opentherm_cmd_id_t cmd, uint16_t send, uint16_t *value)
 {
@@ -221,14 +223,56 @@ static int ot_cmd_write(opentherm_context_t *ctx, int id, ot_data_t *out, ot_dat
 	return  ret == CMD_RESPONSE_OK ? 0 : -1;
 }
 
+static void opentherm_gas_calc(opentherm_context_t *ctx)
+{
+	static float qp;
+	uint64_t now = time_ms_since_boot();
+	float duration_sec;
+	float mean;
+
+	if (qp == 0.0f)
+		qp = (ctx->data.qmax - ctx->data.qmin) / 100;
+
+	ctx->data.data.mod_level_mean += ctx->data.data.modulation_level;
+	ctx->data.data.mod_level_count++;
+	if (now - ctx->data.data.mod_level_time >= MODULATION_MEASURE_MSEC) {
+		duration_sec = (now - ctx->data.data.mod_level_time) / 1000;
+		if (ctx->data.data.flame_current >= FLAME_MIN_UA) {
+			mean = ctx->data.data.mod_level_mean / ctx->data.data.mod_level_count;
+			ctx->data.data.gas_flow = ctx->data.qmin + (qp * mean);
+			ctx->data.gas_total += (ctx->data.data.gas_flow * duration_sec);
+		} else {
+			ctx->data.data.gas_flow = 0;
+		}
+		if (IS_CMD_LOG(ctx->log_mask))
+			hlog_info(OTHM_MODULE, "Calculated gas flow %fl for %3.2fsec, total %fl",
+					  ctx->data.data.gas_flow, duration_sec, ctx->data.gas_total);
+		ctx->data.data.mod_level_count = 0;
+		ctx->data.data.mod_level_mean = 0;
+		ctx->data.data.mod_level_time = now;
+	}
+	if (now - ctx->data.gas_reset >= GAS_TOTAL_RESET_MSEC && ctx->data.gas_total > 0) {
+		ctx->data.gas_send = true;
+		ctx->data.data.force = true;
+	}
+}
+
 #define DATA_READ(S, V)\
 	{ if ((S) != (V)) { ctx->data.data.force = true; (S) = (V); }}
 static bool opentherm_read_data(opentherm_context_t *ctx)
 {
 	ot_data_t repl = {0};
+	bool flame = false;
 
-	if (!ot_cmd_read(ctx, DATA_ID_REL_MOD_LEVEL, NULL, &repl))
+	if (!ot_cmd_read(ctx, DATA_ID_FLAME_CURRENT, NULL, &repl)) {
+		DATA_READ(ctx->data.data.flame_current, repl.f);
+		flame = true;
+	}
+	if (!ot_cmd_read(ctx, DATA_ID_REL_MOD_LEVEL, NULL, &repl)) {
 		DATA_READ(ctx->data.data.modulation_level, repl.f);
+		if (flame && ctx->data.qmin > 0 && ctx->data.qmax > 0)
+			opentherm_gas_calc(ctx);
+	}
 	if (!ot_cmd_read(ctx, DATA_ID_CH_PRESSURE, NULL, &repl))
 		DATA_READ(ctx->data.data.ch_pressure, repl.f);
 	if (!ot_cmd_read(ctx, DATA_ID_DHW_FLOW_RATE, NULL, &repl))
@@ -241,8 +285,6 @@ static bool opentherm_read_data(opentherm_context_t *ctx)
 		DATA_READ(ctx->data.data.return_temperature, repl.f);
 	if (!ot_cmd_read(ctx, DATA_ID_TEXHAUST, NULL, &repl))
 		DATA_READ(ctx->data.data.exhaust_temperature, repl.f);
-	if (!ot_cmd_read(ctx, DATA_ID_FLAME_CURRENT, NULL, &repl))
-		DATA_READ(ctx->data.data.flame_current, repl.f);
 
 	return true;
 }
@@ -445,6 +487,9 @@ bool opentherm_dev_log(opentherm_context_t *ctx)
 
 	switch (in_progress) {
 	case 0:
+		if (ctx->data.qmin > 0 && ctx->data.qmax > 0)
+			hlog_info(OTHM_MODULE, "Gas consumption between %f and %f l/h",
+					  ctx->data.qmin*60*60, ctx->data.qmax*60*60);
 		hlog_info(OTHM_MODULE, "Params");
 		hlog_info(OTHM_MODULE, "  CH %s / %s",
 					ctx->data.status.ch_enabled ? "enabled" : "disabled",

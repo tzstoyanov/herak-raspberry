@@ -61,6 +61,7 @@ static void opentherm_data_init(opentherm_data_t *data)
 static int opentherm_config_get(opentherm_context_t **ctx)
 {
 	char *config = param_get(OPENTHERM_PINS);
+	char *qm = param_get(OPENTHERM_Q);
 	int rx_pin, tx_pin;
 	char *rest, *tok;
 	int ret = -1;
@@ -80,10 +81,24 @@ static int opentherm_config_get(opentherm_context_t **ctx)
 		goto out;
 	(*ctx)->pio.pio_rx.pin = rx_pin;
 	(*ctx)->pio.pio_tx.pin = tx_pin;
+
+	if (qm && strlen(qm) > 1) {
+		rest = qm;
+		tok = strtok_r(rest, ";", &rest);
+		(*ctx)->data.qmin = strtof(tok, NULL);
+		if ((*ctx)->data.qmin > 0.0) {
+			(*ctx)->data.qmin /= (60*60);	// comvert to l/sec
+		}
+		(*ctx)->data.qmax = strtof(rest, NULL);
+		if ((*ctx)->data.qmax > 0.0) {
+			(*ctx)->data.qmax /= (60*60);	// comvert to l/sec
+		}
+	}
 	ret = 0;
 
 out:
 	free(config);
+	free(qm);
 	return ret;
 }
 

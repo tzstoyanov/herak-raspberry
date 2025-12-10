@@ -7,12 +7,18 @@ The device must be connected using hardware interface board, as the electrical s
 Configuration in the params.txt file:
 ```
 OPENTHERM_PINS     <RX gpio pin>;<TX gpio pin>
+OPENTHERM_Q         <Qmin>;<Qmax>
 ```
 Where `<RX gpio pin>` and `<TX gpio pin>` are the Raspberry PINs where OpenTherm RX and TX are attached.
+`Qmin` and `Qmax` is the minimum and maximum gas consumption, in l/h float number. The `OPENTHERM_Q` parameter is optional, used to calculate gas consumption based on relative modulation levels. If not set, gas consumption will not be calculated.  
+For LPG gas, use that formula to convert from kg/h to l/h:  
+`<l/h> = <kg/h> / 0.514`
 
-Example configuration OpenTherm device, attached to GPIO 15 and 14 pins:
+Example configuration OpenTherm device, attached to GPIO 15 and 14 pins with gas consumption between 0.47kg/h and
+2.24kg/h:
 ```
 OPENTHERM_PINS     15;14
+OPENTHERM_Q        0.914396887;4.357976654
 ```
 
 ## Monitor
@@ -32,6 +38,8 @@ MQTT sensors are auto-discovered by Home Assistant. The state is published using
 &nbsp;&nbsp;&nbsp;&nbsp;`"dhw_temp":<0..100>`   - Domestic hot water temperature.  
 &nbsp;&nbsp;&nbsp;&nbsp;`"ch_press":<0..5>`     - Water pressure of the Central Heating circuit.  
 &nbsp;&nbsp;&nbsp;&nbsp;`"mdl_level":<0..100>`  - Percent modulation between min and max modulation levels.  
+&nbsp;&nbsp;&nbsp;&nbsp;`"gas_flow":<float>`    - Current gas consumption, in L/h.  
+&nbsp;&nbsp;&nbsp;&nbsp;`"gas_total":<float>`   - Accumulated gas consumption for the last 5 minutes, in L.  
 &nbsp;&nbsp;&nbsp;&nbsp;`"flame_ua":<0..100>`   - Flame power.  
 &nbsp;&nbsp;&nbsp;&nbsp;`"ch_max":<0..127>`     - Upper bound for adjustment of max Central Heating set-point.  
 &nbsp;&nbsp;&nbsp;&nbsp;`"ch_min":<0..127>`     - Lower bound for adjustment of max Central Heating set-point.  

@@ -26,6 +26,9 @@ extern "C" {
 #define OTH_MQTT_DATA_LEN	512
 #define OTH_MQTT_COMPONENTS	40
 
+#define GAS_TOTAL_RESET_MSEC	300000	// 5 min
+#define MODULATION_MEASURE_MSEC	1000	// 1 sec
+
 typedef struct {
 	float ch_temperature_setpoint;			// DATA_ID_TSET
 	float dhw_temperature_setpoint;			// DATA_ID_TDHWSET
@@ -72,6 +75,11 @@ typedef struct {	/* Sensors */
 	float dhw_flow_rate;					// DATA_ID_DHW_FLOW_RATE
 	float fan_speed;						// DATA_ID_BOILER_FAN_SPEED
 	int16_t exhaust_temperature;			// DATA_ID_TEXHAUST
+	/* Calculate mean modulation level in MODULATION_MEASURE_MSEC interval */
+	time_t mod_level_time;
+	float gas_flow;
+	int mod_level_count;
+	float mod_level_mean;
 } opentherm_measure_data_t;
 
 typedef struct {	/* status */
@@ -123,6 +131,12 @@ typedef struct {
 	opentherm_device_static_data_t	dev_static;
 	opentherm_status_data_t			status;
 	opentherm_stats_data_t			stats;
+	/* Calculate gas consumption for GAS_TOTAL_RESET_MSEC interval */
+	float qmin; // Minimum gas consumption in liters per sec
+	float qmax;	// Maximum gas in consumption liters per sec
+	time_t gas_reset;
+	float gas_total;
+	bool  gas_send;
 
 	/* write */
 	opentherm_data_write_t param_desired;

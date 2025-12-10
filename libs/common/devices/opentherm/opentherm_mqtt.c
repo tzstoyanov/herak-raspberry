@@ -11,7 +11,7 @@
 
 #define TIME_STR	64
 #define MQTT_SEND_INTERVAL_MS 10000
-#define IS_PIO_LOG(C) ((C) && LOG_MQTT_DEBUG)
+#define IS_CMD_LOG(C) ((C) && LOG_MQTT_DEBUG)
 
 #define ADD_MQTT_MSG(_S_) { if ((len - count) < 0) { printf("MQTT %s: Buffer full\n\r", __func__); return -1; } \
 				count += snprintf(ctx->mqtt.payload + count, len - count, _S_); }
@@ -40,6 +40,13 @@ static int mqtt_data_send(opentherm_context_t *ctx)
 	ADD_MQTT_MSG_VAR(",\"dhw_temp\":%3.2f", ctx->data.data.flame_current);
 	ADD_MQTT_MSG_VAR(",\"ch_press\":%3.2f", ctx->data.data.ch_pressure);
 	ADD_MQTT_MSG_VAR(",\"mdl_level\":%3.2f", ctx->data.data.modulation_level);
+	ADD_MQTT_MSG_VAR(",\"gas_flow\":%3.6f", ctx->data.data.gas_flow * 60 * 60); // L/h
+	if (ctx->data.gas_send) {
+		ADD_MQTT_MSG_VAR(",\"gas_total\":%3.6f", ctx->data.gas_total);
+		ctx->data.gas_send = false;
+		ctx->data.gas_total = 0;
+		ctx->data.gas_reset = time_ms_since_boot();
+	}
 	ADD_MQTT_MSG_VAR(",\"flame_ua\":%3.2f", ctx->data.data.flame_current);
 	ADD_MQTT_MSG_VAR(",\"ch_max\":%d", ctx->data.dev_config.ch_max_cfg);
 	ADD_MQTT_MSG_VAR(",\"ch_min\":%d", ctx->data.dev_config.ch_min_cfg);
@@ -51,7 +58,7 @@ static int mqtt_data_send(opentherm_context_t *ctx)
 	ret = mqtt_msg_component_publish(ctx->mqtt.data, ctx->mqtt.payload);
 	ctx->data.data.force = false;
 	ctx->data.status.force = false;
-	if (IS_PIO_LOG(ctx->log_mask))
+	if (IS_CMD_LOG(ctx->log_mask))
 		hlog_info(OTHM_MODULE, "Published %d bytes MQTT data: %d / %d",
 					strlen(ctx->mqtt.payload), ret, ctx->mqtt.data->force);
 	ctx->data.dev_config.force = false;
@@ -81,7 +88,7 @@ static int mqtt_errors_send(opentherm_context_t *ctx)
 
 	ctx->mqtt.payload[OTH_MQTT_DATA_LEN] = 0;
 	ret = mqtt_msg_component_publish(ctx->mqtt.errors, ctx->mqtt.payload);
-	if (IS_PIO_LOG(ctx->log_mask))
+	if (IS_CMD_LOG(ctx->log_mask))
 		hlog_info(OTHM_MODULE, "Published %d bytes MQTT errors: %d / %d",
 					strlen(ctx->mqtt.payload), ret, ctx->mqtt.errors->force);
 	ctx->data.errors.force = false;
@@ -113,7 +120,7 @@ static int mqtt_stats_send(opentherm_context_t *ctx)
 
 	ctx->mqtt.payload[OTH_MQTT_DATA_LEN] = 0;
 	ret = mqtt_msg_component_publish(ctx->mqtt.stats, ctx->mqtt.payload);
-	if (IS_PIO_LOG(ctx->log_mask))
+	if (IS_CMD_LOG(ctx->log_mask))
 		hlog_info(OTHM_MODULE, "Published %d bytes MQTT statistics: %d / %d",
 					strlen(ctx->mqtt.payload), ret, ctx->mqtt.stats->force);
 
@@ -256,6 +263,8 @@ void opentherm_mqtt_init(opentherm_context_t *ctx)
 	MQTT_ADD_DATA_SENSOR("{{ value_json['ch_press'] }}", "CH_press", "pressure", "bar");
 	MQTT_ADD_DATA_SENSOR("{{ value_json['mdl_level'] }}", "Mod_level", NULL, "%");
 	MQTT_ADD_DATA_SENSOR("{{ value_json['flame_ua'] }}", "Flame_ua", NULL, "uA");
+	MQTT_ADD_DATA_SENSOR("{{ value_json['gas_flow'] }}", "gas_flow", "volume_flow_rate", "L/h");
+	MQTT_ADD_DATA_SENSOR("{{ value_json['gas_total'] }}", "gas_total", "volume_storage", "L");
 	MQTT_ADD_DATA_BINARY("{{ value_json['ch'] }}", "CH");
 	MQTT_ADD_DATA_BINARY("{{ value_json['dhw'] }}", "DHW");
 	MQTT_ADD_DATA_BINARY("{{ value_json['ch_enabled'] }}", "CH_enabled");
