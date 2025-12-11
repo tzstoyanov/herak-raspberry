@@ -353,6 +353,7 @@ static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
 			ssr_api_state_set(dev->ssr_id, dev->ssr_norm_state, 0, 0);
 #endif
 	}
+
 	for (i = 0; i < BMS_MAX_CELLS; i++) {
 		if (!(1<<i & dev->cell_info.cells_enabled))
 			break;
@@ -375,8 +376,9 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 			if (dev->cell_info.cells_v[i] < dev->cell_v_low)
 				dev->cell_info.cells_low_count[i]++;
 			if (dev->cell_info.cells_low_count[i] >= BATT_STATE_COUNT_THR) {
-				hlog_info(BMS_JK_MODULE, "Battery %s is empty: cell %d is %3.2fV",
-						  DEV_NAME(dev), i, (float)(dev->cell_info.cells_v[i] * 0.001));
+				if (dev->batt_state_set)
+					hlog_info(BMS_JK_MODULE, "Battery %s is empty: cell %d is %3.2fV",
+							DEV_NAME(dev), i, (float)(dev->cell_info.cells_v[i] * 0.001));
 				jk_bt_new_batt_state(dev, true);
 				break;
 			}
@@ -395,7 +397,8 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 				break;
 		}
 		if (!(1<<i & dev->cell_info.cells_enabled)) {
-			hlog_info(BMS_JK_MODULE, "Battery %s is full", DEV_NAME(dev));
+			if (dev->batt_state_set)
+				hlog_info(BMS_JK_MODULE, "Battery %s is back to normal", DEV_NAME(dev));
 			jk_bt_new_batt_state(dev, false);
 		}
 	}
