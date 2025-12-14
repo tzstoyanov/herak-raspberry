@@ -40,7 +40,7 @@ WEBHOOK_SERVER
 WEBHOOK_PORT
 WEBHOOK_ENDPOINT
 
-# Config, specific fot selected mudules
+# Configuration, specific for selected modules
 # Look at libs/common/devices/README.md
 # ...
 

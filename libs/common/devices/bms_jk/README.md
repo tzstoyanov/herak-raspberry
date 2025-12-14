@@ -47,7 +47,7 @@ MQTT BMS sensors are auto-discovered by Home Assistant. The state is published u
 &nbsp;&nbsp;&nbsp;&nbsp;`batt_state:<value>` - Battery charge state, %.  
 &nbsp;&nbsp;&nbsp;&nbsp;`batt_cycles:<value>` - Battery charging cycles.  
 &nbsp;&nbsp;&nbsp;&nbsp;`batt_charge_curr:<value>` - Battery charge / discharge current, A.  
-&nbsp;&nbsp;&nbsp;&nbsp;`batt_balance_curr:<value>` - Battery ballance current, A.  
+&nbsp;&nbsp;&nbsp;&nbsp;`batt_balance_curr:<value>` - Battery balance current, A.  
 &nbsp;&nbsp;&nbsp;&nbsp;`batt_cap_rem:<value>` - Battery capacity remaining, Ah.  
 &nbsp;&nbsp;&nbsp;&nbsp;`batt_cycles_cap:<value>` - Battery charging cycle capacity, Ah.  
 &nbsp;&nbsp;&nbsp;&nbsp;`soh:<value>` - State Of Health, %.  
