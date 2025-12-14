@@ -345,7 +345,7 @@ static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
 		dev->full_battery = true;
 		if (dev->ctx->wh_notify && dev->batt_state_set) {
 			snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-					 DEV_NAME(dev), "full");
+					 DEV_NAME(dev), "back to normal");
 			webhook_send(notify_buff);
 		}
 #ifdef HAVE_SSR
