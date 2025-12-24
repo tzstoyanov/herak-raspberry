@@ -86,13 +86,11 @@ static int opentherm_config_get(opentherm_context_t **ctx)
 		rest = qm;
 		tok = strtok_r(rest, ";", &rest);
 		(*ctx)->data.qmin = strtof(tok, NULL);
-		if ((*ctx)->data.qmin > 0.0) {
+		if ((*ctx)->data.qmin > 0.0)
 			(*ctx)->data.qmin /= (60*60);	// comvert to l/sec
-		}
 		(*ctx)->data.qmax = strtof(rest, NULL);
-		if ((*ctx)->data.qmax > 0.0) {
+		if ((*ctx)->data.qmax > 0.0)
 			(*ctx)->data.qmax /= (60*60);	// comvert to l/sec
-		}
 	}
 	ret = 0;
 

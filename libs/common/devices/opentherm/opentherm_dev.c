@@ -181,6 +181,33 @@ opentherm_cmd_uint8arr(opentherm_context_t *ctx, opentherm_cmd_id_t cmd, ot_data
 	return ret;
 }
 
+static int ot_cmd_data_validate(struct val_limits *limits, ot_data_t *val)
+{
+	if (!limits || !val)
+		return -1;
+
+	switch (limits->type) {
+	case DATA_TYPE_I32:
+		if (limits->i32.min <= val->i16 && val->i16 <= limits->i32.max)
+			return 0;
+		break;
+	case DATA_TYPE_U32:
+		if (limits->u32.min <= val->u16 && val->u16 <= limits->u32.max)
+			return 0;
+		break;
+	case DATA_TYPE_FLOAT:
+		if (limits->f.min <= val->f && val->f <= limits->f.max)
+			return 0;
+		break;
+	case DATA_TYPE_NONE:
+		return 0;
+	default:
+		break;
+	}
+
+	return -1;
+}
+
 static int ot_cmd_read(opentherm_context_t *ctx, int id, ot_data_t *out, ot_data_t *in)
 {
 	ot_commands_t *cmd;
@@ -198,6 +225,8 @@ static int ot_cmd_read(opentherm_context_t *ctx, int id, ot_data_t *out, ot_data
 		ctx->dev.ot_commands[id].supported--;
 	if (!ctx->dev.ot_commands[id].supported)
 		hlog_warning(OTHM_MODULE, "Command %d is not supported by the OT device", id);
+	if (ret == CMD_RESPONSE_OK && ot_cmd_data_validate(&ctx->dev.ot_commands[id].limits, in))
+		ret = CMD_RESPONSE_WRONG_PARAM;
 
 	return  ret == CMD_RESPONSE_OK ? 0 : -1;
 }
@@ -270,6 +299,8 @@ static bool opentherm_read_data(opentherm_context_t *ctx)
 	}
 	if (!ot_cmd_read(ctx, DATA_ID_REL_MOD_LEVEL, NULL, &repl)) {
 		DATA_READ(ctx->data.data.modulation_level, repl.f);
+		if (ctx->data.data.modulation_level < 0)
+			ctx->data.data.modulation_level = 0;
 		if (flame && ctx->data.qmin > 0 && ctx->data.qmax > 0)
 			opentherm_gas_calc(ctx);
 	}
@@ -600,74 +631,92 @@ out:
 	ctx->dev.last_send = time_ms_since_boot();
 }
 
-#define CMD_ARR_INIT(A, I, T, F) {\
+#define CMD_ARR_INIT(A, I, T, F, TYPE, MIN, MAX) do {\
 				A[I].cmd_type = (T);\
 				A[I].func = (F);\
+				A[I].limits.type = (TYPE);\
+				switch ((TYPE)) {\
+				case DATA_TYPE_I32:\
+					A[I].limits.i32.min = (MIN);\
+					A[I].limits.i32.max = (MAX);\
+				break;\
+				case DATA_TYPE_U32:\
+					A[I].limits.u32.min = (MIN);\
+					A[I].limits.u32.max = (MAX);\
+				break;\
+				case DATA_TYPE_FLOAT:\
+					A[I].limits.f.min = (MIN);\
+					A[I].limits.f.max = (MAX);\
+				break;\
+				case DATA_TYPE_NONE:\
+				default:\
+				break;\
+				} \
 				A[I].supported = CMD_SUPPORTED_RETRIES;\
-			}
+			} while (0)
 static void commands_init(ot_commands_t *cmds)
 {
-	CMD_ARR_INIT(cmds, DATA_ID_STATUS, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_TSET, CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_PRIMARY_CONFIG, CMD_WRITE, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_SECONDARY_CONFIG, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_COMMAND, CMD_WRITE, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_ASF_FAULT, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_RBP_FLAGS, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_COOLING_CONTROL, CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TSETCH2, CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TROVERRIDE, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TSP_COUNT, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_TSP_DATA, CMD_READ|CMD_WRITE, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_FHB_COUNT, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_FHB_DATA, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_MAX_REL_MODULATION, CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_MAX_CAPACITY_MIN_MODULATION, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_TRSET, CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_REL_MOD_LEVEL, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_CH_PRESSURE, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_DHW_FLOW_RATE, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_DAY_TIME, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_DATE, CMD_READ|CMD_WRITE, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_YEAR, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_TRSETCH2, CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TR, CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TBOILER, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TDHW, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TOUTSIDE, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TRET, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TSTORAGE, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TCOLLECTOR, CMD_READ, opentherm_cmd_int16);
-	CMD_ARR_INIT(cmds, DATA_ID_TFLOWCH2, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TDHW2, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TEXHAUST, CMD_READ, opentherm_cmd_int16);
-	CMD_ARR_INIT(cmds, DATA_ID_BOILER_FAN_SPEED, CMD_READ, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_FLAME_CURRENT, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_TDHWSET_BOUNDS, CMD_READ, opentherm_cmd_int8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_MAXTSET_BOUNDS, CMD_READ, opentherm_cmd_int8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_HCRATIO_BOUNDS, CMD_READ, opentherm_cmd_int8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_TDHWSET, CMD_READ|CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_MAXTSET, CMD_READ|CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_HCRATIO, CMD_READ|CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_BRAND, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_BRAND_VER, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_BRAD_SNUMBER, CMD_READ, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_REMOTE_OVERRIDE_FUNCTION, CMD_READ, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_UNSUCCESSFUL_BURNER_STARTS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_FLAME_SIGNAL_LOW_COUNT, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_OEM_DIAGNOSTIC_CODE, CMD_READ, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_BURNER_STARTS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_CH_PUMP_STARTS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_DHW_PUMP_STARTS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_DHW_BURNER_STARTS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_BURNER_OPERATION_HOURS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_CH_PUMP_OPERATION_HOURS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_DHW_PUMP_OPERATION_HOURS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_DHW_BURNER_OPERATION_HOURS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16);
-	CMD_ARR_INIT(cmds, DATA_ID_OPENTHERM_VERSION_PRIMARY, CMD_WRITE, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_OPENTHERM_VERSION_SECONDARY, CMD_READ, opentherm_cmd_float);
-	CMD_ARR_INIT(cmds, DATA_ID_PRIMARY_VERSION, CMD_WRITE, opentherm_cmd_uint8arr);
-	CMD_ARR_INIT(cmds, DATA_ID_SECONDARY_VERSION, CMD_READ, opentherm_cmd_uint8arr);
+	CMD_ARR_INIT(cmds, DATA_ID_STATUS, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TSET, CMD_WRITE, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_PRIMARY_CONFIG, CMD_WRITE, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_SECONDARY_CONFIG, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_COMMAND, CMD_WRITE, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_ASF_FAULT, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_RBP_FLAGS, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_COOLING_CONTROL, CMD_WRITE, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TSETCH2, CMD_WRITE, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TROVERRIDE, CMD_READ, opentherm_cmd_float, DATA_TYPE_FLOAT, 0, 30);
+	CMD_ARR_INIT(cmds, DATA_ID_TSP_COUNT, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TSP_DATA, CMD_READ|CMD_WRITE, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_FHB_COUNT, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_FHB_DATA, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_MAX_REL_MODULATION, CMD_WRITE, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_MAX_CAPACITY_MIN_MODULATION, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TRSET, CMD_WRITE, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_REL_MOD_LEVEL, CMD_READ, opentherm_cmd_float, DATA_TYPE_FLOAT, 0, 100);
+	CMD_ARR_INIT(cmds, DATA_ID_CH_PRESSURE, CMD_READ, opentherm_cmd_float, DATA_TYPE_FLOAT, 0, 5);
+	CMD_ARR_INIT(cmds, DATA_ID_DHW_FLOW_RATE, CMD_READ, opentherm_cmd_float, DATA_TYPE_FLOAT, 0, 16);
+	CMD_ARR_INIT(cmds, DATA_ID_DAY_TIME, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_DATE, CMD_READ|CMD_WRITE, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_YEAR, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_U32, 0, 65535);
+	CMD_ARR_INIT(cmds, DATA_ID_TRSETCH2, CMD_WRITE, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TR, CMD_WRITE, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TBOILER, CMD_READ, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TDHW, CMD_READ, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TOUTSIDE, CMD_READ, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TRET, CMD_READ, opentherm_cmd_float, DATA_TYPE_FLOAT, -40, 127);
+	CMD_ARR_INIT(cmds, DATA_ID_TSTORAGE, CMD_READ, opentherm_cmd_float, DATA_TYPE_FLOAT, -40, 127);
+	CMD_ARR_INIT(cmds, DATA_ID_TCOLLECTOR, CMD_READ, opentherm_cmd_int16, DATA_TYPE_I32, -40, 250);
+	CMD_ARR_INIT(cmds, DATA_ID_TFLOWCH2, CMD_READ, opentherm_cmd_float, DATA_TYPE_FLOAT, -40, 127);
+	CMD_ARR_INIT(cmds, DATA_ID_TDHW2, CMD_READ, opentherm_cmd_float, DATA_TYPE_FLOAT, -40, 127);
+	CMD_ARR_INIT(cmds, DATA_ID_TEXHAUST, CMD_READ, opentherm_cmd_int16, DATA_TYPE_I32, -40, 500);
+	CMD_ARR_INIT(cmds, DATA_ID_BOILER_FAN_SPEED, CMD_READ, opentherm_cmd_uint16, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_FLAME_CURRENT, CMD_READ, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TDHWSET_BOUNDS, CMD_READ, opentherm_cmd_int8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_MAXTSET_BOUNDS, CMD_READ, opentherm_cmd_int8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_HCRATIO_BOUNDS, CMD_READ, opentherm_cmd_int8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_TDHWSET, CMD_READ|CMD_WRITE, opentherm_cmd_float, DATA_TYPE_FLOAT, 0, 127);
+	CMD_ARR_INIT(cmds, DATA_ID_MAXTSET, CMD_READ|CMD_WRITE, opentherm_cmd_float, DATA_TYPE_FLOAT, 0, 127);
+	CMD_ARR_INIT(cmds, DATA_ID_HCRATIO, CMD_READ|CMD_WRITE, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_BRAND, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_BRAND_VER, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_BRAD_SNUMBER, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_REMOTE_OVERRIDE_FUNCTION, CMD_READ, opentherm_cmd_uint16, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_UNSUCCESSFUL_BURNER_STARTS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_FLAME_SIGNAL_LOW_COUNT, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_OEM_DIAGNOSTIC_CODE, CMD_READ, opentherm_cmd_uint16, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_BURNER_STARTS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_U32, 0, 65535);
+	CMD_ARR_INIT(cmds, DATA_ID_CH_PUMP_STARTS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_U32, 0, 65535);
+	CMD_ARR_INIT(cmds, DATA_ID_DHW_PUMP_STARTS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_U32, 0, 65535);
+	CMD_ARR_INIT(cmds, DATA_ID_DHW_BURNER_STARTS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_U32, 0, 65535);
+	CMD_ARR_INIT(cmds, DATA_ID_BURNER_OPERATION_HOURS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_U32, 0, 65535);
+	CMD_ARR_INIT(cmds, DATA_ID_CH_PUMP_OPERATION_HOURS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_U32, 0, 65535);
+	CMD_ARR_INIT(cmds, DATA_ID_DHW_PUMP_OPERATION_HOURS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_U32, 0, 65535);
+	CMD_ARR_INIT(cmds, DATA_ID_DHW_BURNER_OPERATION_HOURS, CMD_READ|CMD_WRITE, opentherm_cmd_uint16, DATA_TYPE_U32, 0, 65535);
+	CMD_ARR_INIT(cmds, DATA_ID_OPENTHERM_VERSION_PRIMARY, CMD_WRITE, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_OPENTHERM_VERSION_SECONDARY, CMD_READ, opentherm_cmd_float, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_PRIMARY_VERSION, CMD_WRITE, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
+	CMD_ARR_INIT(cmds, DATA_ID_SECONDARY_VERSION, CMD_READ, opentherm_cmd_uint8arr, DATA_TYPE_NONE, 0, 0);
 }
 
 int opentherm_dev_init(opentherm_context_t *ctx)

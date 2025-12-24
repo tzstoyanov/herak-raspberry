@@ -321,10 +321,27 @@ struct opentherm_context_type;
 typedef opentherm_cmd_response_t (*data_handler_t)(struct opentherm_context_type *ctx,
 												   opentherm_cmd_id_t cmd, ot_data_t *out,
 												   ot_data_t *in, bool write);
+
+
+enum val_type {
+	DATA_TYPE_NONE,
+    DATA_TYPE_I32,
+    DATA_TYPE_U32,
+    DATA_TYPE_FLOAT
+};
+struct val_limits{
+	enum val_type type;
+	union {
+		struct { int32_t  min, max; } i32;
+		struct { uint32_t min, max; } u32;
+		struct { float    min, max; } f;
+	};
+};
 typedef struct {
 	opentherm_cmd_id_t id;
 	int cmd_type;
 	int supported;
+	struct val_limits limits;
 	data_handler_t func;
 } ot_commands_t;
 
