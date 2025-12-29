@@ -369,6 +369,9 @@ static void opentherm_read_errors(opentherm_context_t *ctx)
 		ERRORS_READ(ctx->data.errors.fault_burner_starts, repl.u16);
 	if (!ot_cmd_read(ctx, DATA_ID_FLAME_SIGNAL_LOW_COUNT, NULL, &repl))
 		ERRORS_READ(ctx->data.errors.fault_flame_low, repl.u16);
+	if (!ot_cmd_read(ctx, DATA_ID_OEM_DIAGNOSTIC_CODE, NULL, &repl))
+		ERRORS_READ(ctx->data.errors.fault_oem_code, repl.u16);
+
 }
 
 #define STATUS_READ(S, V)\
@@ -558,6 +561,7 @@ bool opentherm_dev_log(opentherm_context_t *ctx)
 		hlog_info(OTHM_MODULE, "  Flame fault: %d", ctx->data.errors.fault_flame);
 		hlog_info(OTHM_MODULE, "  Low air pressure: %d", ctx->data.errors.fault_low_air_pressure);
 		hlog_info(OTHM_MODULE, "  High water temperature fault: %d", ctx->data.errors.fault_high_water_temperature);
+		hlog_info(OTHM_MODULE, "  OEM code: 0x%X", ctx->data.errors.fault_oem_code);
 		in_progress++;
 		break;
 	case 3:

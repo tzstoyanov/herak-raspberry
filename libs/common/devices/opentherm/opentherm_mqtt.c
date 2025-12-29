@@ -84,6 +84,7 @@ static int mqtt_errors_send(opentherm_context_t *ctx)
 	ADD_MQTT_MSG_VAR(",\"fault_code\":%2d", ctx->data.errors.fault_code);
 	ADD_MQTT_MSG_VAR(",\"fault_burn_start\":%2d", ctx->data.errors.fault_burner_starts);
 	ADD_MQTT_MSG_VAR(",\"fault_low_flame\":%2d", ctx->data.errors.fault_flame_low);
+	ADD_MQTT_MSG_VAR(",\"fault_oem_code\":%2d", ctx->data.errors.fault_oem_code);
 	ADD_MQTT_MSG("}");
 
 	ctx->mqtt.payload[OTH_MQTT_DATA_LEN] = 0;
@@ -291,6 +292,7 @@ void opentherm_mqtt_init(opentherm_context_t *ctx)
 	MQTT_ADD_INT_ERROR("{{ value_json['fault_code'] }}", "Fault_Code");
 	MQTT_ADD_INT_ERROR("{{ value_json['fault_burn_start'] }}", "Fault_Burner_Start");
 	MQTT_ADD_INT_ERROR("{{ value_json['fault_low_flame'] }}", "Fault_Low_Flame");
+	MQTT_ADD_INT_ERROR("{{ value_json['fault_oem_code'] }}", "Fault_OEM_Code");
 
 	/* Stats  */
 	ctx->mqtt.stats = &ctx->mqtt.mqtt_comp[i];

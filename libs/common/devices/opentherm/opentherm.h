@@ -106,8 +106,9 @@ typedef struct {	/* Errors */
 	uint8_t diagnostic_event:1;				// DATA_ID_STATUS
 	uint8_t fault_active:1;					// DATA_ID_STATUS
 	uint8_t fault_code;						// DATA_ID_ASF_FAULT
-	uint16_t fault_burner_starts;			//DATA_ID_UNSUCCESSFUL_BURNER_STARTS
-	uint16_t fault_flame_low;				//DATA_ID_FLAME_SIGNAL_LOW_COUNT
+	uint16_t fault_burner_starts;			// DATA_ID_UNSUCCESSFUL_BURNER_STARTS
+	uint16_t fault_flame_low;				// DATA_ID_FLAME_SIGNAL_LOW_COUNT
+	uint16_t fault_oem_code;				// DATA_ID_OEM_DIAGNOSTIC_CODE
 } opentherm_errors_data_t;
 
 typedef struct {	/* Statistics */
@@ -255,7 +256,7 @@ typedef enum {
 	DATA_ID_ELPROD_CUMULATIVE = 112,// n R U16     Cumulative electricity production in KWh.
 	DATA_ID_UNSUCCESSFUL_BURNER_STARTS = 113, // n R u16 Number of un - successful burner starts
 	DATA_ID_FLAME_SIGNAL_LOW_COUNT = 114, // n R u16 Number of times flame signal was too low
-	DATA_ID_OEM_DIAGNOSTIC_CODE = 115,     // R OEM diagnostic code
+	DATA_ID_OEM_DIAGNOSTIC_CODE = 115,     // R u16 OEM diagnostic code
 	DATA_ID_BURNER_STARTS = 116,           // RW Burner starts
 	DATA_ID_CH_PUMP_STARTS = 117,          // RW CH pump starts
 	DATA_ID_DHW_PUMP_STARTS = 118,         // RW DHW pump/valve starts
@@ -325,11 +326,11 @@ typedef opentherm_cmd_response_t (*data_handler_t)(struct opentherm_context_type
 
 enum val_type {
 	DATA_TYPE_NONE,
-    DATA_TYPE_I32,
-    DATA_TYPE_U32,
-    DATA_TYPE_FLOAT
+	DATA_TYPE_I32,
+	DATA_TYPE_U32,
+	DATA_TYPE_FLOAT
 };
-struct val_limits{
+struct val_limits {
 	enum val_type type;
 	union {
 		struct { int32_t  min, max; } i32;
