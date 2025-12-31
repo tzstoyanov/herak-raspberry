@@ -10,6 +10,7 @@ set(PICO_BOARD pico_w)
 set(BOOT_AES_KEY "AESkey")
 
 # Select the modules used in this application. ON / OFF
+option(ADD_OTA "Bootloader and OTA updates" ON) # libs/common/services/ota/README.md
 option(ADD_ONE_WIRE "OneWire" ON)		# # libs/common/devices/one_wire/README.md 
 option(ADD_SSR "Solid State Relays" ON)		# libs/common/devices/ssr/README.md
 option(ADD_SOIL "Soil sensor" ON)		# libs/common/devices/soil/README.md
