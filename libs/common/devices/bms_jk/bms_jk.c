@@ -98,8 +98,8 @@ static void charc_new(struct jk_bms_dev_t *dev, bt_characteristic_t *charc)
 	dev->jk_term_charc.valid = true;
 
 	if (BMC_DEBUG(dev->ctx))
-		hlog_info(BMS_JK_MODULE, "Got new characteristic [%s] %d: properties 0x%X, svc 0x%X ("UUID_128_FMT"), "UUID_128_FMT"",
-				  dev->jk_term_charc.desc, charc->char_id, charc->properties, svc16, svc128, charc->uuid128);
+		hlog_info(BMS_JK_MODULE, "[%s] Got new characteristic [%s] %d: properties 0x%X, svc 0x%X ("UUID_128_FMT"), "UUID_128_FMT"",
+				  DEV_NAME(dev), dev->jk_term_charc.desc, charc->char_id, charc->properties, svc16, svc128, charc->uuid128);
 
 }
 
@@ -275,27 +275,27 @@ static void jk_bt_process_terminal(struct jk_bms_dev_t *dev, bt_characteristicva
 
 	if (dev->jk_term_charc.char_id != val->charId) {
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Not on terminal service, ignoring: %d / %d",
-					  dev->jk_term_charc.char_id != val->charId);
+			hlog_info(BMS_JK_MODULE, "[%s] Not on terminal service, ignoring: %d / %d",
+					  DEV_NAME(dev), dev->jk_term_charc.char_id != val->charId);
 		return;
 	}
 	if (val->len < ssize) {
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Data not enough, ignoring: %d, at least %d expected",
-					  val->len, ssize);
+			hlog_info(BMS_JK_MODULE, "[%s] Data not enough, ignoring: %d, at least %d expected",
+					  DEV_NAME(dev), val->len, ssize);
 		return;
 	}
 
 	if (!memcmp(val->data, jk_notify_pkt_start, ssize)) {
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "New notification detected");
+			hlog_info(BMS_JK_MODULE, "[%s] New notification detected", DEV_NAME(dev));
 		/* New notification starts */
 		dev->nbuff_curr = 0;
 		csize = val->len < NOTIFY_PACKET_SIZE ? val->len : NOTIFY_PACKET_SIZE;
 	} else {
 		/* Assemble previous notification */
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Assemble previous notification: +%d bytes", val->len);
+			hlog_info(BMS_JK_MODULE, "[%s] Assemble previous notification: +%d bytes", DEV_NAME(dev), val->len);
 		csize = NOTIFY_PACKET_SIZE - dev->nbuff_curr;
 		csize = val->len < csize ? val->len : csize;
 	}
@@ -304,18 +304,20 @@ static void jk_bt_process_terminal(struct jk_bms_dev_t *dev, bt_characteristicva
 	dev->nbuff_curr += csize;
 	if (dev->nbuff_curr == NOTIFY_PACKET_SIZE) {
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Processing frame %d of type %d: %d bytes", dev->nbuff[5], dev->nbuff[4], dev->nbuff_curr);
+			hlog_info(BMS_JK_MODULE, "[%s] Processing frame %d of type %d: %d bytes",
+					  DEV_NAME(dev), dev->nbuff[5], dev->nbuff[4], dev->nbuff_curr);
 		if (memcmp(dev->nbuff, jk_notify_pkt_start, ssize)) {
 			if (BMC_DEBUG(dev->ctx))
-				hlog_info(BMS_JK_MODULE, "Invalid start magic [0x%X 0x%X 0x%X 0x%X]",
-						  dev->nbuff[0], dev->nbuff[1], dev->nbuff[2], dev->nbuff[3]);
+				hlog_info(BMS_JK_MODULE, "[%s] Invalid start magic [0x%X 0x%X 0x%X 0x%X]",
+						  DEV_NAME(dev), dev->nbuff[0], dev->nbuff[1], dev->nbuff[2], dev->nbuff[3]);
 			dev->nbuff_curr = 0;
 			return;
 		}
 		crc = calc_crc(dev->nbuff, dev->nbuff_curr - 1);
 		if (crc != dev->nbuff[dev->nbuff_curr - 1]) {
 			if (BMC_DEBUG(dev->ctx))
-				hlog_info(BMS_JK_MODULE, "Broken CRC %d != %d", crc, dev->nbuff[dev->nbuff_curr - 1]);
+				hlog_info(BMS_JK_MODULE, "[%s] Broken CRC %d != %d",
+						  DEV_NAME(dev), crc, dev->nbuff[dev->nbuff_curr - 1]);
 			dev->nbuff_curr = 0;
 			return;
 		}
@@ -412,23 +414,23 @@ static void bms_jk_frame_process(struct jk_bms_dev_t *dev)
 	switch (dev->nbuff[4]) {
 	case 0x01: /* settings, not supported yet */
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Got frame with settings, not supported yet");
+			hlog_info(BMS_JK_MODULE, "[%s] Got frame with settings, not supported yet", DEV_NAME(dev));
 		break;
 	case 0x02: /* cell info */
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Got cell info");
+			hlog_info(BMS_JK_MODULE, "[%s] Got cell info", DEV_NAME(dev));
 		jk_bt_process_cell_frame(dev);
 		if (dev->track_batt_level)
 			jk_bt_check_cell_levels(dev);
 		break;
 	case 0x03: /* device info */
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Got device info");
+			hlog_info(BMS_JK_MODULE, "[%s] Got device info", DEV_NAME(dev));
 		jk_bt_process_device_frame(dev);
 		break;
 	default:
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Got unsupported message type %d", dev->nbuff[4]);
+			hlog_info(BMS_JK_MODULE, "[%s] Got unsupported message type %d", DEV_NAME(dev), dev->nbuff[4]);
 		break;
 	}
 	dev->last_reply = time_ms_since_boot();
@@ -475,7 +477,8 @@ static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_le
 			break;
 		svc = (bt_service_t *)data;
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "New service discovered (0x%X): ["UUID_128_FMT"]", svc->uuid16, UUID_128_PARAM(svc->uuid128));
+			hlog_info(BMS_JK_MODULE, "[%s] New service discovered (0x%X): ["UUID_128_FMT"]",
+					  DEV_NAME(dev), svc->uuid16, UUID_128_PARAM(svc->uuid128));
 		break;
 	case BT_NEW_CHARACTERISTIC:
 		if (data_len != sizeof(bt_characteristic_t))
@@ -484,8 +487,8 @@ static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_le
 		break;
 	case BT_VALUE_RECEIVED:
 		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Data received, terminal is %s / %d",
-					  dev->state == BT_READY ? "ready" : "not ready", dev->state);
+			hlog_info(BMS_JK_MODULE, "[%s] Data received, terminal is %s / %d",
+					  DEV_NAME(dev), dev->state == BT_READY ? "ready" : "not ready", dev->state);
 		if (data_len == sizeof(bt_characteristicvalue_t) && dev->state == BT_READY)
 			jk_bt_process_terminal(dev, (bt_characteristicvalue_t *)data);
 		break;
@@ -518,7 +521,7 @@ static int bms_jk_read_cmd(struct jk_bms_dev_t *dev, uint8_t address, uint32_t v
 	ret = bt_characteristic_write(dev->jk_term_charc.char_id, frame, sizeof(frame));
 
 	if (BMC_DEBUG(dev->ctx))
-		hlog_info(BMS_JK_MODULE, "Requested 0x%X val 0x%X: %d", address, value, ret);
+		hlog_info(BMS_JK_MODULE, "[%s] Requested 0x%X val 0x%X: %d", DEV_NAME(dev), address, value, ret);
 	if (ret == 0)
 		dev->jk_term_charc.send_time = now;
 
@@ -743,7 +746,7 @@ static void bms_jk_timeout_check(bms_context_t *ctx)
 		if (ctx->devices[i]->state != BT_READY ||
 			!TERM_IS_ACTIVE(ctx->devices[i]) ||
 			!ctx->devices[i]->jk_term_charc.notify)
-				continue;
+			continue;
 		if ((now - ctx->devices[i]->last_reply) > ctx->devices[i]->timeout_msec)
 			break;
 	}
@@ -772,33 +775,23 @@ static void bms_jk_process(bms_context_t *ctx)
 static void bms_jk_run(void *context)
 {
 	bms_context_t *ctx = (bms_context_t *)context;
-	struct jk_bms_dev_t *dev;
-	static uint32_t idx;
 	uint64_t now;
-
-	if (idx >= ctx->count)
-		idx = 0;
-
-	dev = ctx->devices[idx];
-	if (dev->state != BT_READY || !TERM_IS_ACTIVE(dev)) {
-		idx++;
-		goto out;
-	}
+	uint8_t i;
 
 	now = time_ms_since_boot();
-	if (dev->wait_reply) {
-		if ((now - dev->send_time) > CMD_TIMEOUT_MS) {
-			dev->nbuff_curr = 0;
-			dev->nbuff_ready = false;
-			dev->wait_reply = false;
-			idx++;
+	for (i = 0; i < ctx->count; i++) {
+		if (ctx->devices[i]->state != BT_READY || !TERM_IS_ACTIVE(ctx->devices[i]))
+			continue;
+		if (ctx->devices[i]->wait_reply) {
+			if ((now - ctx->devices[i]->send_time) > CMD_TIMEOUT_MS) {
+				ctx->devices[i]->nbuff_curr = 0;
+				ctx->devices[i]->nbuff_ready = false;
+				ctx->devices[i]->wait_reply = false;
+			}
+		} else if ((now - ctx->devices[i]->send_time) >= CMD_POLL_MS) {
+			bms_jk_send_request(ctx->devices[i]);
 		}
-	} else if ((now - dev->send_time) >= CMD_POLL_MS) {
-		bms_jk_send_request(dev);
-	} else
-		idx++;
-
-out:
+	}
 	bms_jk_process(ctx);
 	bms_jk_timeout_check(ctx);
 }
@@ -819,6 +812,8 @@ static void bms_jk_log_cells(struct jk_bms_dev_t *dev)
 	hlog_info(BMS_JK_MODULE, "\tJK BMS cells:");
 	hlog_info(BMS_JK_MODULE, "\t Enabled cells: 0x%X", dev->cell_info.cells_enabled);
 	for (i = 0; i < BMS_MAX_CELLS; i++) {
+		if (!dev->cell_info.cells_v[i] && !dev->cell_info.cells_res[i])
+			break;
 		hlog_info(BMS_JK_MODULE, "\t cell %d: %3.2fv, %3.2fohm", i,
 				dev->cell_info.cells_v[i]*0.001, dev->cell_info.cells_res[i]*0.001);
 	}
@@ -879,7 +874,7 @@ static bool bms_jk_log(void *context)
 	time_msec2datetime(&date, time_ms_since_boot() - dev->last_reply);
 	time_date2str(tbuf, TIME_STR_LEN, &date);
 
-	hlog_info(BMS_JK_MODULE, "Device %d status:", idx);
+	hlog_info(BMS_JK_MODULE, "Device %d [%s] status:", idx, DEV_NAME(dev));
 	hlog_info(BMS_JK_MODULE, "\tBT stack is %s, Terminal is %s, notifications are %s",
 			  dev->state == BT_READY ? "Ready" : "Not ready",
 			  TERM_IS_ACTIVE(dev) ? "active" : "not active",
