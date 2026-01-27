@@ -741,11 +741,7 @@ static void bms_jk_timeout_check(bms_context_t *ctx)
 
 	now = time_ms_since_boot();
 	for (i = 0; i < ctx->count; i++) {
-		if (ctx->devices[i]->timeout_msec < 1)
-			continue;
-		if (ctx->devices[i]->state != BT_READY ||
-			!TERM_IS_ACTIVE(ctx->devices[i]) ||
-			!ctx->devices[i]->jk_term_charc.notify)
+		if (!ctx->devices[i]->timeout_msec || !ctx->devices[i]->last_reply)
 			continue;
 		if ((now - ctx->devices[i]->last_reply) > ctx->devices[i]->timeout_msec)
 			break;
@@ -755,8 +751,8 @@ static void bms_jk_timeout_check(bms_context_t *ctx)
 
 	time_msec2datetime(&date, now - ctx->devices[i]->last_reply);
 	time_date2str(tbuf, TIME_STR_LEN, &date);
-	hlog_info(BMS_JK_MODULE, "Timeout on device %s (%s): %s, going to reboot ...",
-			  DEV_NAME(ctx->devices[i]), ctx->devices[i]->name, tbuf);
+	hlog_info(BMS_JK_MODULE, "Timeout on device %s: %s, going to reboot ...",
+			  DEV_NAME(ctx->devices[i]), tbuf);
 
 	system_force_reboot(0);
 }

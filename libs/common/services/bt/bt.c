@@ -86,7 +86,6 @@ struct bt_context_t {
 	struct bt_device_t *devcies[BT_MAX_DEVICES];
 	int dev_count;
 	bool force_init;
-	struct bt_device_t *current_device;
 	bool started;
 	bool running;
 	bool scanning;
@@ -1035,7 +1034,6 @@ out:
 static void sys_bt_run(void *context)
 {
 	struct bt_context_t *ctx = (struct bt_context_t *)context;
-	struct bt_device_t *dev = NULL;
 	int state;
 	int i;
 
@@ -1051,28 +1049,14 @@ static void sys_bt_run(void *context)
 	}
 	if (!ctx->running)
 		return;
-	state = bt_device_state(ctx->current_device);
-	BT_LOCAL_LOCK(ctx);
-	if (ctx->current_device) {
+
+	for (i = 0; i < ctx->dev_count; i++) {
+		state = bt_device_state(ctx->devcies[i]);
 		if (state) {
-			BT_LOCAL_UNLOCK(ctx);
-				bt_reset_device(ctx->current_device, BT_DEV_CONNECTED);
-			BT_LOCAL_LOCK(ctx);
-			ctx->current_device->state_time = time_ms_since_boot();
-			ctx->current_device = NULL;
-		} else if (ctx->current_device->state == BT_DEV_READY)
-			ctx->current_device = NULL;
-	} else {
-		for (i = 0; i < ctx->dev_count; i++) {
-			if (ctx->devcies[i]->state == BT_DEV_READY || ctx->devcies[i]->state == BT_DEV_DISCONNECTED)
-				continue;
-			if (!dev || (dev->state_time > ctx->devcies[i]->state_time))
-				dev = ctx->devcies[i];
+				bt_reset_device(ctx->devcies[i], BT_DEV_CONNECTED);
+			ctx->devcies[i]->state_time = time_ms_since_boot();
 		}
 	}
-	if (dev)
-		ctx->current_device = dev;
-	BT_LOCAL_UNLOCK(ctx);
 }
 
 static bool sys_bt_log(void *context)
