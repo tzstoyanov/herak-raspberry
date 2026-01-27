@@ -153,6 +153,7 @@ static void sys_state_log_start(struct sys_state_context_t  *ctx)
 			  0
 #endif
 			  );
+	sys_state_log_version();
 	sys_state_log_resources();
 	sys_modules_log();
 	ctx->log_status_progress = 0;
@@ -359,7 +360,7 @@ bool sys_state_is_healthy(void)
 
 void sys_state_log_version(void)
 {
-	hlog_info(SYS_STAT_MODULE, "Image %s %s compiled %s, running at %s",
+	hlog_info(SYS_STAT_MODULE, "Image %s %s compiled %s, running on %s",
 			  IMAGE_NAME, SYS_VERSION_STR, SYS_BUILD_DATE, DEV_ARCH);
 }
 

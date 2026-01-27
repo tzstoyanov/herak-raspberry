@@ -46,8 +46,6 @@ static bool sys_ota_log_status(void *context)
 	struct tm date;
 	uint64_t now;
 
-	sys_state_log_version();
-
 	if (ctx->update.started) {
 		now = time_ms_since_boot();
 		time_msec2datetime(&date, now - ctx->update.started);
