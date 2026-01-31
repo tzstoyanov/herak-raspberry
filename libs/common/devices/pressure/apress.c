@@ -22,10 +22,14 @@
 #define MEASURE_INTERVAL_MS 2000
 #define MQTT_DATA_LEN   128
 
+#define APRESS_DEBUG(C)	(C->debug)
+
 // 0-3.3V; 0-10bar	->	a = 0, b = 0.002442
 
 struct apress_sensor_t {
 	struct adc_sensor_t *adc;
+	double a;
+	double b;
 	mqtt_component_t mqtt_comp;
 };
 
@@ -100,8 +104,14 @@ static void apress_run(void *context)
 		return;
 
 	for (i = 0; i < ctx->sensors_count; i++) {
-		if (adc_sensor_measure(ctx->sensors[i].adc))
+		if (adc_sensor_measure(ctx->sensors[i].adc)) {
 			ctx->sensors[i].mqtt_comp.force = true;
+			if (APRESS_DEBUG(ctx))
+				hlog_info(APRESS_MODULE, "Sensor %d: pressure %.10f bars; %.5f volts; %d raw",
+						  i, adc_sensor_get_value(ctx->sensors[i].adc),
+						  adc_sensor_get_volt(ctx->sensors[i].adc),
+						  adc_sensor_get_raw(ctx->sensors[i].adc));
+		}
 	}
 
 	apress_mqtt_send(ctx);
@@ -114,8 +124,12 @@ static bool apress_log(void *context)
 	int i;
 
 	for (i = 0; i < ctx->sensors_count; i++) {
-		hlog_info(APRESS_MODULE, "Sensor %d: pressure %f bars",
-				  i, adc_sensor_get_value(ctx->sensors[i].adc));
+		hlog_info(APRESS_MODULE, "Sensor %d: pressure %.10f bars; %.5f volts; %d raw",
+				  i, adc_sensor_get_value(ctx->sensors[i].adc),
+				  adc_sensor_get_volt(ctx->sensors[i].adc),
+				  adc_sensor_get_raw(ctx->sensors[i].adc));
+		hlog_info(APRESS_MODULE, "\tUsing formula %.10f + %.10f * raw ADC",
+				  ctx->sensors[i].a, ctx->sensors[i].b);
 	}
 
 	return true;
@@ -142,8 +156,8 @@ static bool apress_config_get(struct apress_context_t **ctx)
 	char *config_f = param_get(APRESS_CORR);
 	char *rest, *tok, *rest1, *tok1;
 	int pins[MAX_SENSORS_COUNT];
-	float a[MAX_SENSORS_COUNT];
-	float b[MAX_SENSORS_COUNT];
+	double a[MAX_SENSORS_COUNT];
+	double b[MAX_SENSORS_COUNT];
 	int p, c, j;
 
 	(*ctx) = NULL;
@@ -173,9 +187,9 @@ static bool apress_config_get(struct apress_context_t **ctx)
 		rest1 = tok;
 		while ((tok1 = strtok_r(rest1, ":", &rest1))) {
 			if (j == 0) {
-				a[c] = strtof(tok1, NULL);
+				a[c] = strtod(tok1, NULL);
 			} else if (j == 1) {
-				b[c] = strtof(tok1, NULL);
+				b[c] = strtod(tok1, NULL);
 				c++;
 				break;
 			}
@@ -188,6 +202,8 @@ static bool apress_config_get(struct apress_context_t **ctx)
 			(*ctx)->sensors[j].adc = adc_sensor_init(pins[j], a[j], b[j]);
 			if (!(*ctx)->sensors[j].adc)
 				break;
+			(*ctx)->sensors[j].a = a[j];
+			(*ctx)->sensors[j].b = b[j];
 		}
 
 		if (j >= p)
