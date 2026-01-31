@@ -38,12 +38,13 @@ static struct {
 struct adc_sensor_t {
 	int pin;
 	unsigned int adc_id;
-	float a;
-	float b;
+	double a;
+	double b;
 	uint32_t samples[MEASURE_COUNT];
 	float value;
 	float volt;
 	float percent;
+	uint32_t raw;
 };
 
 static void adc_sys_init(void)
@@ -61,7 +62,7 @@ static void adc_sys_init(void)
 	init = true;
 }
 
-struct adc_sensor_t *adc_sensor_init(int pin, float a, float b)
+struct adc_sensor_t *adc_sensor_init(int pin, double a, double b)
 {
 	struct adc_sensor_t sensor, *s;
 	unsigned int i;
@@ -94,7 +95,7 @@ bool adc_sensor_measure(struct adc_sensor_t *sensor)
 {
 	bool ret = false;
 	uint32_t av;
-	float val;
+	double val;
 	int p, i;
 
 	if (!sensor)
@@ -117,6 +118,8 @@ bool adc_sensor_measure(struct adc_sensor_t *sensor)
 	/* filter biggest and smallest */
 	av = samples_filter(sensor->samples, MEASURE_COUNT, MEASURE_DROP);
 
+	if (sensor->raw != av)
+		sensor->raw = av;
 	val = ADC_CONVERS(av);
 	if (sensor->volt != val) {
 		sensor->volt = val;
@@ -136,6 +139,13 @@ bool adc_sensor_measure(struct adc_sensor_t *sensor)
 	}
 
 	return ret;
+}
+
+uint32_t adc_sensor_get_raw(struct adc_sensor_t *sensor)
+{
+	if (sensor)
+		return sensor->raw;
+	return 0;
 }
 
 float adc_sensor_get_value(struct adc_sensor_t *sensor)
