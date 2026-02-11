@@ -21,6 +21,7 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - [Persistent user configuration](libs/common/services/cfg_store/README.md)
 - [Scripts](libs/common/services/scripts/README.md)
 - [OTA Updates](libs/common/services/ota/README.md)
+- [WoL sender](libs/common/services/wol/README.md)
 - Watchdog
 
 ### Devices and Sensors:

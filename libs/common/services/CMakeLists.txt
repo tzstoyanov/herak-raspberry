@@ -64,6 +64,10 @@ if(ADD_OTA)
    include(${CMAKE_CURRENT_LIST_DIR}/ota/CMakeLists.txt)
 endif()
 
+if(ADD_WOL)
+   include(${CMAKE_CURRENT_LIST_DIR}/wol/CMakeLists.txt)
+endif()
+
 target_sources(${lib_name} INTERFACE
    ${CMAKE_CURRENT_LIST_DIR}/systems_init.c
 )

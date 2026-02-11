@@ -86,4 +86,8 @@ void systems_register_and_init(void)
 	SYS_REGISTER(sys_ota_register);
 #endif /* HAVE_OTA */
 
+#ifdef HAVE_WOL
+	SYS_REGISTER(sys_wol_register);
+#endif /* HAVE_WOL */
+
 }

@@ -12,4 +12,5 @@
 - [Commands engine](commands/README.md)
 - [System Commands](syscmd/README.md)
 - [Scripts](scripts/README.md)
+- [WoL](wol/README.md)
 
