@@ -24,7 +24,7 @@ static const uint8_t __in_flash() jk_request_pkt_start[] = {0xAA, 0x55, 0x90, 0x
 
 #define TIME_STR_LEN	64
 
-#define	WH_PAYLOAD_TEMPLATE "Battery %s is %s"
+#define	WH_PAYLOAD_TEMPLATE "Battery %s state is %s"
 
 #define DEV_NAME(D) ((D)->user_name ? (D)->user_name : (D)->name)
 
@@ -325,6 +325,40 @@ static void jk_bt_process_terminal(struct jk_bms_dev_t *dev, bt_characteristicva
 	}
 }
 
+/* Run automation scripts on battery state change */
+static void jk_bt_run_state_scripts(struct jk_bms_dev_t *dev)
+{
+	/* Disable running scripts */
+	if (dev->full_battery) {
+		if (dev->scripts_empty && dev->script_empty_prefix)
+			script_auto(dev->script_empty_prefix, true, false);
+	} else {
+		if (dev->scripts_normal && dev->script_normal_prefix)
+			script_auto(dev->script_normal_prefix, true, false);
+	}
+
+	/* Run new scripts on battery state */
+	if (dev->full_battery) {
+		if (dev->scripts_normal && dev->script_normal_prefix) {
+			script_auto(dev->script_normal_prefix, true, true);
+			script_run(dev->script_normal_prefix, true);
+
+			if (BMC_DEBUG(dev->ctx))
+				hlog_info(BMS_JK_MODULE, "Run %d [%s] scripts",
+						  dev->scripts_normal, dev->script_normal_prefix);
+		}
+	} else {
+		if (dev->scripts_empty && dev->script_empty_prefix) {
+			script_auto(dev->script_empty_prefix, true, true);
+			script_run(dev->script_empty_prefix, true);
+
+			if (BMC_DEBUG(dev->ctx))
+				hlog_info(BMS_JK_MODULE, "Run %d [%s] scripts",
+						  dev->scripts_empty, dev->script_empty_prefix);
+		}
+	}
+}
+
 static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
 {
 	char notify_buff[WH_PAYLOAD_MAX_SIZE];
@@ -337,6 +371,8 @@ static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
 					 DEV_NAME(dev), "empty");
 			webhook_send(notify_buff);
 		}
+		jk_bt_run_state_scripts(dev);
+
 #ifdef HAVE_SSR
 		if (dev->ssr_trigger)
 			ssr_api_state_set(dev->ssr_id, !dev->ssr_norm_state, 0, 0);
@@ -347,9 +383,10 @@ static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
 		dev->full_battery = true;
 		if (dev->ctx->wh_notify && dev->batt_state_set) {
 			snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-					 DEV_NAME(dev), "back to normal");
+					 DEV_NAME(dev), "normal");
 			webhook_send(notify_buff);
 		}
+		jk_bt_run_state_scripts(dev);
 #ifdef HAVE_SSR
 		if (dev->ssr_trigger)
 			ssr_api_state_set(dev->ssr_id, dev->ssr_norm_state, 0, 0);
@@ -439,6 +476,35 @@ static void bms_jk_frame_process(struct jk_bms_dev_t *dev)
 	dev->wait_reply = false;
 }
 
+static void jk_bt_find_auto_scripts(struct jk_bms_dev_t *dev)
+{
+
+	if (dev->scripts_normal || dev->scripts_empty)
+		return;
+
+	if (dev->script_normal_prefix)
+		free(dev->script_normal_prefix);
+	dev->script_normal_prefix = NULL;
+	sys_asprintf(&dev->script_normal_prefix, "%s_normal_", DEV_NAME(dev));
+	if (dev->script_normal_prefix) {
+		dev->scripts_normal = script_exist(dev->script_normal_prefix, true);
+		if (BMC_DEBUG(dev->ctx))
+			hlog_info(BMS_JK_MODULE, "Found %d scripts for normal state with prefix [%s]",
+					  dev->scripts_normal, dev->script_normal_prefix);
+	}
+
+	if (dev->script_empty_prefix)
+		free(dev->script_empty_prefix);
+	dev->script_empty_prefix = NULL;
+	sys_asprintf(&dev->script_empty_prefix, "%s_low_", DEV_NAME(dev));
+	if (dev->script_empty_prefix) {
+		dev->scripts_empty = script_exist(dev->script_empty_prefix, true);
+		if (BMC_DEBUG(dev->ctx))
+			hlog_info(BMS_JK_MODULE, "Found %d scripts for empty state with prefix [%s]",
+					  dev->scripts_empty, dev->script_empty_prefix);
+	}
+}
+
 static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_len, void *context)
 {
 	struct jk_bms_dev_t *dev = (struct jk_bms_dev_t *)context;
@@ -457,6 +523,8 @@ static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_le
 		dev->state = BT_CONNECTED;
 		dev->last_reply = time_ms_since_boot();
 		dev->connect_count++;
+		if (dev->track_batt_level)
+			jk_bt_find_auto_scripts(dev);
 		break;
 	case BT_DISCONNECTED:
 		if (dev->state != BT_DISCONNECTED)
@@ -894,6 +962,11 @@ static bool bms_jk_log(void *context)
 		hlog_info(BMS_JK_MODULE, "\tTrack battery state between %3.2fV and %3.2fV",
 				  dev->cell_v_low * 0.001, dev->cell_v_high * 0.001);
 		hlog_info(BMS_JK_MODULE, "\tBattery level is %s", dev->full_battery ? "normal" : "low");
+		hlog_info(BMS_JK_MODULE, "\tAuto scripts: [%s*.run] %d , [%s*.run] %d",
+				  dev->script_normal_prefix ? dev->script_normal_prefix : "normal",
+				  dev->scripts_normal,
+				  dev->script_empty_prefix ? dev->script_empty_prefix : "low",
+				  dev->scripts_empty);
 		if (dev->ssr_trigger) {
 			hlog_info(BMS_JK_MODULE, "\tSwitch SSR %d on normal battery to %s",
 					  dev->ssr_id, dev->ssr_norm_state ? "ON" : "OFF");

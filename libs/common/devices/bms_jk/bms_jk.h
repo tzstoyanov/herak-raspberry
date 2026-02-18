@@ -138,6 +138,12 @@ struct jk_bms_dev_t {
 	uint16_t cell_v_low;	// threshold of cell voltage for empty battery
 	uint16_t cell_v_high;	// threshold of cell voltage for non-empty battery
 
+	/* Actions on battery state */
+	char *script_normal_prefix;
+	int scripts_normal;
+	char *script_empty_prefix;
+	int scripts_empty;
+
 	/* SSR trigger on non-empty battery */
 	bool ssr_trigger;
 	uint8_t ssr_id;			// ID of the SSR, that will be triggered on battery state
