@@ -97,6 +97,13 @@ struct scripts_context_t {
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 };
 
+static struct scripts_context_t *__script_global_ctx;
+
+static struct scripts_context_t *script_context_get(void)
+{
+	return __script_global_ctx;
+}
+
 static bool sys_scripts_log_status(void *context)
 {
 	struct scripts_context_t *ctx = (struct scripts_context_t *)context;
@@ -168,7 +175,7 @@ static void script_cron_set_next(struct scripts_context_t *ctx, struct script_t 
 
 }
 
-static int script_param_load (struct script_t *script, char *param)
+static int script_param_load(struct script_t *script, char *param)
 {
 	const char *err;
 	char *data;
@@ -322,7 +329,7 @@ out:
 		pico_dir_close(fd);
 }
 
-static void script_run(struct scripts_context_t *ctx)
+static void script_exec(struct scripts_context_t *ctx)
 {
 	struct tm date;
 	char *ldata;
@@ -465,7 +472,7 @@ static void sys_scripts_run(void *context)
 		return;
 
 	if (ctx->run) {
-		script_run(ctx);
+		script_exec(ctx);
 		return;
 	}
 
@@ -550,67 +557,74 @@ static bool sys_scripts_init(struct scripts_context_t **ctx)
 	scripts_mqtt_init(*ctx);
 	(*ctx)->cmd_ctx.type = CMD_CTX_SCRIPT;
 
+	__script_global_ctx = (*ctx);
+
 	return true;
+}
+
+static int script_name_auto_run(struct scripts_context_t *ctx, char *name, bool enable, bool prefix_match)
+{
+	int i, c = 0;
+
+	for (i = 0; i < ctx->count; i++) {
+		if (prefix_match) {
+			if (strlen(name) > strlen(ctx->scripts[i].name))
+				continue;
+		} else {
+			if (strlen(name) != strlen(ctx->scripts[i].name))
+				continue;
+		}
+		if (strncmp(name, ctx->scripts[i].name, strlen(name)))
+			continue;
+		if (!ctx->scripts[i].cron.valid)
+			continue;
+		if (enable) {
+			ctx->scripts[i].cron.enable = true;
+			script_cron_set_next(ctx, &ctx->scripts[i]);
+		} else {
+			ctx->scripts[i].cron.enable = false;
+			ctx->scripts[i].cron.next = 0;
+		}
+		ctx->scripts[i].mqtt.script.force = true;
+		c++;
+		if (!prefix_match)
+			break;
+	}
+
+	if (!c)
+		return -1;
+	return 0;
+}
+
+static int script_name_run(struct scripts_context_t *ctx, char *name, bool prefix_match)
+{
+	int i, c = 0;
+
+	for (i = 0; i < ctx->count; i++) {
+		if (prefix_match) {
+			if (strlen(name) > strlen(ctx->scripts[i].name))
+				continue;
+		} else {
+			if (strlen(name) != strlen(ctx->scripts[i].name))
+				continue;
+		}
+		if (strncmp(name, ctx->scripts[i].name, strlen(name)))
+			continue;
+		ctx->scripts[i].run = true;
+		c++;
+		if (!prefix_match)
+			break;
+	}
+	if (!c)
+		return -1;
+	return 0;
 }
 
 static int scripts_cmd_auto_run(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
 {
 	struct scripts_context_t *wctx = (struct scripts_context_t *)user_data;
-	char *tok, *rest;
-	int i, k;
-
-	UNUSED(cmd);
-	UNUSED(ctx);
-
-	if (!params || params[0] != ':' || strlen(params) < 2) {
-		hlog_info(SCRIPTS_MODULE, "Invalid name parameter ...");
-		return 0;
-	}
-
-	tok = strtok_r(params, ":", &rest);
-	if (!tok)
-		return -1;
-	for (i = 0; i < wctx->count; i++) {
-		if (strlen(tok) != strlen(wctx->scripts[i].name))
-			continue;
-		if (strncmp(tok, wctx->scripts[i].name, strlen(tok)))
-			continue;
-		break;
-	}
-	if (i >= wctx->count) {
-		hlog_info(SCRIPTS_MODULE, "Cannot find script with name [%s]", tok);
-		return -1;
-	}
-	if (!wctx->scripts[i].cron.valid) {
-		hlog_info(SCRIPTS_MODULE, "Script [%s] has no configured cron schedule", wctx->scripts[i].name);
-		return -1;
-	}
-	tok = strtok_r(rest, ":", &rest);
-	if (!tok)
-		return -1;
-	k = (int)strtol(tok, NULL, 0);
-	if (k) {
-		wctx->scripts[i].cron.enable = true;
-		script_cron_set_next(wctx, &wctx->scripts[i]);
-	} else {
-		wctx->scripts[i].cron.enable = false;
-		wctx->scripts[i].cron.next = 0;
-	}
-
-	wctx->scripts[i].mqtt.script.force = true;
-
-	hlog_info(SCRIPTS_MODULE, "%s autorun of script [%s]",
-			  wctx->scripts[i].cron.enable ? "Enabled" : "Disabled",
-			  wctx->scripts[i].name);
-
-	return 0;
-}
-
-static int scripts_cmd_run(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
-{
-	struct scripts_context_t *wctx = (struct scripts_context_t *)user_data;
-	char *name, *rest;
-	int i;
+	char *tok, *rest, *name;
+	int k;
 
 	UNUSED(cmd);
 	UNUSED(ctx);
@@ -621,16 +635,38 @@ static int scripts_cmd_run(cmd_run_context_t *ctx, char *cmd, char *params, void
 	}
 
 	name = strtok_r(params, ":", &rest);
-	for (i = 0; i < wctx->count; i++) {
-		if (strlen(name) != strlen(wctx->scripts[i].name))
-			continue;
-		if (strncmp(name, wctx->scripts[i].name, strlen(name)))
-			continue;
-		wctx->scripts[i].run = true;
-		break;
+	if (!name)
+		return -1;
+	tok = strtok_r(rest, ":", &rest);
+	if (!tok)
+		return -1;
+	k = (int)strtol(tok, NULL, 0);
+	if (script_name_auto_run(wctx, name, k, false)) {
+		hlog_info(SCRIPTS_MODULE, "Failed to auto run script with name [%s]", name);
+			return -1;
 	}
 
-	if (i >= wctx->count)
+	hlog_info(SCRIPTS_MODULE, "%s autorun of script [%s]",
+			  k ? "Enabled" : "Disabled", name);
+
+	return 0;
+}
+
+static int scripts_cmd_run(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	struct scripts_context_t *wctx = (struct scripts_context_t *)user_data;
+	char *name, *rest;
+
+	UNUSED(cmd);
+	UNUSED(ctx);
+
+	if (!params || params[0] != ':' || strlen(params) < 2) {
+		hlog_info(SCRIPTS_MODULE, "Invalid name parameter ...");
+		return 0;
+	}
+
+	name = strtok_r(params, ":", &rest);
+	if (script_name_run(wctx, name, false))
 		hlog_info(SCRIPTS_MODULE, "Cannot find script with name [%s]", name);
 
 	return 0;
@@ -657,4 +693,51 @@ void sys_scripts_register(void)
 	ctx->mod.commands.description = "Scripts";
 	ctx->mod.context = ctx;
 	sys_module_register(&ctx->mod);
+}
+
+/* APIs */
+int script_exist(char *name, bool prefix_match)
+{
+	struct scripts_context_t *ctx = script_context_get();
+	int i, c = 0;
+
+	if (!ctx)
+		return -1;
+
+	for (i = 0; i < ctx->count; i++) {
+		if (prefix_match) {
+			if (strlen(name) > strlen(ctx->scripts[i].name))
+				continue;
+		} else {
+			if (strlen(name) != strlen(ctx->scripts[i].name))
+				continue;
+		}
+		if (strncmp(name, ctx->scripts[i].name, strlen(name)))
+			continue;
+		c++;
+		if (!prefix_match)
+			break;
+	}
+
+	return c;
+}
+
+int script_run(char *name, bool prefix_match)
+{
+	struct scripts_context_t *ctx = script_context_get();
+
+	if (!ctx)
+		return -1;
+
+	return script_name_run(ctx, name, prefix_match);
+}
+
+int script_auto(char *name, bool prefix_match, bool enable)
+{
+	struct scripts_context_t *ctx = script_context_get();
+
+	if (!ctx)
+		return -1;
+
+	return script_name_auto_run(ctx, name, enable, prefix_match);
 }

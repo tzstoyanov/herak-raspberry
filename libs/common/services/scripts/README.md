@@ -1,6 +1,6 @@
 # Scripts
 
-The script engine runs scripts from files, saved in the file system of the device. A script is a list of commands, executed one after another in the order from the file. On startup, all files from the `/scripts` directory with extension `.run` are loaded as scripts. The files can be uploaded to the device using [tftp](../tftp_srv/README.md).  
+The script engine runs scripts from files, saved in the file system of the device. A script is a list of commands, executed one after another in the order from the file. On startup, all files from the `/scripts` directory with extension `.run` are loaded as scripts. The files can be uploaded to the device using [tftp](../tftp_client/README.md).  
 - Scripts are loaded only at boot time. If a new script is uploaded, the device must be rebooted to load it.  
 - The format of the script file is:  
 `@name <script name>` - optional, the name of the script, used to address it. If the name is not set, the name of the file is used (without the extension).  
@@ -39,6 +39,12 @@ Example command for running a script. The device has address `192.168.1.1`, list
 - Using HTTP: `curl http://192.168.1.1:8080/scripts?run:ssr_trigger`
 - Using MQTT: send request to topic `test/dev/command` with content `scripts?run:ssr_trigger`.
 
+## API
+```
+int script_exist(char *name, bool prefix_match);
+int script_run(char *name, bool prefix_match);
+int script_auto(char *name, bool prefix_match, bool enable);
+```
 
 ## Credits
 [https://github.com/staticlibs/ccronexpr](https://github.com/staticlibs/ccronexpr)
