@@ -37,7 +37,7 @@ static int mqtt_data_send(opentherm_context_t *ctx)
 	ADD_MQTT_MSG_VAR(",\"flow_temp\":%3.2f", ctx->data.data.flow_temperature);
 	ADD_MQTT_MSG_VAR(",\"ret_temp\":%3.2f", ctx->data.data.return_temperature);
 	ADD_MQTT_MSG_VAR(",\"exh_temp\":%d", ctx->data.data.exhaust_temperature);
-	ADD_MQTT_MSG_VAR(",\"dhw_temp\":%3.2f", ctx->data.data.flame_current);
+	ADD_MQTT_MSG_VAR(",\"dhw_temp\":%3.2f", ctx->data.data.dhw_temperature);
 	ADD_MQTT_MSG_VAR(",\"ch_press\":%3.2f", ctx->data.data.ch_pressure);
 	ADD_MQTT_MSG_VAR(",\"mdl_level\":%3.2f", ctx->data.data.modulation_level);
 	ADD_MQTT_MSG_VAR(",\"gas_flow\":%3.6f", ctx->data.data.gas_flow * 60 * 60); // L/h
