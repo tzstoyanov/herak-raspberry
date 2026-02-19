@@ -372,11 +372,6 @@ static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
 			webhook_send(notify_buff);
 		}
 		jk_bt_run_state_scripts(dev);
-
-#ifdef HAVE_SSR
-		if (dev->ssr_trigger)
-			ssr_api_state_set(dev->ssr_id, !dev->ssr_norm_state, 0, 0);
-#endif
 	}
 
 	if (!empty && !dev->full_battery) {
@@ -387,10 +382,6 @@ static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
 			webhook_send(notify_buff);
 		}
 		jk_bt_run_state_scripts(dev);
-#ifdef HAVE_SSR
-		if (dev->ssr_trigger)
-			ssr_api_state_set(dev->ssr_id, dev->ssr_norm_state, 0, 0);
-#endif
 	}
 
 	for (i = 0; i < BMS_MAX_CELLS; i++) {
@@ -600,7 +591,6 @@ static int bms_jk_read_cmd(struct jk_bms_dev_t *dev, uint8_t address, uint32_t v
 #define BMS_MODEL_STR   "JK"
 static bool get_bms_config(bms_context_t **ctx)
 {
-	char *bt_batt_switch = USER_PRAM_GET(BMS_BATT_SWITCH);
 	char *bt_batt_cell = USER_PRAM_GET(BMS_CELL_LEVELS);
 	char *bt_timeout = USER_PRAM_GET(BMS_TIMEOUT_SEC);
 	char *bt_mod = USER_PRAM_GET(BMS_MODEL);
@@ -687,23 +677,6 @@ static bool get_bms_config(bms_context_t **ctx)
 		}
 	}
 
-	if (bt_batt_switch && strlen(bt_batt_switch) >= 1) {
-		rest = bt_batt_switch;
-		i = 0;
-		while ((dev = strtok_r(rest, ";", &rest))) {
-			rest1 = dev;
-			mod = strtok_r(rest1, "-", &rest1);
-			if (!mod || !rest1)
-				continue;
-			(*ctx)->devices[i]->ssr_id = (uint16_t)(strtol(mod, NULL, 0));
-			(*ctx)->devices[i]->ssr_norm_state = (bool)(strtol(rest1, NULL, 0));
-			(*ctx)->devices[i]->ssr_trigger = true;
-			i++;
-			if (i >= (*ctx)->count)
-				break;
-		}
-	}
-
 	if (bt_name && strlen(bt_name) >= 1) {
 		rest = bt_name;
 		i = 0;
@@ -725,8 +698,6 @@ out:
 	free(bt_mod);
 	if (bt_batt_cell)
 		free(bt_batt_cell);
-	if (bt_batt_switch)
-		free(bt_batt_switch);
 	if (bt_wh_notify)
 		free(bt_wh_notify);
 	if (bt_timeout)
@@ -967,10 +938,6 @@ static bool bms_jk_log(void *context)
 				  dev->scripts_normal,
 				  dev->script_empty_prefix ? dev->script_empty_prefix : "low",
 				  dev->scripts_empty);
-		if (dev->ssr_trigger) {
-			hlog_info(BMS_JK_MODULE, "\tSwitch SSR %d on normal battery to %s",
-					  dev->ssr_id, dev->ssr_norm_state ? "ON" : "OFF");
-		}
 	}
 
 	idx++;

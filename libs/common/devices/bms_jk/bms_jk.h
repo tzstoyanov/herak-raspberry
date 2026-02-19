@@ -144,11 +144,6 @@ struct jk_bms_dev_t {
 	char *script_empty_prefix;
 	int scripts_empty;
 
-	/* SSR trigger on non-empty battery */
-	bool ssr_trigger;
-	uint8_t ssr_id;			// ID of the SSR, that will be triggered on battery state
-	bool ssr_norm_state;	// SSR state on non-empty battery
-
 	struct bms_context_type *ctx;
 };
 
