@@ -6,7 +6,7 @@ using Raspberry C SDK and runs directly on Raspberry PicoW and Pico2W without an
 Support for all services, devices and sensors is implemented as modules. Modules can be easily selected and combined together into a single application, depending on the use cases and available hardware resources.  
 
 ### Services:
-- [Internet](libs/common/services/wifi/README.md)
+- [Network](libs/common/services/wifi/README.md)
 - [File System](libs/common/services/fs/README.md)
 - [NTP client](libs/common/services/ntp/README.md)
 - [Bluetooth](libs/common/services/bt/README.md)

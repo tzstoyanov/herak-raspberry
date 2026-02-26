@@ -561,7 +561,7 @@ static void sys_webhook_run(void *context)
 	struct wh_context_t *ctx = (struct wh_context_t *)context;
 	static bool connected;
 
-	if (!wifi_is_connected()) {
+	if (!WIFI_IS_CONNECTED) {
 		if (connected) {
 			webhook_disconnect(&ctx->wh_srv);
 			connected = false;

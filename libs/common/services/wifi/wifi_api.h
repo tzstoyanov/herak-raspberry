@@ -10,7 +10,15 @@
 extern "C" {
 #endif
 
-bool wifi_is_connected(void);
+typedef enum {
+    WIFI_OFF,
+    WIFI_CONNECTED,
+    WIFI_NOT_CONNECTED
+} wifi_state_t;
+
+wifi_state_t wifi_get_state(void);
+
+#define WIFI_IS_CONNECTED   (wifi_get_state() == WIFI_CONNECTED)
 
 #ifdef __cplusplus
 }

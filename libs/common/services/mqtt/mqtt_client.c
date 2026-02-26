@@ -651,7 +651,7 @@ static bool mqtt_connect(struct mqtt_context_t *ctx)
 	uint64_t now;
 	int ret;
 
-	if (!wifi_is_connected()) {
+	if (!WIFI_IS_CONNECTED) {
 		if (mqtt_is_connected_ctx(ctx)) {
 			if (IS_DEBUG(ctx))
 				hlog_info(MQTT_MODULE, "No WiFi, force reconnection");

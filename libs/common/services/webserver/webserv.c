@@ -581,7 +581,7 @@ static void sys_webhook_run(void *context)
 			return;
 	}
 
-	if (!wifi_is_connected()) {
+	if (!WIFI_IS_CONNECTED) {
 		if (connected) {
 			sys_webserv_reconnect(ctx);
 			connected = false;

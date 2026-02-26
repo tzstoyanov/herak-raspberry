@@ -189,7 +189,7 @@ static void sys_log_connect(void *context)
 	uint64_t now;
 	int res;
 
-	if (!ctx->server_url || !wifi_is_connected())
+	if (!ctx->server_url || !WIFI_IS_CONNECTED)
 		return;
 
 	LOG_LOCK(ctx);

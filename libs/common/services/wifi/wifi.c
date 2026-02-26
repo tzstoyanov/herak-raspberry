@@ -110,7 +110,6 @@ static bool sys_wifi_log_status(void *context)
 	return true;
 }
 
-
 static bool sys_wifi_init(struct wifi_context_t **ctx)
 {
 	int i = 0;
@@ -132,19 +131,19 @@ static bool sys_wifi_init(struct wifi_context_t **ctx)
 	return true;
 }
 
-bool wifi_is_connected(void)
+wifi_state_t wifi_get_state(void)
 {
 	struct wifi_context_t *ctx = wifi_context_get();
 	bool bret;
 
 	if (!ctx || !ctx->all_nets[0])
-		return false;
+		return WIFI_OFF;
 
 	LWIP_LOCK_START;
 		bret = (cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP);
 	LWIP_LOCK_END;
 
-	return bret;
+	return bret ? WIFI_CONNECTED : WIFI_NOT_CONNECTED;
 }
 
 static void sys_wifi_connect(void *context)
@@ -152,7 +151,7 @@ static void sys_wifi_connect(void *context)
 	struct wifi_context_t *ctx = (struct wifi_context_t *)context;
 	int ret;
 
-	if (wifi_is_connected()) {
+	if (WIFI_IS_CONNECTED) {
 		if (ctx->connect_in_progress) {
 			hlog_info(WIFI_MODULE, "Connected to %s -> got %s", ctx->all_nets[ctx->net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
 			system_reconnect();

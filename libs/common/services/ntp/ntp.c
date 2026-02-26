@@ -137,7 +137,7 @@ static void sys_ntp_connect(void *context)
 		TIME_UNLOCK(ctx);
 		return;
 	}
-	if (!wifi_is_connected())
+	if (!WIFI_IS_CONNECTED)
 		return;
 	LWIP_LOCK_START;
 		sntp_init();

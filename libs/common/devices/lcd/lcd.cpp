@@ -222,7 +222,7 @@ static void lcd_refresh(void *context)
 	struct lcd_context_t *ctx = (struct lcd_context_t *)context;
 	static int blinik_count = 0;
 
-	if (wifi_is_connected()) {
+	if (WIFI_IS_CONNECTED) {
 		if (!ctx->wifiOn)
 			ctx->refresh = true;
 		ctx->wifiOn = true;
