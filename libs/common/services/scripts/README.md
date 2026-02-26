@@ -8,8 +8,11 @@ The script engine runs scripts from files, saved in the file system of the devic
 `@corn <cron string>` - optional, cron schedule for running the script.  
 `@cron_enable <0/1>` - optional, enable or disable the cron schedule of the script.  
 `@notify <0/1>` - optional, enable or disable sending the web hook notifications when the script is started.  
+`@startup <delay_ms>` - optional, run the script at device startup, given msec after the device boot or WiFi connection is established.  
 `#` - any line starting with this symbol is a comment and is not parsed by the script engine.  
 `<module_name>?<command>[:<param1>:[param2]:...]` - command to be executed, one per line.  
+
+All startup scripts are executed once, following a specified millisecond delay. If WiFi is configured, the delay if after the connection is established; otherwise, it is after the device boot.  
 
 ## Example
 Example script to trigger given set of [SSRs](../../devices/ssr/README.md) which runs on every 10 minutes:  

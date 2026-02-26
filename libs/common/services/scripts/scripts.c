@@ -38,20 +38,23 @@
 #define SCRIPT_PARAM_CRON			"@cron"
 #define SCRIPT_PARAM_CRON_ENABLE	"@cron_enable"
 #define SCRIPT_PARAM_NOTIFY			"@notify"
+#define SCRIPT_PARAM_STARTUP		"@startup"
 enum script_params_id {
 	SCRIPT_CFG_NAME = 0,
 	SCRIPT_CFG_DESC = 1,
 	SCRIPT_CFG_CRON_ENABLE = 2,
 	SCRIPT_CFG_CRON = 3,
 	SCRIPT_CFG_NOTIFY = 4,
-	SCRIPT_CFG_MAX	= 5,
+	SCRIPT_CFG_STARTUP = 5,
+	SCRIPT_CFG_MAX	= 6
 };
 static __in_flash() char *script_configs[SCRIPT_CFG_MAX] = {
 	 SCRIPT_PARAM_NAME,
 	 SCRIPT_PARAM_DESC,
 	 SCRIPT_PARAM_CRON_ENABLE,
 	 SCRIPT_PARAM_CRON,
-	 SCRIPT_PARAM_NOTIFY
+	 SCRIPT_PARAM_NOTIFY,
+	 SCRIPT_PARAM_STARTUP
 };
 
 struct script_cron_t {
@@ -73,8 +76,8 @@ struct script_t {
 	char *name;
 	char *desc;
 	char *file;
-	bool run;
-	bool notify;
+	uint64_t run_now;
+	int32_t startup_ms;
 	int exec_count;
 	int fd;
 	bool notify_enable;
@@ -90,9 +93,9 @@ struct scripts_context_t {
 	int count;
 	struct script_t *scripts;
 	struct script_t *run;
+	uint8_t startup_count;
 	uint64_t last_cron;
 	cmd_run_context_t cmd_ctx;
-	int idx;
 	char line[MAX_LINE];
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 };
@@ -116,7 +119,9 @@ static bool sys_scripts_log_status(void *context)
 		for (i = 0; i < ctx->count; i++) {
 			hlog_info(SCRIPTS_MODULE, "\t%s:\t[%s] %s",
 					   ctx->scripts[i].file, ctx->scripts[i].name, ctx->scripts[i].desc);
-		   hlog_info(SCRIPTS_MODULE, "\t  Executed %d times", ctx->scripts[i].exec_count);
+		    hlog_info(SCRIPTS_MODULE, "\t  Executed %d times", ctx->scripts[i].exec_count);
+			if (ctx->scripts[i].startup_ms)
+				hlog_info(SCRIPTS_MODULE, "\t  Run at startup with %d ms delay", ctx->scripts[i].startup_ms - 1);
 			if (ctx->scripts[i].last_run_date) {
 				epoch2time(&ctx->scripts[i].last_run_date, &dt);
 				time_to_str(time_buff, TIME_STR, &dt);
@@ -212,6 +217,9 @@ static int script_param_load(struct script_t *script, char *param)
 		break;
 	case SCRIPT_CFG_NOTIFY:
 		script->notify_enable = (bool)strtol(data, NULL, 0);
+		break;
+	case SCRIPT_CFG_STARTUP:
+		script->startup_ms = 1 + strtol(data, NULL, 0);
 		break;
 	default:
 		return 0;
@@ -329,6 +337,23 @@ out:
 		pico_dir_close(fd);
 }
 
+static void script_startup(struct scripts_context_t *ctx)
+{
+	uint64_t now;
+	int i;
+
+	if (wifi_get_state() == WIFI_NOT_CONNECTED)
+		return;
+
+	now = time_ms_since_boot();
+	for (i = 0; i < ctx->count; i++) {
+		if (!ctx->scripts[i].startup_ms)
+			continue;
+		ctx->scripts[i].run_now = now + ctx->scripts[i].startup_ms;
+	}
+	ctx->startup_count = 0;
+}
+
 static void script_exec(struct scripts_context_t *ctx)
 {
 	struct tm date;
@@ -378,8 +403,7 @@ static void script_notify(struct script_t *script)
 	if (!webhook_connected())
 		return;
 	snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE, script->name);
-	if (!webhook_send(notify_buff))
-		script->notify = false;
+	webhook_send(notify_buff);
 }
 
 #define ADD_MQTT_MSG(_S_) { if ((len - count) < 0) { printf("%s: Buffer full\n\r", __func__); return -1; } \
@@ -456,7 +480,7 @@ static void script_cron_check(struct scripts_context_t *ctx)
 			continue;
 		}
 		if (ctx->scripts[i].cron.next <= time_now) {
-			ctx->scripts[i].run = true;
+			ctx->scripts[i].run_now = now;
 			script_cron_set_next(ctx, &ctx->scripts[i]);
 		}
 	}
@@ -467,6 +491,8 @@ static void script_cron_check(struct scripts_context_t *ctx)
 static void sys_scripts_run(void *context)
 {
 	struct scripts_context_t *ctx = (struct scripts_context_t *)context;
+	static uint16_t idx;
+	int i, j = -1;
 
 	if (ctx->count < 1)
 		return;
@@ -476,21 +502,29 @@ static void sys_scripts_run(void *context)
 		return;
 	}
 
-	if (ctx->idx >= ctx->count)
-		ctx->idx = 0;
-	if (ctx->scripts[ctx->idx].run) {
-		ctx->run = &ctx->scripts[ctx->idx];
-		ctx->scripts[ctx->idx].run = false;
-		if (ctx->scripts[ctx->idx].notify_enable)
-			ctx->scripts[ctx->idx].notify = true;
+	if (ctx->startup_count)
+		script_startup(ctx);
+
+	for (i = 0; i < ctx->count; i++) {
+		if (!ctx->scripts[i].run_now)
+			continue;
+		if (j < 0 || ctx->scripts[i].run_now < ctx->scripts[j].run_now)
+			j = i;
+	}
+
+	if (j >= 0) {
+		ctx->run = &ctx->scripts[j];
+		ctx->scripts[j].run_now = 0;
+		if (ctx->scripts[j].notify_enable)
+			script_notify(&ctx->scripts[j]);
 		if (IS_DEBUG(ctx))
 			hlog_info(SCRIPTS_MODULE, "Run script [%s]", ctx->run->name);
 	}
-	if (ctx->scripts[ctx->idx].notify)
-		script_notify(&ctx->scripts[ctx->idx]);
+
 	script_cron_check(ctx);
-	script_mqtt_send(ctx, ctx->idx);
-	ctx->idx++;
+	if (idx >= ctx->count)
+		idx = 0;
+	script_mqtt_send(ctx, idx++);
 }
 
 static void scripts_mqtt_init(struct scripts_context_t *ctx)
@@ -535,6 +569,7 @@ static void scripts_mqtt_init(struct scripts_context_t *ctx)
 static bool sys_scripts_init(struct scripts_context_t **ctx)
 {
 	int fd;
+	int i;
 
 	if (!fs_is_mounted())
 		return false;
@@ -554,6 +589,11 @@ static bool sys_scripts_init(struct scripts_context_t **ctx)
 		hlog_info(SCRIPTS_MODULE, "No scripts detected on the file system.");
 		return false;
 	}
+	for (i = 0; i < (*ctx)->count; i++) {
+		if ((*ctx)->scripts[i].startup_ms > 0)
+			(*ctx)->startup_count++;
+	}
+
 	scripts_mqtt_init(*ctx);
 	(*ctx)->cmd_ctx.type = CMD_CTX_SCRIPT;
 
@@ -610,7 +650,7 @@ static int script_name_run(struct scripts_context_t *ctx, char *name, bool prefi
 		}
 		if (strncmp(name, ctx->scripts[i].name, strlen(name)))
 			continue;
-		ctx->scripts[i].run = true;
+		ctx->scripts[i].run_now = time_ms_since_boot();
 		c++;
 		if (!prefix_match)
 			break;
