@@ -27,11 +27,12 @@
 
 struct one_wire_sensor {
 	rom_address_t	rom_addr;
-	uint64_t		crc_errors;
 	uint64_t		address;
 	float			temperature;
-	uint64_t 		mqtt_last_send;
+	uint64_t		mqtt_last_send;
 	mqtt_component_t mqtt_comp;
+	uint64_t		ok_stat;
+	uint64_t		err_stat;
 };
 
 struct one_wire_line {
@@ -122,14 +123,17 @@ static void one_wire_mqtt_send(struct one_wire_context_t *ctx)
 static bool one_wire_log(void *context)
 {
 	struct one_wire_context_t *ctx = (struct one_wire_context_t *)context;
+	uint32_t q;
 	int i, j;
 
 	hlog_info(ONEWIRE_MODULE, "Detected One-Wire sensors:");
 	for (i = 0; i < ctx->count; i++)
-		for (j = 0; j < ctx->lines[i]->count; j++)
-			hlog_info(ONEWIRE_MODULE, "\tId[0x%llX] on GPIO %d: %3.2f°C, errors %d",
+		for (j = 0; j < ctx->lines[i]->count; j++) {
+			q = ((ctx->lines[i]->sensors[j].ok_stat * 100) / (ctx->lines[i]->sensors[j].ok_stat + ctx->lines[i]->sensors[j].err_stat));
+			hlog_info(ONEWIRE_MODULE, "\tId[0x%llX] on GPIO %d: %3.2f°C, connection %d%%",
 					  ctx->lines[i]->sensors[j].address, ctx->lines[i]->pin,
-					  ctx->lines[i]->sensors[j].temperature, ctx->lines[i]->sensors[j].crc_errors);
+					  ctx->lines[i]->sensors[j].temperature, q);
+			}
 
 	return true;
 }
@@ -153,7 +157,7 @@ static void one_wire_read_measure(struct one_wire_context_t *ctx, uint8_t idx)
 			if (ctx->debug)
 				hlog_info(ONEWIRE_MODULE, "CRC error reading sensor 0x%llX on GPIO %d",
 						  line->sensors[i].address, line->pin);
-			line->sensors[i].crc_errors++;
+			line->sensors[i].err_stat++;
 		} else {
 			if (ctx->debug)
 				hlog_info(ONEWIRE_MODULE, "Got %3.2f°C from sensor 0x%llX on GPIO %d",
@@ -162,6 +166,7 @@ static void one_wire_read_measure(struct one_wire_context_t *ctx, uint8_t idx)
 				line->sensors[i].mqtt_comp.force = true;
 				line->sensors[i].temperature = val;
 			}
+			line->sensors[i].ok_stat++;
 		}
 	}
 }
@@ -323,7 +328,7 @@ out_err:
 	if (*ctx) {
 		for (i = 0; i < (*ctx)->count; i++) {
 			if ((*ctx)->lines[i]->tempSensor) {
-				delete (*ctx)->lines[i]->tempSensor;
+				delete(*ctx)->lines[i]->tempSensor;
 				(*ctx)->lines[i]->tempSensor = NULL;
 			}
 		}
