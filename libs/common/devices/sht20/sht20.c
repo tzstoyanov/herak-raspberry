@@ -24,8 +24,9 @@
 #define I2C_TIMEOUT_US	1000
 #define SHT20_ADDR	0x40
 #define SHT20_CLOCK	50000
-#define SHT20_DATA_SIZE	3
-#define SHT20_CMD_RETRY	5
+#define SHT20_DATA_SIZE		3
+#define SHT20_CMD_RETRY		5
+#define SHT20_DATA_COUNT	5
 
 #define SHT0_READ_INTERVAL_MS		1000
 #define SHT0_MEASURE_DELAY_MS		100
@@ -70,6 +71,8 @@ struct sht20_sensor {
 	int sda_pin;
 	int scl_pin;
 	int power_pin;
+	uint8_t  raw_idx;
+	uint32_t raw_data[SHT20_DATA_COUNT];
 	float temperature;
 	float humidity;
 	float vpd;	//  Vapor Pressure Deficit
@@ -438,9 +441,12 @@ static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 	uint16_t raw;
 	int ret = -1;
 
+	sensor->read_requested = 0;
 	ret = i2c_read_blocking(sensor->i2c, sensor->sht20_addr, buff, SHT20_DATA_SIZE, false);
-	if (ret != SHT20_DATA_SIZE)
+	if (ret != SHT20_DATA_SIZE) {
+		ret = -1;
 		goto out;
+	}
 
 	if (IS_DEBUG(sensor->ctx))
 		hlog_info(SHT20_MODULE, "Got raw data from sensor %d: [0x%2X 0x%2X 0x%2X]",
@@ -450,7 +456,14 @@ static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 		goto out;
 
 	raw = (buff[0] << 8) + buff[1];
-
+	if (sensor->raw_idx < SHT20_DATA_COUNT)
+		sensor->raw_data[sensor->raw_idx++] = raw;
+	if (sensor->raw_idx < SHT20_DATA_COUNT) {
+		ret = sht20_sensor_request_data(sensor);
+		goto out;
+	}
+	raw = samples_filter(sensor->raw_data, SHT20_DATA_COUNT, 1);
+	sensor->raw_idx = 0;
 	if (sensor->read_cmd == SHT20_TEMP) {
 		data = raw * (175.72 / 65536.0)-46.85;
 		if (sensor->temperature != data) {
@@ -489,14 +502,15 @@ static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 		hlog_info(SHT20_MODULE, "   temperature %3.2f,  humidity %3.2f, vpd %3.2f, dew_point %3.2f",
 				  sensor->temperature, sensor->humidity, sensor->vpd, sensor->dew_point);
 
-	ret = 0;
+	ret = 1;
 
 out:
-	sensor->read_requested = 0;
-	if (ret)
+	if (ret < 0) {
 		sensor->err_stat++;
-	else
+		sensor->raw_idx = 0;
+	} else {
 		sensor->ok_stat++;
+	}
 	return ret;
 }
 
@@ -514,7 +528,8 @@ static int sht20_sensor_data(struct sht20_sensor *sensor)
 	if (sensor->connected && sensor->read_requested) {
 		if ((now - sensor->read_requested) < SHT0_MEASURE_DELAY_MS)
 			return 0;
-		sht20_sensor_get_data(sensor);
+		if (!sht20_sensor_get_data(sensor))
+			return 0;
 		sht20_power_down(sensor);
 		return 1;
 	}
