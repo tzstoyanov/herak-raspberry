@@ -373,6 +373,7 @@ static int sth20_mqtt_data_send(struct sht20_context_t *ctx, int idx)
 static void sht20_mqtt_send(struct sht20_context_t *ctx)
 {
 	uint64_t now = time_ms_since_boot();
+	static uint8_t idx;
 	bool refresh;
 	int i;
 
@@ -382,10 +383,12 @@ static void sht20_mqtt_send(struct sht20_context_t *ctx)
 	for (i = 0; i < ctx->count; i++)
 		if (refresh || ctx->sensors[i]->force)
 			ctx->sensors[i]->mqtt_comp[0].force = true;
-
-	for (i = 0; i < ctx->count; i++) {
+	if (idx >= ctx->count)
+		idx = 0;
+	for (i = idx; i < ctx->count; i++) {
 		if (ctx->sensors[i]->mqtt_comp[0].force == true) {
 			sth20_mqtt_data_send(ctx, i);
+			idx++;
 			return;
 		}
 	}
