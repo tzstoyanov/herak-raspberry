@@ -19,7 +19,7 @@
 #define SHT20_MODULE		"sht20"
 #define SHT20_SENORS_MAX	6
 #define MQTT_DATA_LEN	128
-#define MQTT_DELAY_MS	5000
+#define MQTT_REFRESH_MS	10000	// 10s
 
 #define I2C_TIMEOUT_US	1000
 #define SHT20_ADDR	0x40
@@ -404,8 +404,6 @@ static int sth20_mqtt_data_send(struct sht20_context_t *ctx, int idx)
 
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;
 	ret = mqtt_msg_component_publish(ms, ctx->mqtt_payload);
-	ctx->sensors[idx]->force = false;
-
 	if (!ret)
 		ctx->mqtt_last_send = now;
 
@@ -415,20 +413,21 @@ static int sth20_mqtt_data_send(struct sht20_context_t *ctx, int idx)
 static void sht20_mqtt_send(struct sht20_context_t *ctx)
 {
 	uint64_t now = time_ms_since_boot();
+	bool refresh = false;
 	static uint8_t idx;
-	bool refresh;
 	int i;
 
-	if ((now - ctx->mqtt_last_send) >= MQTT_DELAY_MS)
+	if ((now - ctx->mqtt_last_send) >= MQTT_REFRESH_MS)
 		refresh = true;
 
-	for (i = 0; i < ctx->count; i++)
-		if (refresh || ctx->sensors[i]->force)
-			ctx->sensors[i]->mqtt_comp[0].force = true;
+	for (i = 0; i < ctx->count; i++) {
+		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].force = refresh || ctx->sensors[i]->force;
+		ctx->sensors[i]->force = false;
+	}
 	if (idx >= ctx->count)
 		idx = 0;
 	for (i = idx; i < ctx->count; i++) {
-		if (ctx->sensors[i]->mqtt_comp[0].force == true) {
+		if (ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].force) {
 			sth20_mqtt_data_send(ctx, i);
 			idx++;
 			return;
