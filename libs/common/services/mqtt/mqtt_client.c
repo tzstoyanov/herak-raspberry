@@ -27,12 +27,12 @@
 #define CONFIG_INTERVAL_MSEC	3600000
 #define COMMAND_TOPIC_TEMPLATE	"%s/command"
 
-#define MSEC_INSEC	60000ULL
+#define MSEC2MIN	60000ULL
 
 #define IS_DEBUG(C)	((C)->debug)
 
 #define DEF_SERVER_PORT	1883
-#define DF_MIN_PKT_DELAY_MS	5000ULL
+#define DF_MAX_PPM	12
 
 #define MQTT_QOS		0
 #define MQTT_RETAIN		1
@@ -94,17 +94,18 @@ typedef struct {
 	mqtt_discovery_context_t discovery;
 	mqtt_config_send_context_t config;
 	int server_port;
-	uint64_t mqtt_min_delay;
 	uint32_t max_payload_size;
+	uint32_t max_ppm;
 	enum mqtt_client_state_t state;
 	ip_addr_t server_addr;
 	ip_resolve_state_t sever_ip_state;
 	mqtt_client_t *client;
 	struct mqtt_connect_client_info_t client_info;
-	bool data_send;
 	int send_in_progress;
 	uint64_t send_start;
 	uint64_t last_send;
+	uint32_t filter_pkt_count;
+	uint64_t filter_pkt_send;
 	uint32_t connect_count;
 	uint32_t debug;
 	uint8_t send_err_count;
@@ -535,7 +536,7 @@ static bool sys_mqtt_log_status(void *context)
 
 	if (!log_idx) {
 		hlog_info(MQTT_MODULE, "Connected to server %s, publish rate limit %lldppm, connect count %d",
-				ctx->server_url, MSEC_INSEC/ctx->mqtt_min_delay, ctx->connect_count);
+				ctx->server_url, ctx->max_ppm, ctx->connect_count);
 		if (ctx->commands.cmd_topic[0])
 			hlog_info(MQTT_MODULE, "Listen to topic [%s]", ctx->commands.cmd_topic);
 
@@ -577,6 +578,7 @@ static bool sys_mqtt_log_status(void *context)
 int mqtt_msg_publish(char *topic, char *message, bool force)
 {
 	struct mqtt_context_t *ctx = mqtt_context_get();
+	bool reset_filter = false;
 	char *topic_str;
 	uint64_t now;
 	int ret;
@@ -595,19 +597,24 @@ int mqtt_msg_publish(char *topic, char *message, bool force)
 		return -1;
 	}
 
-	ctx->data_send = true;
 	/* Rate limit the packets */
 	now = time_ms_since_boot();
-	if ((now - ctx->last_send) < ctx->mqtt_min_delay)
-		ctx->data_send = false;
-	if (!ctx->data_send && ctx->last_send)
-		return -1;
+	if (ctx->filter_pkt_count >= ctx->max_ppm) {
+		if ((now - ctx->filter_pkt_send) >= MSEC2MIN)
+			reset_filter = true;
+		else if (ctx->last_send)
+			return -1;
+	}
 
 	ret = mqtt_msg_send(ctx, topic_str, message);
 	if (!ret) {
-		ctx->data_send = false;
-		ctx->last_send = time_ms_since_boot();
+		ctx->last_send = now;
+		if (reset_filter) {
+			ctx->filter_pkt_count = 0;
+			ctx->filter_pkt_send = now;
+		}
 	}
+	ctx->filter_pkt_count++;
 	return ret;
 }
 
@@ -797,10 +804,10 @@ static int mqtt_get_config(struct mqtt_context_t  **ctx)
 	if (MQTT_RATE_PPM_len > 1) {
 		str = USER_PRAM_GET(MQTT_RATE_PPM);
 		res = (int)strtol(str, NULL, 10);
-		(*ctx)->mqtt_min_delay = MSEC_INSEC / res;
+		(*ctx)->max_ppm = res;
 		free(str);
 	} else {
-		(*ctx)->mqtt_min_delay = DF_MIN_PKT_DELAY_MS;
+		(*ctx)->max_ppm = DF_MAX_PPM;
 	}
 
 	return 0;
