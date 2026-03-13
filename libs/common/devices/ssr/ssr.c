@@ -20,7 +20,9 @@
 #define MAX_SSR_COUNT (GPIO_PIN_MAX + 1)
 #define MQTT_DELAY_MS 20000
 
-#define MQTT_DATA_LEN   128
+#define MQTT_DATA_LEN   256
+
+#define IS_DEBUG(C)	((C)->debug)
 
 enum {
 	SSR_MQTT_SENSOR_STATE = 0,
@@ -63,7 +65,7 @@ static struct ssr_context_t *ssr_context_get(void)
 							count += snprintf(ctx->mqtt_payload + count, len - count, _S_); }
 #define ADD_MQTT_MSG_VAR(_S_, ...) { if ((len - count) < 0) { printf("%s: Buffer full\n\r", __func__); return -1; } \
 				     count += snprintf(ctx->mqtt_payload + count, len - count, _S_, __VA_ARGS__); }
-static int ssr_mqtt_data_send(struct ssr_context_t *ctx, int idx, int sens)
+static int ssr_mqtt_data_send(struct ssr_context_t *ctx, uint8_t idx, int sens)
 {
 	uint64_t now = time_ms_since_boot();
 	static char time_buff[TIME_STR];
@@ -71,7 +73,7 @@ static int ssr_mqtt_data_send(struct ssr_context_t *ctx, int idx, int sens)
 	struct ssr_t *relay;
 	int count = 0;
 
-	if (idx < 0 || idx >= MAX_SSR_COUNT || !(ctx->relays[idx]))
+	if (idx >= MAX_SSR_COUNT || !(ctx->relays[idx]))
 		return -1;
 	if (sens < 0 || sens >= SSR_MQTT_SENSOR_MAX)
 		return -1;
@@ -93,7 +95,7 @@ static int ssr_mqtt_data_send(struct ssr_context_t *ctx, int idx, int sens)
 
 static void ssr_mqtt_send(struct ssr_context_t *ctx)
 {
-	static int midx;
+	static uint8_t midx;
 
 	if (!mqtt_is_discovery_sent())
 		return;
@@ -102,9 +104,7 @@ static void ssr_mqtt_send(struct ssr_context_t *ctx)
 		if (midx >= MAX_SSR_COUNT)
 			midx = 0;
 		if (ctx->relays[midx]) {
-			ssr_mqtt_data_send(ctx, midx, SSR_MQTT_SENSOR_STATE);
-			if (!ctx->relays[midx]->mqtt_comp[SSR_MQTT_SENSOR_STATE].force)
-				midx++;
+			ssr_mqtt_data_send(ctx, midx++, SSR_MQTT_SENSOR_STATE);
 			return;
 		}
 		midx++;
@@ -139,7 +139,7 @@ static int ssr_state_set(struct ssr_context_t *context, uint8_t id, bool state, 
 		gpio_put(context->relays[id]->gpio_pin, state);
 		if (context->relays[id]->state_actual != state) {
 			context->relays[id]->mqtt_comp[SSR_MQTT_SENSOR_STATE].force = true;
-			if (context->debug)
+			if (IS_DEBUG(context))
 				hlog_info(SSR_MODULE, "Set %d to %s",
 						  id, state == context->on_state ? "ON" : "OFF");
 		}
