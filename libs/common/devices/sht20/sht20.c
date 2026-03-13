@@ -56,11 +56,24 @@
 static const int16_t __in_flash() POLYNOMIAL = 0x131;
 
 enum {
+	SHT20_RET_OK = 0,
+	SHT20_RET_ERR = -1,
+	SHT20_RET_IN_PROGRESS = 1,
+};
+
+enum {
 	SHT20_MQTT_TEMPERATURE = 0,
 	SHT20_MQTT_HUMIDITY,
 	SHT20_MQTT_VPD,
 	SHT20_MQTT_DEW_POINT,
 	SHT20_MQTT_MAX,
+};
+
+enum {
+	SHT20_POWER_DOWN = 0,
+	SHT20_POWER_ON_1,
+	SHT20_POWER_ON_2,
+	SHT20_POWER_UP,
 };
 
 struct sht20_context_t;
@@ -89,6 +102,8 @@ struct sht20_sensor {
 	struct sht20_context_t *ctx;
 	uint64_t ok_stat;
 	uint64_t err_stat;
+	int power_state;
+	uint64_t power_state_change;
 };
 
 struct sht20_context_t {
@@ -108,16 +123,16 @@ static int sht20_sensor_write(struct sht20_sensor *sensor, uint8_t cmd)
 
 	for (i = 0; i < SHT20_CMD_RETRY; i++)
 		if (sizeof(cmd) == i2c_write_timeout_us(sensor->i2c, sensor->sht20_addr, &cmd, sizeof(cmd), true, I2C_TIMEOUT_US))
-			return 0;
-	return -1;
+			return SHT20_RET_OK;
+	return SHT20_RET_ERR;
 }
 
 static int sht20_sensor_read(struct sht20_sensor *sensor, uint8_t *cmd, uint8_t count)
 {
 	if (count == i2c_read_blocking(sensor->i2c, sensor->sht20_addr, cmd, count, false))
-		return 0;
+		return SHT20_RET_OK;
 
-	return -1;
+	return SHT20_RET_ERR;
 }
 
 // https://github.com/u-fire/uFire_SHT20/blob/master/src/uFire_SHT20.cpp
@@ -136,28 +151,46 @@ static void sht20_power_down(struct sht20_sensor *sensor)
 
 	if (sensor->power_pin >= GPIO_PIN_MIN)
 		gpio_put(sensor->power_pin, 0);
-
-	sleep_ms(SHT0_POWER_DOWN_DELAY_MS);
+	sensor->power_state = SHT20_POWER_DOWN;
+	sensor->power_state_change = time_ms_since_boot();
 }
 
-static void sht20_power_up(struct sht20_sensor *sensor)
+static int sht20_power_up(struct sht20_sensor *sensor)
 {
-	// Power on the sensor
-	if (sensor->power_pin >= GPIO_PIN_MIN) {
-		gpio_init(sensor->power_pin);
-		gpio_set_dir(sensor->power_pin, GPIO_OUT);
-		gpio_put(sensor->power_pin, 1);
-	}
-	sleep_ms(SHT0_POWER_UP_DELAY_MS);
+	uint64_t now = time_ms_since_boot();
 
-	// BUS recovery: Force SCL high/low to clear any stuck bits
-	gpio_init(sensor->sda_pin);
-	gpio_init(sensor->scl_pin);
-	gpio_set_dir(sensor->sda_pin, GPIO_IN);
-	gpio_set_dir(sensor->scl_pin, GPIO_OUT);
-	gpio_pull_up(sensor->sda_pin);
-	gpio_pull_up(sensor->scl_pin);
-	sleep_ms(5);
+	// Power on the sensor
+	if (sensor->power_state == SHT20_POWER_DOWN) {
+		if ((now - sensor->power_state_change) < SHT0_POWER_DOWN_DELAY_MS)
+			return SHT20_RET_IN_PROGRESS;
+		if (sensor->power_pin >= GPIO_PIN_MIN) {
+			gpio_init(sensor->power_pin);
+			gpio_set_dir(sensor->power_pin, GPIO_OUT);
+			gpio_put(sensor->power_pin, 1);
+		}
+		sensor->power_state = SHT20_POWER_ON_1;
+		sensor->power_state_change = time_ms_since_boot();
+	}
+
+	if (sensor->power_state == SHT20_POWER_ON_1) {
+		if ((now - sensor->power_state_change) < SHT0_POWER_UP_DELAY_MS)
+			return SHT20_RET_IN_PROGRESS;
+		// BUS recovery: Force SCL high/low to clear any stuck bits
+		gpio_init(sensor->sda_pin);
+		gpio_init(sensor->scl_pin);
+		gpio_set_dir(sensor->sda_pin, GPIO_IN);
+		gpio_set_dir(sensor->scl_pin, GPIO_OUT);
+		gpio_pull_up(sensor->sda_pin);
+		gpio_pull_up(sensor->scl_pin);
+		sensor->power_state = SHT20_POWER_ON_2;
+		sensor->power_state_change = time_ms_since_boot();
+	}
+
+	if (sensor->power_state == SHT20_POWER_ON_2) {
+		if ((now - sensor->power_state_change) < 5)
+			return SHT20_RET_IN_PROGRESS;
+	}
+
 	for (int i = 0; i < 9; i++) {
 		gpio_put(sensor->scl_pin, 1);
 		sleep_us(5);
@@ -170,14 +203,22 @@ static void sht20_power_up(struct sht20_sensor *sensor)
 	i2c_init(sensor->i2c, SHT20_CLOCK);
 	gpio_set_function(sensor->sda_pin, GPIO_FUNC_I2C);
 	gpio_set_function(sensor->scl_pin, GPIO_FUNC_I2C);
+
+	sensor->power_state = SHT20_POWER_UP;
+	sensor->power_state_change = time_ms_since_boot();
+	return SHT20_RET_OK;
 }
 
 static int sht20_sensor_init(struct sht20_sensor *sensor)
 {
-	int ret = -1;
+	int ret = SHT20_RET_ERR;
 
 	sensor->connected = false;
-	sht20_power_up(sensor);
+
+	if (sht20_power_up(sensor) == SHT20_RET_IN_PROGRESS)
+		return SHT20_RET_IN_PROGRESS;
+	if (sensor->power_state != SHT20_POWER_UP)
+		goto out;
 
 	if (sht20_sensor_write(sensor, SHT20_READ_USER_REG))
 		goto out;
@@ -196,7 +237,8 @@ static int sht20_sensor_init(struct sht20_sensor *sensor)
 
 	sensor->connected = true;
 	sensor->conn_err_count = 0;
-	ret = 0;
+	ret = SHT20_RET_OK;
+
 out:
 	if (!sensor->connected) {
 		sensor->err_stat++;
@@ -406,11 +448,11 @@ static int sht20_sensor_request_data(struct sht20_sensor *sensor)
 		sensor->err_stat++;
 		if (IS_DEBUG(sensor->ctx))
 			hlog_info(SHT20_MODULE, "Failed to request data from sensor %d", sensor->sda_pin);
-		return -1;
+		return SHT20_RET_ERR;
 	}
 
 	sensor->read_requested = time_ms_since_boot();
-	return 0;
+	return SHT20_RET_OK;
 }
 
 static int sht20_check_crc(struct sht20_sensor *sensor, uint8_t *data, uint8_t count, uint8_t checksum)
@@ -431,23 +473,27 @@ static int sht20_check_crc(struct sht20_sensor *sensor, uint8_t *data, uint8_t c
 	if (crc != checksum) {
 		if (IS_DEBUG(sensor->ctx))
 			hlog_info(SHT20_MODULE, "CRC error on sensor %d: %d != %d", sensor->sda_pin, crc, checksum);
-		return -1;
+		return SHT20_RET_ERR;
 	}
 
-	return 0;
+	return SHT20_RET_OK;
 }
 
 static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 {
+	uint64_t now = time_ms_since_boot();
 	uint8_t buff[SHT20_DATA_SIZE];
+	int ret = SHT20_RET_ERR;
 	float data, f1, f2;
 	uint16_t raw;
-	int ret = -1;
+
+	if ((now - sensor->read_requested) < SHT0_MEASURE_DELAY_MS)
+		return SHT20_RET_IN_PROGRESS;
 
 	sensor->read_requested = 0;
 	ret = i2c_read_blocking(sensor->i2c, sensor->sht20_addr, buff, SHT20_DATA_SIZE, false);
 	if (ret != SHT20_DATA_SIZE) {
-		ret = -1;
+		ret = SHT20_RET_ERR;
 		goto out;
 	}
 
@@ -455,14 +501,19 @@ static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 		hlog_info(SHT20_MODULE, "Got raw data from sensor %d: [0x%2X 0x%2X 0x%2X]",
 				  sensor->sda_pin, buff[0], buff[1], buff[2]);
 	ret = sht20_check_crc(sensor, buff, 2, buff[2]);
-	if (ret)
+	if (ret) {
+		ret = SHT20_RET_ERR;
 		goto out;
+	}
 
 	raw = (buff[0] << 8) + buff[1];
 	if (sensor->raw_idx < SHT20_DATA_COUNT)
 		sensor->raw_data[sensor->raw_idx++] = raw;
 	if (sensor->raw_idx < SHT20_DATA_COUNT) {
-		ret = sht20_sensor_request_data(sensor);
+		if (sht20_sensor_request_data(sensor) != SHT20_RET_OK)
+			ret = SHT20_RET_ERR;
+		else
+			ret = SHT20_RET_IN_PROGRESS;
 		goto out;
 	}
 	raw = samples_filter(sensor->raw_data, SHT20_DATA_COUNT, 1);
@@ -505,10 +556,10 @@ static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 		hlog_info(SHT20_MODULE, "   temperature %3.2f,  humidity %3.2f, vpd %3.2f, dew_point %3.2f",
 				  sensor->temperature, sensor->humidity, sensor->vpd, sensor->dew_point);
 
-	ret = 1;
+	ret = SHT20_RET_OK;
 
 out:
-	if (ret < 0) {
+	if (ret == SHT20_RET_ERR) {
 		sensor->err_stat++;
 		sensor->raw_idx = 0;
 	} else {
@@ -517,32 +568,50 @@ out:
 	return ret;
 }
 
+static int sht20_shutdown_check(struct sht20_context_t *ctx)
+{
+	uint64_t now = time_ms_since_boot();
+	int ret = SHT20_RET_OK;
+	int i;
+
+	for (i = 0; i < ctx->count; i++) {
+		if (ctx->sensors[i]->power_state == SHT20_POWER_DOWN &&
+		    (now - ctx->sensors[i]->power_state_change) < SHT0_POWER_DOWN_DELAY_MS)
+			ret = SHT20_RET_IN_PROGRESS;
+	}
+
+	return ret;
+}
+
 static int sht20_sensor_data(struct sht20_sensor *sensor)
 {
 	uint64_t now = time_ms_since_boot();
-	int ret = -1;
+	int ret = SHT20_RET_ERR;
 
 	if (sensor->err_state) {
 		if ((now - sensor->err_state) > SHT0_ERROR_DELAY_MS)
 			sensor->err_state = 0;
-		return -1;
+		return SHT20_RET_ERR;
 	}
 
 	if (sensor->connected && sensor->read_requested) {
-		if ((now - sensor->read_requested) < SHT0_MEASURE_DELAY_MS)
-			return 0;
-		if (!sht20_sensor_get_data(sensor))
-			return 0;
+		if (sht20_sensor_get_data(sensor) == SHT20_RET_IN_PROGRESS)
+			return SHT20_RET_IN_PROGRESS;
 		sht20_power_down(sensor);
-		return 1;
+		return SHT20_RET_OK;
 	}
 
-	sht20_sensor_init(sensor);
+	if (sht20_shutdown_check(sensor->ctx) == SHT20_RET_IN_PROGRESS)
+		return SHT20_RET_IN_PROGRESS;
+
+	if (sht20_sensor_init(sensor) == SHT20_RET_IN_PROGRESS)
+		return SHT20_RET_IN_PROGRESS;
+
 	sht20_sensor_check_connected(sensor);
 	if (sensor->connected)
 		ret = sht20_sensor_request_data(sensor);
 
-	if (ret)
+	if (ret == SHT20_RET_ERR)
 		sht20_power_down(sensor);
 
 	return ret;
@@ -554,7 +623,7 @@ static void sht20_run(void *context)
 	uint64_t now = time_ms_since_boot();
 
 	if (ctx->idx < ctx->count) {
-		if (sht20_sensor_data(ctx->sensors[ctx->idx])) {
+		if (sht20_sensor_data(ctx->sensors[ctx->idx]) != SHT20_RET_IN_PROGRESS) {
 			ctx->last_read = now;
 			ctx->idx++;
 		}
