@@ -117,6 +117,13 @@ struct sht20_context_t {
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 };
 
+static struct sht20_context_t *__sht20_context;
+
+static struct sht20_context_t *sht20_context_get(void)
+{
+	return __sht20_context;
+}
+
 static int sht20_sensor_write(struct sht20_sensor *sensor, uint8_t cmd)
 {
 	int i;
@@ -344,6 +351,7 @@ out:
 		free(*ctx);
 		(*ctx) = NULL;
 	}
+	__sht20_context = (*ctx);
 
 	return ((*ctx) ? (*ctx)->count > 0 : 0);
 }
@@ -711,4 +719,38 @@ void sht20_register(void)
 	ctx->mod.debug = sht20_debug_set;
 	ctx->mod.context = ctx;
 	sys_module_register(&ctx->mod);
+}
+
+/* API */
+
+int sht20_get_count(uint8_t *count)
+{
+	struct sht20_context_t *ctx = sht20_context_get();
+
+	if (!ctx)
+		return -1;
+	if (*count)
+		(*count) = ctx->count;
+	return 0;
+}
+
+int sht20_get_data(int id, float *temperature,
+				   float *humidity, float *vpd, float *dew_point)
+{
+	struct sht20_context_t *ctx = sht20_context_get();
+
+	if (!ctx)
+		return -1;
+	if (id < 0 || id >= ctx->count)
+		return -1;
+	if (temperature)
+		(*temperature) = ctx->sensors[id]->temperature;
+	if (humidity)
+		(*humidity) = ctx->sensors[id]->humidity;
+	if (vpd)
+		(*vpd) = ctx->sensors[id]->vpd;
+	if (dew_point)
+		(*dew_point) = ctx->sensors[id]->dew_point;
+
+	return 0;
 }

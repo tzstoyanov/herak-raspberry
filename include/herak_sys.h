@@ -37,6 +37,7 @@
 #include "bms_jk/bms_jk_api.h"
 #include "sys_state/sys_state_api.h"
 #include "scripts/scripts_api.h"
+#include "sht20/sht20_api.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -34,3 +34,9 @@ MQTT SHT20 sensors are auto-discovered by Home Assistant. The state is published
 The status of all sensors is reported with this http request, where `port` is defined in `params.txt` - as `WEBSERVER_PORT`:  
     `curl http://<device_ip>:<port>/sht20/status`
 
+## API
+```
+int sht20_get_count(uint8_t *count);
+int sht20_get_data(int id, float *temperature, float *humidity, float *vpd, float *dew_point);
+
+```
