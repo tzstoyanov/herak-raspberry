@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.1.0] - 2026-03-14
+- Improved support for multiple devices:
+  - Bluethoot
+  - I2C
+  - BMS
+- Scripts:
+  - Support startup scripts
+  - API for running scripts
+- Increased precision of
+  - ADC sensors
+  - Analog pressure sensor
+- Read Open Therm OEM error code.
+- Added Wake On LAN sender.
+- Support BMS automation on battery level change.
+- New MQTT burst rate limit logic.
+- SHT20 fixes and improvements.
+
+## [2.0.0] - 2025-12-15
+- OTA Updates
+- The firmware can be updated over the Internet, using tftp. Support for autoupdates.
+- OpenTherm gas consumpton
+- New logic for calculating gas consumption of attached OpenTherm device.
+- TFTP Client
+- Transition from TFTP server to TFTP client.
+- New FS copy and move commands
+- The copy command supports tftp source or destination file.
+- Bug fixes and code cleanups
+
 ## [1.0.0] - 2025-11-11
-### 
 - Initial release
+
