@@ -25,3 +25,10 @@ MQTT one-wire sensors are auto-discovered by Home Assistant. The state is publis
 The status of all sensors is reported with this http request, where `port` is defined in `params.txt` - as `WEBSERVER_PORT`:  
     `curl http://<device_ip>:<port>/one_wire/status`
 
+## API
+```
+int one_wire_get_lines(uint8_t *count);
+int one_wire_get_sensors_on_lines(uint8_t line, uint8_t *count);
+int one_wire_get_sensor_address(int line_id, int sensor_id, uint64_t *address);
+int one_wire_get_sensor_data(int line_id, int sensor_id, float *temperature);
+```

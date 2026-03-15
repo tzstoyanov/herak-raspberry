@@ -53,6 +53,13 @@ struct one_wire_context_t {
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 };
 
+static struct one_wire_context_t *__one_wire_context;
+
+static struct one_wire_context_t *one_wire_context_get(void)
+{
+	return __one_wire_context;
+}
+
 static void one_wire_debug_set(uint32_t debug, void *context)
 {
 	struct one_wire_context_t *ctx = (struct one_wire_context_t *)context;
@@ -127,13 +134,14 @@ static bool one_wire_log(void *context)
 	int i, j;
 
 	hlog_info(ONEWIRE_MODULE, "Detected One-Wire sensors:");
-	for (i = 0; i < ctx->count; i++)
+	for (i = 0; i < ctx->count; i++) {
+		hlog_info(ONEWIRE_MODULE, "\t On line %d, GPIO pin %d", i, ctx->lines[i]->pin);
 		for (j = 0; j < ctx->lines[i]->count; j++) {
 			q = ((ctx->lines[i]->sensors[j].ok_stat * 100) / (ctx->lines[i]->sensors[j].ok_stat + ctx->lines[i]->sensors[j].err_stat));
-			hlog_info(ONEWIRE_MODULE, "\tId[0x%llX] on GPIO %d: %3.2f°C, connection %d%%",
-					  ctx->lines[i]->sensors[j].address, ctx->lines[i]->pin,
-					  ctx->lines[i]->sensors[j].temperature, q);
-			}
+			hlog_info(ONEWIRE_MODULE, "\t\tId %d, address 0x%llX: %3.2f°C, connection %d%%",
+					  j, ctx->lines[i]->sensors[j].address, ctx->lines[i]->sensors[j].temperature, q);
+		}
+	}
 
 	return true;
 }
@@ -284,6 +292,7 @@ out:
 		free(*ctx);
 		(*ctx) = NULL;
 	}
+	__one_wire_context = (*ctx);
 
 	return ((*ctx) ? (*ctx)->count > 0 : 0);
 }
@@ -351,4 +360,59 @@ extern "C" void one_wire_register(void)
 	ctx->mod.debug = one_wire_debug_set;
 	ctx->mod.context = ctx;
 	sys_module_register(&ctx->mod);
+}
+
+/* API */
+int one_wire_get_lines(uint8_t *count)
+{
+	struct one_wire_context_t *ctx = one_wire_context_get();
+
+	if (!ctx)
+		return -1;
+	if (*count)
+		(*count) = ctx->count;
+	return 0;
+}
+
+int one_wire_get_sensors_on_lines(uint8_t line, uint8_t *count)
+{
+	struct one_wire_context_t *ctx = one_wire_context_get();
+
+	if (!ctx)
+		return -1;
+	if (line <= ctx->count)
+		return -1;
+	if (*count)
+		(*count) = ctx->lines[line]->count;
+	return 0;
+}
+
+int one_wire_get_sensor_address(int line_id, int sensor_id, uint64_t *address)
+{
+	struct one_wire_context_t *ctx = one_wire_context_get();
+
+	if (!ctx)
+		return -1;
+	if (line_id <= ctx->count)
+		return -1;
+	if (sensor_id <= ctx->lines[line_id]->count)
+		return -1;
+	if (address)
+		(*address) = ctx->lines[line_id]->sensors[sensor_id].address;
+	return 0;
+}
+
+int one_wire_get_sensor_data(int line_id, int sensor_id, float *temperature)
+{
+	struct one_wire_context_t *ctx = one_wire_context_get();
+
+	if (!ctx)
+		return -1;
+	if (line_id <= ctx->count)
+		return -1;
+	if (sensor_id <= ctx->lines[line_id]->count)
+		return -1;
+	if (temperature)
+		(*temperature) = ctx->lines[line_id]->sensors[sensor_id].temperature;
+	return 0;
 }
