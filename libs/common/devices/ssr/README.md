@@ -48,3 +48,9 @@ Turn `off` a relay with index `2` immediately:
 &nbsp;&nbsp;&nbsp;&nbsp;`ssr/set/2:0`  
 - with HTTP, send this request to a device with IP address `192.168.0.1` and port `8080`  
 &nbsp;&nbsp;&nbsp;&nbsp;`curl http://192.168.0.1:8080/ssr/set:2:0`  
+
+## API
+```
+int ssr_api_state_set(uint8_t id, bool state, uint32_t time, uint32_t delay);
+int ssr_api_state_get(uint8_t id, bool *state, uint32_t *time_remain_ms, uint32_t *delay_remain_ms);
+```

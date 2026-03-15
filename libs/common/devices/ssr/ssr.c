@@ -457,3 +457,22 @@ int ssr_api_state_set(uint8_t id, bool state, uint32_t time, uint32_t delay)
 	return ssr_state_set(ctx, id, state ? ctx->on_state : !ctx->on_state, time, delay);
 }
 
+int ssr_api_state_get(uint8_t id, bool *state, uint32_t *time_remain_ms, uint32_t *delay_remain_ms)
+{
+	struct ssr_context_t *ctx = ssr_context_get();
+
+	if (!ctx)
+		return -1;
+
+	if (id >= MAX_SSR_COUNT || !(ctx->relays[id]))
+		return -1;
+
+	if (state)
+		(*state) = ((ctx->relays[id]->state_actual == ctx->on_state) ? true : false);
+	if (time_remain_ms)
+		(*time_remain_ms) = ctx->relays[id]->time_remain_ms;
+	if (delay_remain_ms)
+		(*delay_remain_ms) = ctx->relays[id]->drelay_remain_ms;
+
+	return 0;
+}
