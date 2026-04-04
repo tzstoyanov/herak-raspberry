@@ -14,21 +14,20 @@ Example configuration of 2 pins:
 ONE_WIRE_DEVICES   2;8
 ```
 
-## Monitor
-### MQTT
-MQTT one-wire sensors are auto-discovered by Home Assistant. The state is published using the following topics, where `<user-topic>` is defined in `params.txt` - as `MQTT_TOPIC`. The connection details for the MQTT server are also set in `params.txt`.  
-`<user-topic>/one_wire/Temperature_0x<address>/status` - Status of the sensor with the given `address`:  
-&nbsp;&nbsp;&nbsp;&nbsp;`id:<value>` - Address of the sensor.  
-&nbsp;&nbsp;&nbsp;&nbsp;`temperature:<value>` - Temperature, in °C.  
+## Commands
+The commands can be sent to the device with a HTTP or a MQTT request. The result is printed on the current HTTP session, on the system console and on a remote log server. The device listens for HTTP commands on the `WEBSERVER_PORT` HTTP port and on `<MQTT_TOPIC>/command` MQTT topic, where these are configured in the `params.txt` file.  
+- `map_save` - Store the current mapping of discovered sensors to allocated indexes. This configuration ensures that on every boot, the sensors will have the same indexes.  
+- `map_clear` - Deleted saved mapping of discovered sensors to allocated indexes.
+- `map_show` - Show saved mapping of discovered sensors to allocated indexes.
 
-### HTTP
-The status of all sensors is reported with this http request, where `port` is defined in `params.txt` - as `WEBSERVER_PORT`:  
-    `curl http://<device_ip>:<port>/one_wire/status`
+Example command for displaying the stored sensors mapping. The device has address `192.168.1.1`, listens on HTTP port `8080` and uses MQTT topic `test/dev`  
+- Using HTTP: `curl http://192.168.1.1:8080/one_wire?map_show`  
+- Using MQTT: send request to topic `test/dev/command` with content `one_wire?map_show`.  
 
 ## API
 ```
 int one_wire_get_lines(uint8_t *count);
-int one_wire_get_sensors_on_lines(uint8_t line, uint8_t *count);
-int one_wire_get_sensor_address(int line_id, int sensor_id, uint64_t *address);
-int one_wire_get_sensor_data(int line_id, int sensor_id, float *temperature);
+int one_wire_get_sensors_on_line(uint8_t line_id, uint8_t *count);
+int one_wire_get_sensor_address(uint8_t line_id, int sensor_id, uint64_t *address);
+int one_wire_get_sensor_data(uint8_t line_id, int sensor_id, float *temperature);
 ```

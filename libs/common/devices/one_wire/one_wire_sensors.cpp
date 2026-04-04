@@ -17,11 +17,17 @@
 #include "params.h"
 
 #define ONEWIRE_MODULE "one_wire"
-#define ONEWIRE_SENORS_MAX	3
-#define ONEWIRE_LINES_MAX	10
 #define MQTT_DATA_LEN		128
 #define MQTT_DELAY_MS		5000
 #define READ_INTERVAL_MS	1000
+
+#define PNAME_SIZE	32
+/*
+ *  Save sensors mapping on persistnat storage for each OneWire line in format:
+ *  <index>:<0xaddress>;<index>:<0xaddress>;...
+ *  When the sensors are detected, restore the same index to address mapping.
+ */
+#define ONE_WIRE_LINEMAP_PARAM_TEMPLATE	"one_wire_line_%d"
 
 #define CONST_STR(x) const_cast < char * > (x)
 
@@ -38,9 +44,10 @@ struct one_wire_sensor {
 struct one_wire_line {
 	int			pin;
 	One_wire	*tempSensor;
-	uint8_t		count;
-	uint64_t meassure_now;
-	uint64_t meassure_last;
+	uint8_t		count_on_line;
+	uint64_t	meassure_now;
+	uint64_t	meassure_last;
+	uint64_t	saved_mapping[ONEWIRE_SENORS_MAX];
 	struct one_wire_sensor sensors[ONEWIRE_SENORS_MAX];
 };
 
@@ -105,7 +112,9 @@ static void one_wire_mqtt_send(struct one_wire_context_t *ctx)
 	int i, j;
 
 	for (i = 0; i < ctx->count; i++)
-		for (j = 0; j < ctx->lines[i]->count; j++) {
+		for (j = 0; j < ONEWIRE_SENORS_MAX; j++) {
+			if (!ctx->lines[i]->sensors[j].address)
+				continue;
 			if (ctx->lines[i]->sensors[j].mqtt_comp.force) {
 				one_wire_mqtt_data_send(ctx, i, j);
 				return;
@@ -114,7 +123,7 @@ static void one_wire_mqtt_send(struct one_wire_context_t *ctx)
 
 	if ((now - ctx->mqtt_last_send) < MQTT_DELAY_MS)
 		return;
-	if (sidx >= ctx->lines[lidx]->count) {
+	if (sidx >= ONEWIRE_SENORS_MAX) {
 		sidx = 0;
 		lidx++;
 	}
@@ -135,8 +144,10 @@ static bool one_wire_log(void *context)
 
 	hlog_info(ONEWIRE_MODULE, "Detected One-Wire sensors:");
 	for (i = 0; i < ctx->count; i++) {
-		hlog_info(ONEWIRE_MODULE, "\t On line %d, GPIO pin %d", i, ctx->lines[i]->pin);
-		for (j = 0; j < ctx->lines[i]->count; j++) {
+		hlog_info(ONEWIRE_MODULE, "\t Line %d, GPIO %d, sensors %d", i, ctx->lines[i]->pin, ctx->lines[i]->count_on_line);
+		for (j = 0; j < ONEWIRE_SENORS_MAX; j++) {
+			if (!ctx->lines[i]->sensors[j].address)
+				continue;
 			q = ((ctx->lines[i]->sensors[j].ok_stat * 100) / (ctx->lines[i]->sensors[j].ok_stat + ctx->lines[i]->sensors[j].err_stat));
 			hlog_info(ONEWIRE_MODULE, "\t\tId %d, address 0x%llX: %3.2f°C, connection %d%%",
 					  j, ctx->lines[i]->sensors[j].address, ctx->lines[i]->sensors[j].temperature, q);
@@ -159,7 +170,9 @@ static void one_wire_read_measure(struct one_wire_context_t *ctx, uint8_t idx)
 	float val;
 	int i;
 
-	for (i = 0; i < line->count; i++) {
+	for (i = 0; i < ONEWIRE_SENORS_MAX; i++) {
+		if (!line->sensors[i].address)
+			continue;
 		val = line->tempSensor->temperature(line->sensors[i].rom_addr);
 		if (val == One_wire::invalid_conversion) {
 			if (ctx->debug)
@@ -183,7 +196,9 @@ static void one_wire_mqtt_init(struct one_wire_context_t *ctx, int line)
 {
 	int i;
 
-	for (i = 0; i < ctx->lines[line]->count; i++) {
+	for (i = 0; i < ONEWIRE_SENORS_MAX; i++) {
+		if (!ctx->lines[line]->sensors[i].address)
+			continue;
 		ctx->lines[line]->sensors[i].mqtt_comp.module = CONST_STR(ONEWIRE_MODULE);
 		ctx->lines[line]->sensors[i].mqtt_comp.platform = CONST_STR("sensor");
 		ctx->lines[line]->sensors[i].mqtt_comp.dev_class = CONST_STR("temperature");
@@ -197,34 +212,47 @@ static void one_wire_mqtt_init(struct one_wire_context_t *ctx, int line)
 
 static int one_wire_sensors_detect(struct one_wire_context_t *ctx, int line)
 {
-	int i;
+	rom_address_t rom_addr;
+	uint64_t address;
+	int i, j;
 
 	if (!gpio_get(ctx->lines[line]->pin)) {
-		if (ctx->lines[line]->count) {
+		if (ctx->lines[line]->count_on_line) {
 			if (ctx->debug)
 				hlog_info(ONEWIRE_MODULE, "Temperature sensors disconnected from pin %d",
 						  ctx->lines[line]->pin);
-			ctx->lines[line]->count = 0;
+			ctx->lines[line]->count_on_line = 0;
 		}
+		memset(ctx->lines[line]->sensors, 0, ONEWIRE_SENORS_MAX * sizeof(struct one_wire_sensor));
 		return 0;
 	}
-	if (ctx->lines[line]->count)
-		return ctx->lines[line]->count;
-	ctx->lines[line]->count = ctx->lines[line]->tempSensor->find_and_count_devices_on_bus();
-	if (ctx->lines[line]->count > ONEWIRE_SENORS_MAX)
-		ctx->lines[line]->count = ONEWIRE_SENORS_MAX;
+	if (ctx->lines[line]->count_on_line)
+		return ctx->lines[line]->count_on_line;
+	ctx->lines[line]->count_on_line = ctx->lines[line]->tempSensor->find_and_count_devices_on_bus();
+	if (ctx->lines[line]->count_on_line > ONEWIRE_SENORS_MAX)
+		ctx->lines[line]->count_on_line = ONEWIRE_SENORS_MAX;
 	memset(ctx->lines[line]->sensors, 0, ONEWIRE_SENORS_MAX * sizeof(struct one_wire_sensor));
-	for (i = 0; i < ctx->lines[line]->count; i++) {
-		ctx->lines[line]->sensors[i].rom_addr = ctx->lines[line]->tempSensor->get_address(i);
-		ctx->lines[line]->sensors[i].address =
-				ctx->lines[line]->tempSensor->to_uint64(ctx->lines[line]->sensors[i].rom_addr);
-	if (ctx->debug)
-		hlog_info(ONEWIRE_MODULE, "Detected sensor 0x%X on pin %d",
-				  ctx->lines[line]->sensors[i].address, ctx->lines[line]->pin);
+	for (i = 0; i < ctx->lines[line]->count_on_line; i++) {
+		rom_addr = ctx->lines[line]->tempSensor->get_address(i);
+		address = ctx->lines[line]->tempSensor->to_uint64(rom_addr);
+		for (j = 0; j < ONEWIRE_SENORS_MAX; j++) {
+			if (address == ctx->lines[line]->saved_mapping[j])
+				break;
+		}
+		if (j >= ONEWIRE_SENORS_MAX) {
+			if (ctx->lines[line]->sensors[i].address)
+				continue;
+			j = i;
+		}
+		ctx->lines[line]->sensors[j].rom_addr = rom_addr;
+		ctx->lines[line]->sensors[j].address = address;
+		if (ctx->debug)
+			hlog_info(ONEWIRE_MODULE, "Detected sensor 0x%X on pin %d, saved at index %d",
+					  ctx->lines[line]->sensors[i].address, ctx->lines[line]->pin, j);
 	}
 	one_wire_mqtt_init(ctx, line);
 
-	return ctx->lines[line]->count;
+	return ctx->lines[line]->count_on_line;
 }
 
 static void one_wire_run(void *context)
@@ -238,7 +266,7 @@ static void one_wire_run(void *context)
 		line_idx = 0;
 	line = ctx->lines[line_idx];
 
-	if (!line->count) {
+	if (!line->count_on_line) {
 		one_wire_sensors_detect(ctx, line_idx);
 		goto out;
 	}
@@ -257,6 +285,36 @@ static void one_wire_run(void *context)
 out:
 	one_wire_mqtt_send(ctx);
 	line_idx++;
+}
+
+static void one_wire_config_load_mapping(struct one_wire_line *line)
+{
+	char param_name[PNAME_SIZE];
+	char *rest, *tok, *str_id, *str_address;
+	uint64_t addr;
+	char *config;
+	int id;
+
+	snprintf(param_name, PNAME_SIZE, ONE_WIRE_LINEMAP_PARAM_TEMPLATE, line->pin);
+	if (!cfgs_param_check(param_name))
+		return;
+	config = cfgs_param_get(param_name);
+	if (!config || strlen(config) < 1)
+		return;
+
+	rest = config;
+	while ((tok = strtok_r(rest, ";", &rest))) {
+		str_address = NULL;
+		str_id = strtok_r(tok, ":", &str_address);
+		if (!str_id || !str_address)
+			continue;
+		id = (int)strtol(str_id, NULL, 0);
+		addr = (uint64_t)strtoll(str_address, NULL, 0);
+		if (id >= ONEWIRE_SENORS_MAX)
+			continue;
+		hlog_info(ONEWIRE_MODULE, "Restoring mapping %d to 0x%llX", id, addr);
+		line->saved_mapping[id] = addr;
+	}
 }
 
 static bool one_wire_config_get(struct one_wire_context_t **ctx)
@@ -280,6 +338,7 @@ static bool one_wire_config_get(struct one_wire_context_t **ctx)
 		(*ctx)->lines[(*ctx)->count] = (struct one_wire_line *)calloc(1, sizeof(struct one_wire_line));
 		if (!(*ctx)->lines[(*ctx)->count])
 			continue;
+		one_wire_config_load_mapping(&line);
 		memcpy((*ctx)->lines[(*ctx)->count], &line, sizeof(line));
 		(*ctx)->count++;
 		if ((*ctx)->count >= ONEWIRE_LINES_MAX)
@@ -347,6 +406,95 @@ out_err:
 	return false;
 }
 
+static int cmd_one_wire_map_show(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	struct one_wire_context_t *octx = (struct one_wire_context_t *)user_data;
+	char param_name[PNAME_SIZE];
+	bool has_mapping = false;
+	char *val;
+	int i;
+
+	UNUSED(ctx);
+	UNUSED(cmd);
+	UNUSED(params);
+
+	for (i = 0; i < octx->count; i++) {
+		snprintf(param_name, PNAME_SIZE, ONE_WIRE_LINEMAP_PARAM_TEMPLATE, octx->lines[i]->pin);
+		if (!cfgs_param_check(param_name))
+			continue;
+		val = cfgs_param_get(param_name);
+		if (!val)
+			continue;
+		hlog_info(ONEWIRE_MODULE, "Mapping for line %d: %s", octx->lines[i]->pin, val);
+		has_mapping = true;
+	}
+
+	if (!has_mapping)
+		hlog_info(ONEWIRE_MODULE, "No line mapping saved");
+
+	return 0;
+}
+
+static int cmd_one_wire_map_delete(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	struct one_wire_context_t *octx = (struct one_wire_context_t *)user_data;
+	char param_name[PNAME_SIZE];
+	int i;
+
+	UNUSED(ctx);
+	UNUSED(cmd);
+	UNUSED(params);
+
+	for (i = 0; i < octx->count; i++) {
+		snprintf(param_name, PNAME_SIZE, ONE_WIRE_LINEMAP_PARAM_TEMPLATE, octx->lines[i]->pin);
+		cfgs_param_del(param_name);
+	}
+
+	return 0;
+}
+
+#define PVAL_SIZE	512
+#define PTMP_SIZE	32
+static int cmd_one_wire_map_save(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	struct one_wire_context_t *octx = (struct one_wire_context_t *)user_data;
+	char param_name[PNAME_SIZE + 1];
+	char param_val[PVAL_SIZE + 1];
+	char val[PTMP_SIZE + 1];
+	int i, j;
+	int size;
+
+	UNUSED(ctx);
+	UNUSED(cmd);
+	UNUSED(params);
+
+	for (i = 0; i < octx->count; i++) {
+		param_val[0] = 0;
+		size = PVAL_SIZE;
+		for (j = 0; j < ONEWIRE_SENORS_MAX; j++) {
+			if (!octx->lines[i]->sensors[j].address)
+				continue;
+			snprintf(val, PTMP_SIZE, "%d:0x%llX;", j, octx->lines[i]->sensors[j].address);
+			strncat(param_val, val, size);
+			size -= strlen(val);
+			if (size <= 0)
+				break;
+		}
+		if (strlen(param_val) > 0) {
+			snprintf(param_name, PNAME_SIZE, ONE_WIRE_LINEMAP_PARAM_TEMPLATE, octx->lines[i]->pin);
+			cfgs_param_set(param_name, param_val);
+		}
+	}
+
+	return 0;
+}
+
+static app_command_t one_wire_requests[] = {
+	{(char *)"map_show",  (char *)" - Show saved mapping", cmd_one_wire_map_show},
+	{(char *)"map_clear", (char *)" - Clear saved mapping", cmd_one_wire_map_delete},
+	{(char *)"map_save",  (char *)" - Save current state as mapping", cmd_one_wire_map_save}
+};
+
 extern "C" void one_wire_register(void)
 {
 	struct one_wire_context_t *ctx = NULL;
@@ -358,6 +506,8 @@ extern "C" void one_wire_register(void)
 	ctx->mod.run = one_wire_run;
 	ctx->mod.log = one_wire_log;
 	ctx->mod.debug = one_wire_debug_set;
+	ctx->mod.commands.hooks = one_wire_requests;
+	ctx->mod.commands.count = ARRAY_SIZE(one_wire_requests);
 	ctx->mod.context = ctx;
 	sys_module_register(&ctx->mod);
 }
@@ -369,48 +519,52 @@ int one_wire_get_lines(uint8_t *count)
 
 	if (!ctx)
 		return -1;
-	if (*count)
+	if (!count)
 		(*count) = ctx->count;
 	return 0;
 }
 
-int one_wire_get_sensors_on_lines(uint8_t line, uint8_t *count)
+int one_wire_get_sensors_on_line(uint8_t line_id, uint8_t *count)
 {
 	struct one_wire_context_t *ctx = one_wire_context_get();
 
 	if (!ctx)
 		return -1;
-	if (line <= ctx->count)
+	if (line_id >= ONEWIRE_LINES_MAX)
 		return -1;
 	if (*count)
-		(*count) = ctx->lines[line]->count;
+		(*count) = ctx->lines[line_id]->count_on_line;
 	return 0;
 }
 
-int one_wire_get_sensor_address(int line_id, int sensor_id, uint64_t *address)
+int one_wire_get_sensor_address(uint8_t line_id, int sensor_id, uint64_t *address)
 {
 	struct one_wire_context_t *ctx = one_wire_context_get();
 
 	if (!ctx)
 		return -1;
-	if (line_id <= ctx->count)
+	if (line_id >= ONEWIRE_LINES_MAX)
 		return -1;
-	if (sensor_id <= ctx->lines[line_id]->count)
+	if (sensor_id >= ONEWIRE_SENORS_MAX)
+		return -1;
+	if (!ctx->lines[line_id]->sensors[sensor_id].address)
 		return -1;
 	if (address)
 		(*address) = ctx->lines[line_id]->sensors[sensor_id].address;
 	return 0;
 }
 
-int one_wire_get_sensor_data(int line_id, int sensor_id, float *temperature)
+int one_wire_get_sensor_data(uint8_t line_id, int sensor_id, float *temperature)
 {
 	struct one_wire_context_t *ctx = one_wire_context_get();
 
 	if (!ctx)
 		return -1;
-	if (line_id <= ctx->count)
+	if (line_id >= ONEWIRE_LINES_MAX)
 		return -1;
-	if (sensor_id <= ctx->lines[line_id]->count)
+	if (sensor_id >= ONEWIRE_SENORS_MAX)
+		return -1;
+	if (!ctx->lines[line_id]->sensors[sensor_id].address)
 		return -1;
 	if (temperature)
 		(*temperature) = ctx->lines[line_id]->sensors[sensor_id].temperature;
