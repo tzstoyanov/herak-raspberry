@@ -46,6 +46,11 @@ if(ADD_PRESS_ANALOG)
 include(${CMAKE_CURRENT_LIST_DIR}/pressure/CMakeLists.txt)
 endif()
 
+if(ADD_THERMOSTAT)
+include(${CMAKE_CURRENT_LIST_DIR}/thermostat/CMakeLists.txt)
+endif()
+
+
 target_sources(${lib_name} INTERFACE
    ${CMAKE_CURRENT_LIST_DIR}/devices_init.c
 )
