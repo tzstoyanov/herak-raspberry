@@ -30,11 +30,6 @@
 
 #define IS_DEBUG(C)	((C)->debug)
 
-enum {
-	TEMPERATURE_TYPE_INTERNAL,
-	TEMPERATURE_TYPE_NTC,
-};
-
 struct temperature_t;
 typedef float (*temperature_calc_cb_t) (struct temperature_t *temp, float v);
 
@@ -49,7 +44,7 @@ struct temperature_t {
 	float		temperature;
 	uint64_t	last_read;
 	uint		count;
-	int			type;
+	enum temp_sensor_type	type;
 	void		*params;
 	temperature_calc_cb_t calc;
 	mqtt_component_t mqtt_comp;
@@ -72,7 +67,7 @@ static struct temperature_context_t *temperature_context_get(void)
 	return __temperature_ctx;
 }
 
-static const char *temperature_type_str(int type)
+static const char *temperature_type_str(enum temp_sensor_type type)
 {
 	switch (type) {
 	case TEMPERATURE_TYPE_INTERNAL:
@@ -117,7 +112,7 @@ static int temperature_mqtt_data_send(struct temperature_context_t *ctx, int idx
 }
 
 static int temperature_add_sensor(struct temperature_context_t *ctx, int gpio_pin,
-								  int type, float min, float max,
+								  enum temp_sensor_type type, float min, float max,
 								  temperature_calc_cb_t calc, void *params)
 {
 	struct adc_sensor_t *adc;
@@ -234,15 +229,6 @@ out_err:
 	return false;
 }
 
-float temperature_internal_get(void)
-{
-	struct temperature_context_t *ctx = temperature_context_get();
-
-	if (!ctx)
-		return 0;
-	return ctx->sensors[0]->temperature;
-}
-
 static void temperature_measure(struct temperature_context_t *ctx)
 {
 	uint64_t now = time_ms_since_boot();
@@ -339,4 +325,53 @@ void temperature_register(void)
 	ctx->mod.context = ctx;
 
 	sys_module_register(&ctx->mod);
+}
+
+/* API */
+int temperature_get_count(enum temp_sensor_type type, uint8_t *count)
+{
+	struct temperature_context_t *ctx = temperature_context_get();
+	int cnt = 0;
+	int i;
+
+	if (!ctx)
+		return -1;
+	for (i = 0; i < ctx->count; i++) {
+		if (!ctx->sensors[i])
+			break;
+		if (ctx->sensors[i]->type == type)
+			cnt++;
+	}
+
+	if (count)
+		(*count) = cnt;
+
+	return 0;
+}
+
+int temperature_get_data(enum temp_sensor_type type, int id, float *temperature)
+{
+	struct temperature_context_t *ctx = temperature_context_get();
+	int i, j = 0;
+
+	for (i = 0; i < ctx->count; i++) {
+		if (ctx->sensors[i]->type != type)
+			continue;
+		if (j == id) {
+			if (temperature)
+				(*temperature) = ctx->sensors[i]->temperature;
+			break;
+		}
+		j++;
+	}
+
+	return ((i < ctx->count) ? 0 : -1);
+}
+
+float temperature_internal_get(void)
+{
+	float f = 0;
+
+	temperature_get_data(TEMPERATURE_TYPE_INTERNAL, 0, &f);
+	return f;
 }

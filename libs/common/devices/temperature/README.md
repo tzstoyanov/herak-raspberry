@@ -25,3 +25,15 @@ MQTT temperature sensors are auto-discovered by Home Assistant. The state is pub
 ### HTTP
 The status of all sensors is reported with this http request, where `port` is defined in `params.txt` - as `WEBSERVER_PORT`:  
     `curl http://<device_ip>:<port>/temperature/status`  
+
+## API
+```
+enum temp_sensor_type {
+	TEMPERATURE_TYPE_INTERNAL,
+	TEMPERATURE_TYPE_NTC,
+};
+
+float temperature_internal_get(void);
+int temperature_get_count(enum temp_sensor_type type, uint8_t *count);
+int temperature_get_data(enum temp_sensor_type type, int id, float *temperature);
+```
