@@ -65,4 +65,9 @@ void devices_register_and_init(void)
 	DEV_REGISTER(apress_register);
 #endif /* HAVE_PRESS_ANALOG */
 
+#ifdef HAVE_THERMOSTAT
+	DEV_REGISTER(thermostat_register);
+#endif /* HAVE_THERMOSTAT */
+
+
 }

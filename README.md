@@ -36,6 +36,7 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - [One-Wire sensor](libs/common/devices/one_wire/README.md)
 - [YF Liquid Flow sensor](libs/common/devices/flow_yf/README.md)
 - [Analog Pressure Sensor](libs/common/devices/pressure/README.md)
+- [Thermostat](libs/common/devices/thermostat/README.md)
 - [DALY BMS](docs/Daly-Communications-Protocol-V1.2.pdf), over Bluetooth and [HLK-B40 serial interface](docs/HLK-B40.pdf)
 - Voltronic VM III inverter, over USB using [MAX communication protocol](docs/MAX-Communication-Protocol.pdf)
 - Build-in temperature sensor
