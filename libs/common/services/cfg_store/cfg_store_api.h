@@ -10,7 +10,10 @@
 extern "C" {
 #endif
 
-char *cfgs_param_get(char *name);
+char *cfgs_param_get(char *param);
+bool cfgs_param_check(char *param);
+int cfgs_param_del(char *param);
+int cfgs_param_set(char *param, char *value);
 
 #ifdef __cplusplus
 }

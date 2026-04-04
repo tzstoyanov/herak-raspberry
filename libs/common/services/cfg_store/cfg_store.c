@@ -16,7 +16,7 @@
 
 #define CFGS_MODULE "config"
 #define CFG_DIR     "/device_cfg"
-#define MAX_VARS     50
+#define MAX_VARS     100
 #define BUFF_SIZE    300
 
 struct cfg_store_t {
@@ -99,7 +99,9 @@ static struct cfg_store_t *cfgs_param_register(struct cfgs_context_t *ctx, char 
 	ctx->cfg_params[ctx->count] = (struct cfg_store_t *)calloc(1, sizeof(struct cfg_store_t));
 	if (!ctx->cfg_params[ctx->count])
 		return NULL;
-	ctx->cfg_params[ctx->count]->name = name;
+	ctx->cfg_params[ctx->count]->name = strdup(name);
+	if (!ctx->cfg_params[ctx->count]->name)
+		return NULL;
 	ctx->count++;
 	return ctx->cfg_params[ctx->count - 1];
 }
@@ -147,15 +149,17 @@ static void cfgs_purge_uknown(struct cfgs_context_t *ctx)
 	pico_dir_close(fd);
 }
 
-static int cfgs_param_set(struct cfgs_context_t *ctx, char *name, char *value)
+static int cfgs_param_store(struct cfgs_context_t *ctx, char *name, char *value)
 {
+	struct cfg_store_t *var = NULL;
 	char *enc_val = NULL;
 	unsigned int sz;
 	int ret = -1;
 	int fd;
 
-	if (!cfgs_param_find(ctx, name))
-		return -1;
+	var = cfgs_param_find(ctx, name);
+	if (!var)
+		var = cfgs_param_register(ctx, name);
 
 	snprintf(ctx->buff, BUFF_SIZE, "%s/%s", CFG_DIR, name);
 
@@ -177,20 +181,70 @@ out:
 	return ret;
 }
 
-char *cfgs_param_get(char *name)
+static void cfgs_param_remove(struct cfgs_context_t *ctx, char *param)
+{
+	snprintf(ctx->buff, BUFF_SIZE, "%s/%s", CFG_DIR, param);
+	pico_remove(ctx->buff);
+}
+
+/* API */
+bool cfgs_param_check(char *param)
+{
+	struct cfgs_context_t *ctx = cfgs_context_get();
+	struct cfg_store_t var;
+	char *val;
+
+	if (!ctx)
+		return false;
+	if (cfgs_param_find(ctx, param))
+		return true;
+	memset(&var, 0, sizeof(var));
+	var.name = param;
+	val = cfgs_param_read(ctx, &var);
+	if (val) {
+		free(val);
+		cfgs_param_register(ctx, param);
+		return true;
+	}
+	return false;
+}
+
+int cfgs_param_set(char *param, char *value)
+{
+	struct cfgs_context_t *ctx = cfgs_context_get();
+
+	if (!ctx)
+		return -1;
+
+	return cfgs_param_store(ctx, param, value);
+}
+
+char *cfgs_param_get(char *param)
 {
 	struct cfgs_context_t *ctx = cfgs_context_get();
 	struct cfg_store_t *var = NULL;
 
 	if (!ctx)
 		return NULL;
-	var = cfgs_param_find(ctx, name);
+	var = cfgs_param_find(ctx, param);
 	if (!var)
-		var = cfgs_param_register(ctx, name);
+		var = cfgs_param_register(ctx, param);
 	if (!var)
 		return NULL;
 	return cfgs_param_read(ctx, var);
 }
+
+int cfgs_param_del(char *param)
+{
+	struct cfgs_context_t *ctx = cfgs_context_get();
+
+	if (!ctx)
+		return -1;
+	cfgs_param_remove(ctx, param);
+	return 0;
+}
+
+/* API end */
 
 static void cfgs_reset_all(struct cfgs_context_t *ctx)
 {
@@ -260,7 +314,7 @@ static int cfgs_set_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void *u
 	if (!name)
 		return -1;
 
-	if (cfgs_param_set(wctx, name, rest) < 0)
+	if (cfgs_param_store(wctx, name, rest) < 0)
 		return -1;
 
 	return 0;
@@ -279,9 +333,7 @@ static int cfgs_del_cmd(cmd_run_context_t *ctx, char *cmd, char *params, void *u
 	name = strtok_r(rest, ":", &rest);
 	if (!name)
 		return -1;
-
-	snprintf(wctx->buff, BUFF_SIZE, "%s/%s", CFG_DIR, name);
-	pico_remove(wctx->buff);
+	cfgs_param_remove(wctx, name);
 
 	return 0;
 }
