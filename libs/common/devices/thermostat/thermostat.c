@@ -158,18 +158,16 @@ static int therm_device_run(struct thermostat_context_t *ctx, int idx)
 		dev = ctx->devices[idx];
 	if (!dev)
 		return -1;
+	if (!dev->enable)
+		return 0;
 	state = dev->ssr_state;
-	if (dev->enable) {
-		ret = therm_device_read_temperature(dev);
-		if (ret)
-			return ret;
-		if (dev->current_t >= dev->off_t)
-			state = false;
-		else if (dev->current_t <= dev->on_t)
-			state = true;
-	} else {
+	ret = therm_device_read_temperature(dev);
+	if (ret)
+		return ret;
+	if (dev->current_t >= dev->off_t)
 		state = false;
-	}
+	else if (dev->current_t <= dev->on_t)
+		state = true;
 #ifdef HAVE_SSR
 	ret = ssr_api_state_set(dev->ssr_id, state, 0, 0);
 #else
@@ -475,7 +473,15 @@ static int therm_set_state(struct thermostat_context_t *ctx, int idx, bool state
 
 	if (idx >= 0) {
 		if (idx < ctx->dev_count && ctx->devices[idx]) {
+			if (ctx->devices[idx]->enable != state)
+				ctx->devices[idx]->mqtt_comp[THERM_MQTT_STATE].force = true;
 			ctx->devices[idx]->enable = state;
+			if (!state) {
+				ctx->devices[idx]->ssr_state = false;
+#ifdef HAVE_SSR
+				ssr_api_state_set(ctx->devices[idx]->ssr_id, false, 0, 0);
+#endif
+			}
 			if (IS_DEBUG(ctx))
 				hlog_info(THERMOSTAT_MODULE, "%s %d ", state ? "Enable" : "Disable", idx);
 		} else {
@@ -489,6 +495,12 @@ static int therm_set_state(struct thermostat_context_t *ctx, int idx, bool state
 			if (ctx->devices[i]->enable != state)
 				ctx->devices[i]->mqtt_comp[THERM_MQTT_STATE].force = true;
 			ctx->devices[i]->enable = state;
+			if (!state) {
+				ctx->devices[i]->ssr_state = false;
+#ifdef HAVE_SSR
+				ssr_api_state_set(ctx->devices[i]->ssr_id, false, 0, 0);
+#endif
+			}
 			if (IS_DEBUG(ctx))
 				hlog_info(THERMOSTAT_MODULE, "%s %d ", state ? "Enable" : "Disable", i);
 		}
