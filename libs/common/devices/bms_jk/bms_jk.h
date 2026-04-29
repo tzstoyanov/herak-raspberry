@@ -20,6 +20,8 @@
 #define LOG_BMC_DEBUG	0x0002
 #define LOG_MQTT_DEBUG	0x0004
 
+#define BMC_DEBUG(C)	(C->debug)
+#define DEV_NAME(D) ((D)->user_name ? (D)->user_name : (D)->name)
 typedef struct {
 	bool valid;
 	char Vendor[INFO_STR_LEN];
@@ -109,6 +111,22 @@ typedef struct {
 #define BMS_MAX_DEVICES	4
 
 struct bms_context_type;
+struct jk_bms_dev_t;
+
+struct bt_auto_action_t {
+	bool enabled;
+	bool state;
+	uint64_t runs;
+	char *script_on_name;
+	char *script_on_prefix;
+	int script_on_count;
+	char *wh_on_message;
+	char *script_off_name;
+	char *script_off_prefix;
+	int script_off_count;
+	char *wh_off_message;
+	struct jk_bms_dev_t *dev;
+};
 
 struct jk_bms_dev_t {
 	bt_addr_t address;
@@ -132,17 +150,9 @@ struct jk_bms_dev_t {
 	uint64_t timeout_msec;
 
 	/* track battery */
-	bool track_batt_level;
-	bool full_battery;		// true if the battery is not empty
-	bool batt_state_set;
+	struct bt_auto_action_t auto_batt; // Actions on battery state
 	uint16_t cell_v_low;	// threshold of cell voltage for empty battery
 	uint16_t cell_v_high;	// threshold of cell voltage for non-empty battery
-
-	/* Actions on battery state */
-	char *script_normal_prefix;
-	int scripts_normal;
-	char *script_empty_prefix;
-	int scripts_empty;
 
 	struct bms_context_type *ctx;
 };
@@ -158,5 +168,10 @@ typedef struct bms_context_type {
 
 void bms_jk_mqtt_init(bms_context_t *ctx, int idx);
 void bms_jk_mqtt_send(struct jk_bms_dev_t *dev);
+
+void jk_bt_automation_run(struct jk_bms_dev_t *dev);
+void jk_bt_automation_log(struct jk_bms_dev_t *dev);
+void jk_bt_automation_find_scripts(struct jk_bms_dev_t *dev);
+void jk_bt_enable_battery_track(struct jk_bms_dev_t *dev, uint16_t cell_v_low, uint16_t cell_v_high);
 
 #endif /* _BMS_JK_H_ */

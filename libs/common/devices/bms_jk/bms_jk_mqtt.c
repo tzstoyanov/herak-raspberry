@@ -112,8 +112,8 @@ static int mqtt_cells_data_send(struct jk_bms_dev_t *dev)
 	ADD_MQTT_MSG_VAR(",\"soh\":%d", dev->cell_info.soh);
 	ADD_MQTT_MSG_VAR(",\"batt_v\":%3.2f", dev->cell_info.batt_v*0.001);
 	ADD_MQTT_MSG_VAR(",\"batt_heat_a\":%3.2f", dev->cell_info.batt_heat_a*0.001);
-	if (dev->track_batt_level)
-		ADD_MQTT_MSG_VAR(",\"batt_low\":%d", !dev->full_battery);
+	if (dev->auto_batt.enabled)
+		ADD_MQTT_MSG_VAR(",\"batt_low\":%d", !dev->auto_batt.state);
 	ADD_MQTT_MSG("}");
 
 	dev->mqtt.payload[BMS_MQTT_DATA_LEN] = 0;

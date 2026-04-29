@@ -15,20 +15,12 @@
 #include "params.h"
 #include "bms_jk.h"
 
-#define BMC_DEBUG(C)	(C->debug)
-
 #define CMD_POLL_MS	5000 /* Send command each 5s */
 #define CMD_TIMEOUT_MS	1000 /* Wait for response 1s */
 static const uint8_t __in_flash() jk_notify_pkt_start[] = {0x55, 0xAA, 0xEB, 0x90};
 static const uint8_t __in_flash() jk_request_pkt_start[] = {0xAA, 0x55, 0x90, 0xEB};
 
 #define TIME_STR_LEN	64
-
-#define	WH_PAYLOAD_TEMPLATE "Battery %s state is %s"
-
-#define DEV_NAME(D) ((D)->user_name ? (D)->user_name : (D)->name)
-
-#define BATT_STATE_COUNT_THR	3
 
 /*
 
@@ -325,116 +317,6 @@ static void jk_bt_process_terminal(struct jk_bms_dev_t *dev, bt_characteristicva
 	}
 }
 
-/* Run automation scripts on battery state change */
-static void jk_bt_run_state_scripts(struct jk_bms_dev_t *dev)
-{
-	/* Disable running scripts */
-	if (dev->full_battery) {
-		if (dev->scripts_empty && dev->script_empty_prefix)
-			script_auto(dev->script_empty_prefix, true, false);
-	} else {
-		if (dev->scripts_normal && dev->script_normal_prefix)
-			script_auto(dev->script_normal_prefix, true, false);
-	}
-
-	/* Run new scripts on battery state */
-	if (dev->full_battery) {
-		if (dev->scripts_normal && dev->script_normal_prefix) {
-			script_auto(dev->script_normal_prefix, true, true);
-			script_run(dev->script_normal_prefix, true);
-
-			if (BMC_DEBUG(dev->ctx))
-				hlog_info(BMS_JK_MODULE, "Run %d [%s] scripts",
-						  dev->scripts_normal, dev->script_normal_prefix);
-		}
-	} else {
-		if (dev->scripts_empty && dev->script_empty_prefix) {
-			script_auto(dev->script_empty_prefix, true, true);
-			script_run(dev->script_empty_prefix, true);
-
-			if (BMC_DEBUG(dev->ctx))
-				hlog_info(BMS_JK_MODULE, "Run %d [%s] scripts",
-						  dev->scripts_empty, dev->script_empty_prefix);
-		}
-	}
-}
-
-static void jk_bt_new_batt_state(struct jk_bms_dev_t *dev, bool empty)
-{
-	char notify_buff[WH_PAYLOAD_MAX_SIZE];
-	int i;
-
-	if (empty && dev->full_battery) {
-		dev->full_battery = false;
-		if (dev->ctx->wh_notify && dev->batt_state_set) {
-			snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-					 DEV_NAME(dev), "empty");
-			webhook_send(notify_buff);
-		}
-		jk_bt_run_state_scripts(dev);
-	}
-
-	if (!empty && !dev->full_battery) {
-		dev->full_battery = true;
-		if (dev->ctx->wh_notify && dev->batt_state_set) {
-			snprintf(notify_buff, WH_PAYLOAD_MAX_SIZE, WH_PAYLOAD_TEMPLATE,
-					 DEV_NAME(dev), "normal");
-			webhook_send(notify_buff);
-		}
-		jk_bt_run_state_scripts(dev);
-	}
-
-	for (i = 0; i < BMS_MAX_CELLS; i++) {
-		if (!(1<<i & dev->cell_info.cells_enabled))
-			break;
-		dev->cell_info.cells_low_count[i] = 0;
-		dev->cell_info.cells_high_count[i] = 0;
-	}
-}
-
-static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
-{
-	int i;
-
-	if (!dev->cell_info.valid)
-		return;
-
-	if (dev->full_battery) {
-		for (i = 0; i < BMS_MAX_CELLS; i++) {
-			if (!(1<<i & dev->cell_info.cells_enabled))
-				break;
-			if (dev->cell_info.cells_v[i] < dev->cell_v_low)
-				dev->cell_info.cells_low_count[i]++;
-			if (dev->cell_info.cells_low_count[i] >= BATT_STATE_COUNT_THR) {
-				if (dev->batt_state_set)
-					hlog_info(BMS_JK_MODULE, "Battery %s is empty: cell %d is %3.2fV",
-							DEV_NAME(dev), i, (float)(dev->cell_info.cells_v[i] * 0.001));
-				jk_bt_new_batt_state(dev, true);
-				break;
-			}
-		}
-	} else {
-		for (i = 0; i < BMS_MAX_CELLS; i++) {
-			if (!(1<<i & dev->cell_info.cells_enabled))
-				break;
-			if (dev->cell_info.cells_v[i] >= dev->cell_v_high)
-				dev->cell_info.cells_high_count[i]++;
-		}
-		for (i = 0; i < BMS_MAX_CELLS; i++) {
-			if (!(1<<i & dev->cell_info.cells_enabled))
-				break;
-			if (dev->cell_info.cells_high_count[i] < BATT_STATE_COUNT_THR)
-				break;
-		}
-		if (!(1<<i & dev->cell_info.cells_enabled)) {
-			if (dev->batt_state_set)
-				hlog_info(BMS_JK_MODULE, "Battery %s is back to normal", DEV_NAME(dev));
-			jk_bt_new_batt_state(dev, false);
-		}
-	}
-	dev->batt_state_set = true;
-}
-
 static void bms_jk_frame_process(struct jk_bms_dev_t *dev)
 {
 	if (!dev->nbuff_ready)
@@ -448,8 +330,7 @@ static void bms_jk_frame_process(struct jk_bms_dev_t *dev)
 		if (BMC_DEBUG(dev->ctx))
 			hlog_info(BMS_JK_MODULE, "[%s] Got cell info", DEV_NAME(dev));
 		jk_bt_process_cell_frame(dev);
-		if (dev->track_batt_level)
-			jk_bt_check_cell_levels(dev);
+		jk_bt_automation_run(dev);
 		break;
 	case 0x03: /* device info */
 		if (BMC_DEBUG(dev->ctx))
@@ -465,35 +346,6 @@ static void bms_jk_frame_process(struct jk_bms_dev_t *dev)
 	dev->nbuff_curr = 0;
 	dev->nbuff_ready = false;
 	dev->wait_reply = false;
-}
-
-static void jk_bt_find_auto_scripts(struct jk_bms_dev_t *dev)
-{
-
-	if (dev->scripts_normal || dev->scripts_empty)
-		return;
-
-	if (dev->script_normal_prefix)
-		free(dev->script_normal_prefix);
-	dev->script_normal_prefix = NULL;
-	sys_asprintf(&dev->script_normal_prefix, "%s_normal_", DEV_NAME(dev));
-	if (dev->script_normal_prefix) {
-		dev->scripts_normal = script_exist(dev->script_normal_prefix, true);
-		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Found %d scripts for normal state with prefix [%s]",
-					  dev->scripts_normal, dev->script_normal_prefix);
-	}
-
-	if (dev->script_empty_prefix)
-		free(dev->script_empty_prefix);
-	dev->script_empty_prefix = NULL;
-	sys_asprintf(&dev->script_empty_prefix, "%s_low_", DEV_NAME(dev));
-	if (dev->script_empty_prefix) {
-		dev->scripts_empty = script_exist(dev->script_empty_prefix, true);
-		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "Found %d scripts for empty state with prefix [%s]",
-					  dev->scripts_empty, dev->script_empty_prefix);
-	}
 }
 
 static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_len, void *context)
@@ -514,8 +366,7 @@ static void jk_bt_event(int idx, bt_event_t event, const void *data, int data_le
 		dev->state = BT_CONNECTED;
 		dev->last_reply = time_ms_since_boot();
 		dev->connect_count++;
-		if (dev->track_batt_level)
-			jk_bt_find_auto_scripts(dev);
+		jk_bt_automation_find_scripts(dev);
 		break;
 	case BT_DISCONNECTED:
 		if (dev->state != BT_DISCONNECTED)
@@ -603,6 +454,7 @@ static bool get_bms_config(bms_context_t **ctx)
 	bt_addr_t address;
 	bool ret = false;
 	uint32_t i;
+	int val1, val2;
 
 	(*ctx) = NULL;
 	if (!bt_mod || strlen(bt_mod) < 1)
@@ -667,10 +519,10 @@ static bool get_bms_config(bms_context_t **ctx)
 			mod = strtok_r(rest1, ",", &rest1);
 			if (!mod || !rest1)
 				continue;
-			(*ctx)->devices[i]->cell_v_low = (uint16_t)(strtof(mod, NULL) * 1000);
-			(*ctx)->devices[i]->cell_v_high = (uint16_t)(strtof(rest1, NULL) * 1000);
-			if ((*ctx)->devices[i]->cell_v_low > 0 && (*ctx)->devices[i]->cell_v_high > 0)
-				(*ctx)->devices[i]->track_batt_level = true;
+			val1 = strtof(mod, NULL) * 1000;	// cell_v_low
+			val2 = strtof(rest1, NULL) * 1000;	// cell_v_high
+			if (val1 > 0 && val2 > 0)
+				jk_bt_enable_battery_track((*ctx)->devices[i], val1, val2);
 			i++;
 			if (i >= (*ctx)->count)
 				break;
@@ -929,16 +781,7 @@ static bool bms_jk_log(void *context)
 	else
 		bms_jk_log_cells(dev);
 
-	if (dev->track_batt_level) {
-		hlog_info(BMS_JK_MODULE, "\tTrack battery state between %3.2fV and %3.2fV",
-				  dev->cell_v_low * 0.001, dev->cell_v_high * 0.001);
-		hlog_info(BMS_JK_MODULE, "\tBattery level is %s", dev->full_battery ? "normal" : "low");
-		hlog_info(BMS_JK_MODULE, "\tAuto scripts: [%s*.run] %d , [%s*.run] %d",
-				  dev->script_normal_prefix ? dev->script_normal_prefix : "normal",
-				  dev->scripts_normal,
-				  dev->script_empty_prefix ? dev->script_empty_prefix : "low",
-				  dev->scripts_empty);
-	}
+	jk_bt_automation_log(dev);
 
 	idx++;
 	return false;
@@ -966,9 +809,9 @@ int bms_jk_is_battery_full(uint32_t bms_id)
 {
 	bms_context_t *ctx = bms_jk_context_get();
 
-	if (!ctx || bms_id >= ctx->count || !ctx->devices[bms_id]->track_batt_level)
+	if (!ctx || bms_id >= ctx->count || !ctx->devices[bms_id]->auto_batt.enabled)
 		return -1;
 	if (ctx->devices[bms_id]->state != BT_READY || !TERM_IS_ACTIVE(ctx->devices[bms_id]))
 		return -1;
-	return ctx->devices[bms_id]->full_battery;
+	return ctx->devices[bms_id]->auto_batt.state;
 }

@@ -6,6 +6,7 @@ option(ADD_MQTT_CLIENT "MQTT Client" ON)
 target_sources(${lib_name} INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/bms_jk.c
   ${CMAKE_CURRENT_LIST_DIR}/bms_jk_mqtt.c
+  ${CMAKE_CURRENT_LIST_DIR}/bms_jk_automation.c
 )
 
 target_include_directories(${lib_name} INTERFACE ${CMAKE_CURRENT_LIST_DIR})

@@ -25,8 +25,8 @@ BMS_NOTIFY              1
 
 ## Auto Scripts
 A set of scripts can be executed when the battery changes its state from `low` to `normal` and vice versa. In order to work, the `BMS_CELL_LEVELS` must be set - defining what levels are considered `low` and `normal`. The scripts names must be prefixed with `BMS_NAME`, or if this parameter is not set - the ID of the battery, as it is reported by the JK BMS. Scripts are detected only at boot time, so when a new script is copied the device must be rebooted.
-- When the battery voltage falls below the configured `low` threshold, all scripts prefixed with `<BMS_NAME>_low_` are executed. If a cron schedule is configured for a given script, it is enabled. All scripts prefixed with `<BMS_NAME>_normal_` are disabled.
-- When the battery voltage raises above the configured `high` threshold, all scripts prefixed with `<BMS_NAME>_normal_` are executed. If a cron schedule is configured for a given script, it is enabled. All scripts prefixed with `<BMS_NAME>_low_` are disabled.
+- When the battery voltage falls below the configured `low` threshold, all scripts prefixed with `<BMS_NAME>_batt_low_` are executed. If a cron schedule is configured for a given script, it is enabled. All scripts prefixed with `<BMS_NAME>_batt_normal_` are disabled.
+- When the battery voltage raises above the configured `high` threshold, all scripts prefixed with `<BMS_NAME>_batt_normal_` are executed. If a cron schedule is configured for a given script, it is enabled. All scripts prefixed with `<BMS_NAME>_batt_low_` are disabled.
 
 ## Monitor
 ### MQTT
