@@ -7,5 +7,6 @@
 #define _BMS_JK_API_H_
 
 int bms_jk_is_battery_full(uint32_t bms_id);
+int bms_jk_has_solar_excess(uint32_t bms_id);
 
 #endif /* #define _BMS_JK_API_H_ */

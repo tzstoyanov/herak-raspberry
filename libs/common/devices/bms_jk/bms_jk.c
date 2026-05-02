@@ -448,6 +448,7 @@ static bool get_bms_config(bms_context_t **ctx)
 	char *bt_id = USER_PRAM_GET(BMS_BT);
 	char *bt_name = USER_PRAM_GET(BMS_NAME);
 	char *bt_wh_notify = USER_PRAM_GET(BMS_NOTIFY);
+	char *bt_max_charge = USER_PRAM_GET(BMS_CHARGE_CURRENT_THRESHOLD);
 	char *dev, *addr, *ch;
 	char *mod, *mod_rest;
 	char *rest, *rest1;
@@ -540,6 +541,19 @@ static bool get_bms_config(bms_context_t **ctx)
 		}
 	}
 
+	if (bt_max_charge && strlen(bt_max_charge) >= 1) {
+		rest = bt_max_charge;
+		i = 0;
+		while ((dev = strtok_r(rest, ";", &rest))) {
+			val1 = (int)strtol(dev, NULL, 0);
+			if (val1 > 0)
+				jk_bt_enable_solar_track((*ctx)->devices[i], val1);
+			i++;
+			if (i >= (*ctx)->count)
+				break;
+		}
+	}
+
 	if (bt_wh_notify && strlen(bt_wh_notify) >= 1)
 		(*ctx)->wh_notify = (bool)(strtol(bt_wh_notify, NULL, 0));
 
@@ -554,6 +568,8 @@ out:
 		free(bt_wh_notify);
 	if (bt_timeout)
 		free(bt_timeout);
+	if (bt_max_charge)
+		free(bt_max_charge);
 	if (!ret) {
 		if ((*ctx)) {
 			for (i = 0; i < (*ctx)->count; i++) {
@@ -787,6 +803,40 @@ static bool bms_jk_log(void *context)
 	return false;
 }
 
+static int cmd_bms_jk_set_charge_current_threshold(cmd_run_context_t *ctx, char *cmd, char *params, void *user_data)
+{
+	bms_context_t *bms_ctx = (bms_context_t *)user_data;
+	char *tok, *rest = params + 1;
+	int id, current = 0;
+
+	UNUSED(ctx);
+	UNUSED(cmd);
+
+	if (!bms_ctx || strlen(params) < 2 || params[0] != ':')
+		return -1;
+
+	tok = strtok_r(rest, ":", &rest);
+	if (!tok)
+		return -1;
+	id = (int)strtol(tok, NULL, 0);
+	if (id < 0 || id >= (int)bms_ctx->count || !bms_ctx->devices[id])
+		return -1;
+
+	current = (int)strtol(rest, NULL, 0);
+	if (current <= 0)
+		jk_bt_enable_solar_track(bms_ctx->devices[id], 0);
+	else
+		jk_bt_enable_solar_track(bms_ctx->devices[id], current);
+
+
+	return 0;
+}
+
+static app_command_t bms_jk_requests[] = {
+	{"charge_current_threshold", ":<id>:<int, ampere> - set a threshold for given BMS device, used for solar excess detection",
+	 cmd_bms_jk_set_charge_current_threshold},
+};
+
 void bms_jk_register(void)
 {
 	bms_context_t *ctx = NULL;
@@ -798,6 +848,8 @@ void bms_jk_register(void)
 	ctx->mod.run = bms_jk_run;
 	ctx->mod.log = bms_jk_log;
 	ctx->mod.debug = bms_jk_debug_set;
+	ctx->mod.commands.hooks = bms_jk_requests;
+	ctx->mod.commands.count = ARRAY_SIZE(bms_jk_requests);
 	ctx->mod.commands.description = "JK BMS monitor";
 	ctx->mod.context = ctx;
 
@@ -814,4 +866,15 @@ int bms_jk_is_battery_full(uint32_t bms_id)
 	if (ctx->devices[bms_id]->state != BT_READY || !TERM_IS_ACTIVE(ctx->devices[bms_id]))
 		return -1;
 	return ctx->devices[bms_id]->auto_batt.state;
+}
+
+int bms_jk_has_solar_excess(uint32_t bms_id)
+{
+	bms_context_t *ctx = bms_jk_context_get();
+
+	if (!ctx || bms_id >= ctx->count || !ctx->devices[bms_id]->auto_solar.enabled)
+		return -1;
+	if (ctx->devices[bms_id]->state != BT_READY || !TERM_IS_ACTIVE(ctx->devices[bms_id]))
+		return -1;
+	return ctx->devices[bms_id]->auto_solar.state;
 }

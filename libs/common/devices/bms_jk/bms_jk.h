@@ -38,7 +38,7 @@ typedef struct {
 
 #define BMS_MAX_CELLS	32
 #define BMS_MQTT_DATA_LEN   768
-#define BMS_MQTT_COMPONENTS (BMS_MAX_CELLS*2 + 30)
+#define BMS_MQTT_COMPONENTS (BMS_MAX_CELLS*2 + 31)
 typedef struct {
 	bool valid;
 	bool cell_v_force;
@@ -154,6 +154,11 @@ struct jk_bms_dev_t {
 	uint16_t cell_v_low;	// threshold of cell voltage for empty battery
 	uint16_t cell_v_high;	// threshold of cell voltage for non-empty battery
 
+	/* track solar excess */
+	struct bt_auto_action_t auto_solar; // Actions on solar excess
+	uint16_t charge_current_threshold;
+	uint64_t last_solar_try;
+
 	struct bms_context_type *ctx;
 };
 
@@ -173,5 +178,6 @@ void jk_bt_automation_run(struct jk_bms_dev_t *dev);
 void jk_bt_automation_log(struct jk_bms_dev_t *dev);
 void jk_bt_automation_find_scripts(struct jk_bms_dev_t *dev);
 void jk_bt_enable_battery_track(struct jk_bms_dev_t *dev, uint16_t cell_v_low, uint16_t cell_v_high);
+void jk_bt_enable_solar_track(struct jk_bms_dev_t *dev, uint16_t charge_current);
 
 #endif /* _BMS_JK_H_ */

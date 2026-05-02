@@ -14,7 +14,12 @@
 
 #define	WH_PAYLOAD_TEMPLATE "%s: %s"
 
+// Battery state
 #define BATT_STATE_COUNT_THR	3
+
+// Solar excess
+#define BATT_STATE_CHARGE_THR			90		// in %
+#define BATT_STATE_CHARGE_TRY_DELAY_MS 	120000	// 2 min
 
 /* Run automation scripts on state change */
 static void jk_bt_auto_action(struct bt_auto_action_t *aauto)
@@ -120,15 +125,47 @@ static void jk_bt_check_cell_levels(struct jk_bms_dev_t *dev)
 	}
 }
 
+static void jk_bt_check_solar(struct jk_bms_dev_t *dev)
+{
+	uint64_t now = time_ms_since_boot();
+	bool has_excess = false;
+
+	if (!dev->cell_info.valid)
+		return;
+	if (!dev->auto_solar.state &&
+		(now - dev->last_solar_try) < BATT_STATE_CHARGE_TRY_DELAY_MS)
+		return;
+	if (dev->cell_info.batt_charge_curr < 0)
+		goto out;
+	if (dev->cell_info.batt_state < BATT_STATE_CHARGE_THR &&
+		(dev->cell_info.batt_charge_curr * 0.001) < dev->charge_current_threshold)
+		goto out;
+	has_excess  = true;
+
+out:
+	if (dev->auto_solar.state != has_excess) {
+		if (!has_excess)
+			dev->last_solar_try = now;
+		if (BMC_DEBUG(dev->ctx))
+			hlog_info(BMS_JK_MODULE, "Detected solar %s: %dA, %d%%",
+					  has_excess ? "excess" : "deficiency",
+					  dev->cell_info.batt_charge_curr * 0.001, dev->cell_info.batt_state);
+		dev->auto_solar.state = has_excess;
+		jk_bt_auto_action(&dev->auto_solar);
+	}
+}
+
 void jk_bt_automation_run(struct jk_bms_dev_t *dev)
 {
 	if (dev->auto_batt.enabled)
 		jk_bt_check_cell_levels(dev);
+	if (dev->auto_solar.enabled)
+		jk_bt_check_solar(dev);
 }
 
 static void jk_bt_auto_log(struct bt_auto_action_t *aauto)
 {
-	hlog_info(BMS_JK_MODULE, "\tAuto scripts: [%s*.run] %d , [%s*.run] %d",
+	hlog_info(BMS_JK_MODULE, "\tAuto scripts: [%s*.run] %d, [%s*.run] %d",
 			  aauto->script_on_prefix ? aauto->script_on_prefix : "NULL",
 			  aauto->script_on_count,
 			  aauto->script_off_prefix ? aauto->script_off_prefix : "NULL",
@@ -142,6 +179,13 @@ void jk_bt_automation_log(struct jk_bms_dev_t *dev)
 				  dev->cell_v_low * 0.001, dev->cell_v_high * 0.001);
 		hlog_info(BMS_JK_MODULE, "\tBattery level is %s", dev->auto_batt.state ? "normal" : "low");
 		jk_bt_auto_log(&dev->auto_batt);
+	}
+	if (dev->auto_solar.enabled) {
+		hlog_info(BMS_JK_MODULE, "\tTrack solar excess according to charge current threshold %dA",
+				  dev->charge_current_threshold);
+		hlog_info(BMS_JK_MODULE, "\tCurrent solar state: %s",
+				  dev->auto_solar.state ? "excess" : "deficiency");
+		jk_bt_auto_log(&dev->auto_solar);
 	}
 }
 
@@ -177,6 +221,8 @@ void jk_bt_automation_find_scripts(struct jk_bms_dev_t *dev)
 {
 	if (dev->auto_batt.enabled)
 		jk_bt_find_auto_scripts(&dev->auto_batt);
+	if (dev->auto_solar.enabled)
+		jk_bt_find_auto_scripts(&dev->auto_solar);
 }
 
 void jk_bt_enable_battery_track(struct jk_bms_dev_t *dev, uint16_t cell_v_low, uint16_t cell_v_high)
@@ -188,7 +234,27 @@ void jk_bt_enable_battery_track(struct jk_bms_dev_t *dev, uint16_t cell_v_low, u
 	dev->auto_batt.enabled = true;
 	dev->auto_batt.script_on_name = "batt_normal";
 	dev->auto_batt.script_off_name = "batt_low";
-	dev->auto_batt.wh_on_message = "Normal battery";
-	dev->auto_batt.wh_off_message = "Empty battery";
+	dev->auto_batt.wh_on_message = "battery normal";
+	dev->auto_batt.wh_off_message = "battery low";
 	dev->auto_batt.dev = dev;
+	dev->auto_batt.state = false;
+	dev->mqtt.bms_data->force = true;
+}
+
+void jk_bt_enable_solar_track(struct jk_bms_dev_t *dev, uint16_t charge_current)
+{
+	dev->charge_current_threshold = charge_current;
+	if (dev->charge_current_threshold > 0)
+		dev->auto_solar.enabled = true;
+	else
+		dev->auto_solar.enabled = false;
+	dev->auto_solar.script_on_name = "solar_on";
+	dev->auto_solar.script_off_name = "solar_off";
+	dev->auto_solar.wh_on_message = "solar excess";
+	dev->auto_solar.wh_off_message = "solar deficiency";
+	dev->auto_solar.dev = dev;
+	dev->auto_solar.state = false;
+	dev->mqtt.bms_data->force = true;
+	if (dev->auto_solar.enabled && !dev->auto_solar.script_on_count && !dev->auto_solar.script_off_count)
+		jk_bt_find_auto_scripts(&dev->auto_solar);
 }
