@@ -2,6 +2,8 @@ add_compile_definitions(HAVE_SYS_MQTT=1)
 
 target_sources(${lib_name} INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/mqtt_client.c
+  ${CMAKE_CURRENT_LIST_DIR}/mqtt_publish.c
+  ${CMAKE_CURRENT_LIST_DIR}/mqtt_listen.c
 )
 
 target_include_directories(${lib_name} INTERFACE ${CMAKE_CURRENT_LIST_DIR})
