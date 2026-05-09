@@ -207,7 +207,7 @@ static bool sys_mqtt_log_status(void *context)
 	}
 
 	if (!log_idx) {
-		hlog_info(MQTT_MODULE, "Connected to server %s, publish rate limit %lldppm, connect count %d",
+		hlog_info(MQTT_MODULE, "Connected to server %s, publish rate limit %dppm, connect count %d",
 				ctx->server_url, ctx->max_ppm, ctx->connect_count);
 		if (ctx->commands.cmd_topic[0])
 			hlog_info(MQTT_MODULE, "Listen to topic [%s]", ctx->commands.cmd_topic);
