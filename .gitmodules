@@ -13,3 +13,6 @@
 [submodule "libs/pico_fota_bootloader"]
 	path = libs/pico_fota_bootloader
 	url = https://github.com/JZimnol/pico_fota_bootloader
+[submodule "libs/lwjson"]
+	path = libs/lwjson
+	url = https://github.com/MaJerle/lwjson.git

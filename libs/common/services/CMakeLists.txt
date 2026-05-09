@@ -68,6 +68,10 @@ if(ADD_WOL)
    include(${CMAKE_CURRENT_LIST_DIR}/wol/CMakeLists.txt)
 endif()
 
+if(ADD_JSON)
+   include(${CMAKE_CURRENT_LIST_DIR}/json/CMakeLists.txt)
+endif()
+
 target_sources(${lib_name} INTERFACE
    ${CMAKE_CURRENT_LIST_DIR}/systems_init.c
 )

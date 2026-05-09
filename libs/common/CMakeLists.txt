@@ -14,6 +14,7 @@ option(ADD_COMMANDS "Commands engine" ON)
 option(ADD_SYS_STATE "System status log" ON)
 option(ADD_SYS_TFTP_CLIENT "TFTP Client" ON)
 option(ADD_WOL "Wake on LAN" ON)
+option(ADD_JSON "JSON library" ON)
 
 if ( NOT DEFINED ADD_OTA )
 option(ADD_OTA "Bootloader and OTA updates" ON)
