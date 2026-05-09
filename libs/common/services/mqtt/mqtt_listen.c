@@ -19,68 +19,138 @@
 void mqtt_incoming_publish(void *arg, const char *topic, u32_t tot_len)
 {
 	struct mqtt_context_t *ctx = (struct mqtt_context_t *)arg;
+	int i, j;
 
-	if (ctx->commands.cmd_msg_in_progress ||
-		tot_len >= MQTT_OUTPUT_RINGBUF_SIZE)
+	for (i = 0; i < MQTT_LISTEN_BUFFERS; i++)
+		if (!ctx->listen.buffers[i].in_progress)
+			break;
+	if (i >= MQTT_LISTEN_BUFFERS || tot_len >= MQTT_OUTPUT_RINGBUF_SIZE)
 		return;
-
-	if (strcmp(topic, ctx->commands.cmd_topic))
+	j = 0;
+	while (ctx->listen.topics[j] && j < MQTT_MAX_TOPICS) {
+		if (strlen(topic) == strlen(ctx->listen.topics[j]->topic) &&
+			!strcmp(topic, ctx->listen.topics[j]->topic))
+			break;
+		j++;
+	}
+	if (j >= MQTT_MAX_TOPICS || !ctx->listen.topics[j])
 		return;
-
-	ctx->commands.cmd_msg_in_progress = true;
-	ctx->commands.cmd_msg_ready = false;
-	ctx->commands.cmd_msg_size = 0;
+	ctx->listen.buffers[i].in_progress = true;
+	ctx->listen.buffers[i].ready = false;
+	ctx->listen.buffers[i].size = 0;
+	ctx->listen.buffers[i].tot_len = tot_len;
+	ctx->listen.buffers[i].topic = ctx->listen.topics[j];
+	ctx->listen.current = &(ctx->listen.buffers[i]);
 }
 
 void mqtt_incoming_data(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
 	struct mqtt_context_t *ctx = (struct mqtt_context_t *)arg;
 
-	if (!ctx->commands.cmd_msg_in_progress || ctx->commands.cmd_msg_ready)
-		return;
-	if ((ctx->commands.cmd_msg_size + len) >= (MQTT_OUTPUT_RINGBUF_SIZE-1))
+	if (!ctx->listen.current || !ctx->listen.current->in_progress)
 		return;
 
-	memcpy(ctx->commands.cmd_msg + ctx->commands.cmd_msg_size, data, len);
-	ctx->commands.cmd_msg_size += len;
-
-	if (flags & MQTT_DATA_FLAG_LAST) {
-		ctx->commands.cmd_msg[ctx->commands.cmd_msg_size] = '\0';
-		ctx->commands.cmd_msg_ready = true;
+	if ((ctx->listen.current->size + len) < (MQTT_OUTPUT_RINGBUF_SIZE-1)) {
+		memcpy(ctx->listen.current->msg + ctx->listen.current->size, data, len);
+		ctx->listen.current->size += len;
 	}
 
+	if (flags & MQTT_DATA_FLAG_LAST) {
+		ctx->listen.current->msg[ctx->listen.current->size] = '\0';
+		if (IS_DEBUG(ctx))
+			hlog_info(MQTT_MODULE, "Got topic [%s] %d bytes: [%s]",
+					  ctx->listen.current->topic->topic,
+					  ctx->listen.current->size, ctx->listen.current->msg);
+		ctx->listen.current->ready = true;
+		ctx->listen.current = NULL;
+	}
 }
 
 bool mqtt_incoming_ready(struct mqtt_context_t *ctx)
 {
+	int i;
 
-	if (!ctx->commands.cmd_msg_ready)
+	for (i = 0; i < MQTT_LISTEN_BUFFERS; i++)
+		if (ctx->listen.buffers[i].ready)
+			break;
+
+	if (i >= MQTT_LISTEN_BUFFERS)
 		return false;
-#ifdef HAVE_COMMANDS
-	if (ctx->commands.cmd_msg_size >= 2)
-		cmd_exec(&ctx->cmd_ctx, ctx->commands.cmd_msg);
-#endif
-	ctx->commands.cmd_msg_in_progress = false;
-	ctx->commands.cmd_msg_ready = false;
-	ctx->commands.cmd_msg_size = 0;
+
+	if (ctx->listen.buffers[i].topic && ctx->listen.buffers[i].topic->func)
+		ctx->listen.buffers[i].topic->func(ctx->listen.buffers[i].topic->arg,
+										   ctx->listen.buffers[i].topic->topic,
+										   ctx->listen.buffers[i].msg, ctx->listen.buffers[i].size);
+	ctx->listen.buffers[i].in_progress = false;
+	ctx->listen.buffers[i].ready = false;
+	ctx->listen.buffers[i].tot_len = 0;
+	ctx->listen.buffers[i].size = 0;
+	ctx->listen.buffers[i].topic = NULL;
 
 	return true;
 }
 
-int mqtt_cmd_subscribe(struct mqtt_context_t *ctx)
+void mqtt_subscribe_all(struct mqtt_context_t *ctx)
+{
+	int i;
+
+	i = 0;
+	while (ctx->listen.topics[i] && i <= MQTT_MAX_TOPICS) {
+		ctx->listen.topics[i]->subscribed = false;
+		i++;
+	}
+	ctx->config.subscribe = 0;
+}
+
+int mqtt_send_subscribe(struct mqtt_context_t *ctx)
 {
 	err_t ret = -1;
+	int i;
 
 	if (ctx->state != MQTT_CLIENT_CONNECTED)
 		goto out;
 
+	i = 0;
+	while (ctx->listen.topics[i] && i <= MQTT_MAX_TOPICS) {
+		if (!ctx->listen.topics[i]->subscribed)
+			break;
+		i++;
+	}
+	if (i >= MQTT_MAX_TOPICS || !ctx->listen.topics[i] || strlen(ctx->listen.topics[i]->topic) < 1)
+		goto out;
+
 	LWIP_LOCK_START;
-		ret = mqtt_subscribe(ctx->client, ctx->commands.cmd_topic, MQTT_QOS, NULL, NULL);
+		ret = mqtt_subscribe(ctx->client, ctx->listen.topics[i]->topic, MQTT_QOS, NULL, NULL);
 	LWIP_LOCK_END;
 
-	if (!ret && IS_DEBUG(ctx))
-		hlog_info(MQTT_MODULE, "Subscribed to MQTT topic [%s]", ctx->commands.cmd_topic);
+	if (!ret) {
+		ctx->listen.topics[i]->subscribed = true;
+		ctx->config.subscribe++;
+		if (IS_DEBUG(ctx))
+			hlog_info(MQTT_MODULE, "Subscribed to MQTT topic [%s]", ctx->listen.topics[i]->topic);
+	}
 
 out:
 	return ret;
+}
+
+/* API */
+int mqtt_topic_listen(char *topic, mqtt_topic_cb_t func, void *context)
+{
+	struct mqtt_context_t *ctx = mqtt_context_get();
+	int idx;
+
+	if (!ctx)
+		return -1;
+	idx = ctx->listen.count;
+	if (idx >= MQTT_MAX_TOPICS || ctx->listen.topics[idx])
+		return -1;
+	ctx->listen.topics[idx] = calloc(1, sizeof(mqtt_topic_t));
+	if (!ctx->listen.topics[idx])
+		return -1;
+	strncpy(ctx->listen.topics[idx]->topic, topic, MQTT_MAX_TOPIC_SIZE - 1);
+	ctx->listen.topics[idx]->func = func;
+	ctx->listen.topics[idx]->arg = context;
+	ctx->listen.count++;
+	return 0;
 }

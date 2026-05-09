@@ -83,8 +83,8 @@ static void mqtt_config_send(struct mqtt_context_t *ctx)
 		}
 		if (ctx->status_topic[0])
 			ctx->config.status = true;
-		if (ctx->commands.cmd_topic[0])
-			ctx->config.subscribe = true;
+		if (ctx->listen.count)
+			mqtt_subscribe_all(ctx);
 	}
 
 	if (ctx->config.status) {
@@ -120,12 +120,11 @@ static void mqtt_config_send(struct mqtt_context_t *ctx)
 		}
 		goto out;
 	}
-	if (ctx->config.subscribe) {
-		ret = mqtt_cmd_subscribe(ctx);
+	if (ctx->listen.count && ctx->config.subscribe < ctx->listen.count) {
+		ret = mqtt_send_subscribe(ctx);
 		if (!ret) {
 			sent++;
 			ctx->config.subscribe_send++;
-			ctx->config.subscribe = false;
 		}
 	}
 out:
@@ -209,8 +208,15 @@ static bool sys_mqtt_log_status(void *context)
 	if (!log_idx) {
 		hlog_info(MQTT_MODULE, "Connected to server %s, publish rate limit %dppm, connect count %d",
 				ctx->server_url, ctx->max_ppm, ctx->connect_count);
-		if (ctx->commands.cmd_topic[0])
-			hlog_info(MQTT_MODULE, "Listen to topic [%s]", ctx->commands.cmd_topic);
+		if (ctx->listen.count) {
+			i = 0;
+			hlog_info(MQTT_MODULE, "Listen for %d topics:", ctx->listen.count);
+			while (ctx->listen.topics[i] && i < MQTT_MAX_TOPICS) {
+				hlog_info(MQTT_MODULE, "\t[%s], subscribed %d",
+						  ctx->listen.topics[i]->topic, ctx->listen.topics[i]->subscribed);
+				i++;
+			}
+		}
 
 		if (ctx->status_topic[0]) {
 			hlog_info(MQTT_MODULE, "Sending status to [%s], sent %d",
@@ -219,12 +225,6 @@ static bool sys_mqtt_log_status(void *context)
 			hlog_info(MQTT_MODULE, "No status is send.");
 		}
 
-		if (ctx->commands.cmd_topic[0]) {
-			hlog_info(MQTT_MODULE, "Listen for commands on [%s], subscribed %d",
-					ctx->commands.cmd_topic, ctx->config.subscribe_send);
-		} else {
-			hlog_info(MQTT_MODULE, "Do not listen for commands");
-		}
 		hlog_info(MQTT_MODULE, "Registered %d devices", ctx->cmp_count);
 		hlog_info(MQTT_MODULE, "Sent %d discovery messages", ctx->config.discovery_send);
 	}
@@ -426,14 +426,27 @@ static int mqtt_get_config(struct mqtt_context_t  **ctx)
 	return 0;
 }
 
+static void mqtt_command_cb(void *context, char *topic, char *data, int size)
+{
+	struct mqtt_context_t  *ctx = (struct mqtt_context_t *)context;
+
+	UNUSED(topic);
+
+#ifdef HAVE_COMMANDS
+	if (size >= 2)
+		cmd_exec(&ctx->cmd_ctx, data);
+#endif
+}
+
 static bool sys_mqtt_init(struct mqtt_context_t  **ctx)
 {
+	char cmd_topic[MQTT_MAX_TOPIC_SIZE];
+
 	if (mqtt_get_config(ctx))
 		return false;
 
 	(*ctx)->state = MQTT_CLIENT_INIT;
 	snprintf((*ctx)->status_topic, MQTT_MAX_TOPIC_SIZE, STATUS_TOPIC_TEMPLATE, (*ctx)->state_topic);
-	snprintf((*ctx)->commands.cmd_topic, MQTT_MAX_TOPIC_SIZE, COMMAND_TOPIC_TEMPLATE, (*ctx)->state_topic);
 	(*ctx)->client_info.client_id = system_get_hostname();
 	(*ctx)->client_info.keep_alive = MQTT_KEEPALIVE_S;
 	(*ctx)->client_info.will_topic = (*ctx)->status_topic;
@@ -445,6 +458,10 @@ static bool sys_mqtt_init(struct mqtt_context_t  **ctx)
 	(*ctx)->cmd_ctx.type = CMD_CTX_MQTT;
 
 	__mqtt_context = (*ctx);
+
+	snprintf(cmd_topic, MQTT_MAX_TOPIC_SIZE, COMMAND_TOPIC_TEMPLATE, (*ctx)->state_topic);
+	mqtt_topic_listen(cmd_topic, mqtt_command_cb, (*ctx));
+
 	return true;
 }
 

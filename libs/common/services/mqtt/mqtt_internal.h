@@ -13,7 +13,9 @@
 
 #define MQTT_DISCOVERY_MAX_COUNT	512
 #define MQTT_DISCOVERY_BUFF_SIZE	640
-#define MQTT_MAX_TOPIC_SIZE	96
+#define MQTT_MAX_TOPIC_SIZE			96
+#define MQTT_MAX_TOPICS				20
+#define MQTT_LISTEN_BUFFERS			2
 
 #define ONLINE_MSG				"online"
 #define OFFLINE_MSG				"offline"
@@ -28,14 +30,28 @@ enum mqtt_client_state_t {
 	MQTT_CLIENT_CONNECTING,
 	MQTT_CLIENT_CONNECTED
 };
+typedef struct {
+	char topic[MQTT_MAX_TOPIC_SIZE];
+	mqtt_topic_cb_t func;
+	void *arg;
+	bool subscribed;
+} mqtt_topic_t;
 
 typedef struct {
-	char cmd_topic[MQTT_MAX_TOPIC_SIZE];
-	int cmd_msg_size;
-	bool cmd_msg_in_progress;
-	bool cmd_msg_ready;
-	char cmd_msg[MQTT_OUTPUT_RINGBUF_SIZE];
-} mqtt_commads_t;
+	int tot_len;
+	bool in_progress;
+	bool ready;
+	mqtt_topic_t *topic;
+	char msg[MQTT_OUTPUT_RINGBUF_SIZE];
+	int size;
+} mqtt_listen_buff_t;
+
+typedef struct {
+	mqtt_topic_t *topics[MQTT_MAX_TOPICS];
+	int count;
+	mqtt_listen_buff_t *current;
+	mqtt_listen_buff_t buffers[MQTT_LISTEN_BUFFERS];
+} mqtt_listen_t;
 
 typedef struct {
 	char buff[MQTT_DISCOVERY_BUFF_SIZE];
@@ -50,7 +66,7 @@ typedef struct {
 	uint32_t status_send;
 	bool discovery_dev;
 	bool discovery_comp;
-	bool subscribe;
+	int subscribe;
 	bool status;
 } mqtt_config_send_context_t;
 
@@ -60,7 +76,7 @@ struct mqtt_context_t {
 	char *state_topic;
 	char status_topic[MQTT_MAX_TOPIC_SIZE];
 	cmd_run_context_t cmd_ctx;
-	mqtt_commads_t	commands;
+	mqtt_listen_t	listen;
 	mqtt_component_t *components[MQTT_DISCOVERY_MAX_COUNT];
 	uint16_t cmp_count;
 	mqtt_discovery_context_t discovery;
@@ -90,7 +106,8 @@ int mqtt_msg_send(struct mqtt_context_t *ctx, char *topic, char *message);
 int mqtt_msg_discovery_send(struct mqtt_context_t *ctx);
 int mqtt_msg_discovery_send_device(struct mqtt_context_t *ctx);
 
-int mqtt_cmd_subscribe(struct mqtt_context_t *ctx);
+int mqtt_send_subscribe(struct mqtt_context_t *ctx);
+void mqtt_subscribe_all(struct mqtt_context_t *ctx);
 bool mqtt_incoming_ready(struct mqtt_context_t *ctx);
 void mqtt_incoming_data(void *arg, const u8_t *data, u16_t len, u8_t flags);
 void mqtt_incoming_publish(void *arg, const char *topic, u32_t tot_len);
