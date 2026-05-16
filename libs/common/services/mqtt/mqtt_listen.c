@@ -68,6 +68,10 @@ void mqtt_incoming_data(void *arg, const u8_t *data, u16_t len, u8_t flags)
 
 bool mqtt_incoming_ready(struct mqtt_context_t *ctx)
 {
+	struct mqtt_topic_cb_t *cb;
+	bool json_parsed = false;
+	bool json_init = false;
+	lwjsonr_t ret;
 	int i;
 
 	for (i = 0; i < MQTT_LISTEN_BUFFERS; i++)
@@ -76,16 +80,33 @@ bool mqtt_incoming_ready(struct mqtt_context_t *ctx)
 
 	if (i >= MQTT_LISTEN_BUFFERS)
 		return false;
+	if (ctx->listen.buffers[i].topic->json) {
+		ret = lwjson_init(&(ctx->listen.buffers[i].lwjson), ctx->listen.buffers[i].json_tokens,
+					LWJSON_ARRAYSIZE(ctx->listen.buffers[i].json_tokens));
+		if (ret == lwjsonOK) {
+			json_init = true;
+			ret = lwjson_parse_ex(&(ctx->listen.buffers[i].lwjson),
+									ctx->listen.buffers[i].msg, ctx->listen.buffers[i].size);
+			if (ret == lwjsonOK)
+				json_parsed = true;
+		}
+	}
+	cb = ctx->listen.buffers[i].topic->hooks;
+	while (cb) {
+		cb->func(cb->arg, ctx->listen.buffers[i].topic->topic,
+				 ctx->listen.buffers[i].msg, ctx->listen.buffers[i].size,
+				 json_parsed ? &(ctx->listen.buffers[i].lwjson) : NULL);
+		cb = cb->next;
+	}
 
-	if (ctx->listen.buffers[i].topic && ctx->listen.buffers[i].topic->func)
-		ctx->listen.buffers[i].topic->func(ctx->listen.buffers[i].topic->arg,
-										   ctx->listen.buffers[i].topic->topic,
-										   ctx->listen.buffers[i].msg, ctx->listen.buffers[i].size);
 	ctx->listen.buffers[i].in_progress = false;
 	ctx->listen.buffers[i].ready = false;
 	ctx->listen.buffers[i].tot_len = 0;
 	ctx->listen.buffers[i].size = 0;
 	ctx->listen.buffers[i].topic = NULL;
+
+	if (json_init)
+		lwjson_free(&(ctx->listen.buffers[i].lwjson));
 
 	return true;
 }
@@ -135,22 +156,39 @@ out:
 }
 
 /* API */
-int mqtt_topic_listen(char *topic, mqtt_topic_cb_t func, void *context)
+int mqtt_topic_listen(char *topic, mqtt_topic_cb_t func, void *context, bool json)
 {
 	struct mqtt_context_t *ctx = mqtt_context_get();
-	int idx;
+	struct mqtt_topic_cb_t *hook;
+	int i;
 
 	if (!ctx)
 		return -1;
-	idx = ctx->listen.count;
-	if (idx >= MQTT_MAX_TOPICS || ctx->listen.topics[idx])
+	i = 0;
+	while (ctx->listen.topics[i] && i < MQTT_MAX_TOPICS) {
+		if (strlen(topic) == strlen(ctx->listen.topics[i]->topic) &&
+			!strcmp(topic, ctx->listen.topics[i]->topic))
+			break;
+		i++;
+	}
+	if (i >= MQTT_MAX_TOPICS || !ctx->listen.topics[i]) {
+		i = ctx->listen.count;
+		if (i >= MQTT_MAX_TOPICS || ctx->listen.topics[i])
+			return -1;
+		ctx->listen.topics[i] = calloc(1, sizeof(mqtt_topic_t));
+		if (!ctx->listen.topics[i])
+			return -1;
+		strncpy(ctx->listen.topics[i]->topic, topic, MQTT_MAX_TOPIC_SIZE - 1);
+		ctx->listen.count++;
+	}
+	hook = calloc(1, sizeof(struct mqtt_topic_cb_t));
+	if (!hook)
 		return -1;
-	ctx->listen.topics[idx] = calloc(1, sizeof(mqtt_topic_t));
-	if (!ctx->listen.topics[idx])
-		return -1;
-	strncpy(ctx->listen.topics[idx]->topic, topic, MQTT_MAX_TOPIC_SIZE - 1);
-	ctx->listen.topics[idx]->func = func;
-	ctx->listen.topics[idx]->arg = context;
-	ctx->listen.count++;
+	hook->func = func;
+	hook->arg = context;
+	hook->next = ctx->listen.topics[i]->hooks;
+	if (json)
+		ctx->listen.topics[i]->json = true;
+	ctx->listen.topics[i]->hooks = hook;
 	return 0;
 }

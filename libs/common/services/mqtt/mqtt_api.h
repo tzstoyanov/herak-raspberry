@@ -6,6 +6,8 @@
 #ifndef _LIB_SYS_MQTT_API_H_
 #define _LIB_SYS_MQTT_API_H_
 
+#include "lwjson/lwjson.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -32,8 +34,8 @@ int mqtt_msg_publish(char *topic, char *message, bool force);
 int mqtt_msg_component_publish(mqtt_component_t *component, char *message);
 int mqtt_msg_component_register(mqtt_component_t *component);
 
-typedef void (*mqtt_topic_cb_t)(void *ctx, char *topic, char *data, int size);
-int mqtt_topic_listen(char *topic, mqtt_topic_cb_t func, void *context);
+typedef void (*mqtt_topic_cb_t)(void *ctx, char *topic, char *data, int size, lwjson_t *lwjson);
+int mqtt_topic_listen(char *topic, mqtt_topic_cb_t func, void *context, bool json);
 
 bool mqtt_is_connected(void);
 bool mqtt_is_discovery_sent(void);

@@ -6,6 +6,8 @@
 #ifndef _LIB_SYS_MQTT_INTERNAL_H_
 #define _LIB_SYS_MQTT_INTERNAL_H_
 
+#include "lwjson/lwjson.h"
+
 #define MQTT_MODULE	"mqtt"
 
 #define MQTT_QOS		0
@@ -20,6 +22,8 @@
 #define ONLINE_MSG				"online"
 #define OFFLINE_MSG				"offline"
 
+#define MAX_JSON_TOKENS	20
+
 #define MSEC2MIN	60000ULL
 
 #define IS_DEBUG(C)	((C)->debug)
@@ -30,11 +34,19 @@ enum mqtt_client_state_t {
 	MQTT_CLIENT_CONNECTING,
 	MQTT_CLIENT_CONNECTED
 };
-typedef struct {
-	char topic[MQTT_MAX_TOPIC_SIZE];
+
+struct mqtt_topic_cb_t;
+struct mqtt_topic_cb_t {
 	mqtt_topic_cb_t func;
 	void *arg;
+	struct mqtt_topic_cb_t *next;
+};
+
+typedef struct {
+	char topic[MQTT_MAX_TOPIC_SIZE];
 	bool subscribed;
+	bool json;
+	struct mqtt_topic_cb_t *hooks;
 } mqtt_topic_t;
 
 typedef struct {
@@ -44,6 +56,8 @@ typedef struct {
 	mqtt_topic_t *topic;
 	char msg[MQTT_OUTPUT_RINGBUF_SIZE];
 	int size;
+	lwjson_token_t json_tokens[MAX_JSON_TOKENS];
+	lwjson_t lwjson;
 } mqtt_listen_buff_t;
 
 typedef struct {

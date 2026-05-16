@@ -426,11 +426,12 @@ static int mqtt_get_config(struct mqtt_context_t  **ctx)
 	return 0;
 }
 
-static void mqtt_command_cb(void *context, char *topic, char *data, int size)
+static void mqtt_command_cb(void *context, char *topic, char *data, int size,  lwjson_t *lwjson)
 {
 	struct mqtt_context_t  *ctx = (struct mqtt_context_t *)context;
 
 	UNUSED(topic);
+	UNUSED(lwjson);
 
 #ifdef HAVE_COMMANDS
 	if (size >= 2)
@@ -460,7 +461,7 @@ static bool sys_mqtt_init(struct mqtt_context_t  **ctx)
 	__mqtt_context = (*ctx);
 
 	snprintf(cmd_topic, MQTT_MAX_TOPIC_SIZE, COMMAND_TOPIC_TEMPLATE, (*ctx)->state_topic);
-	mqtt_topic_listen(cmd_topic, mqtt_command_cb, (*ctx));
+	mqtt_topic_listen(cmd_topic, mqtt_command_cb, (*ctx), false);
 
 	return true;
 }
