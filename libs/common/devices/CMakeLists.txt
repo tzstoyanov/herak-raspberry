@@ -50,6 +50,10 @@ if(ADD_THERMOSTAT)
 include(${CMAKE_CURRENT_LIST_DIR}/thermostat/CMakeLists.txt)
 endif()
 
+if(ADD_REMOTE_SENSOR)
+include(${CMAKE_CURRENT_LIST_DIR}/rsensor/CMakeLists.txt)
+endif()
+
 
 target_sources(${lib_name} INTERFACE
    ${CMAKE_CURRENT_LIST_DIR}/devices_init.c

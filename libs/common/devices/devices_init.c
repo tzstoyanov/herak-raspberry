@@ -69,5 +69,8 @@ void devices_register_and_init(void)
 	DEV_REGISTER(thermostat_register);
 #endif /* HAVE_THERMOSTAT */
 
+#ifdef HAVE_REMOTE_SENSOR
+	DEV_REGISTER(rsens_register);
+#endif /* HAVE_REMOTE_SENSOR */
 
 }

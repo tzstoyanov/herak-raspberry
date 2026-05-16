@@ -39,6 +39,7 @@
 #include "scripts/scripts_api.h"
 #include "sht20/sht20_api.h"
 #include "one_wire/one_wire_api.h"
+#include "rsensor/rsensor.h"
 
 #ifdef __cplusplus
 extern "C" {
