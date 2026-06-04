@@ -28,6 +28,7 @@ enum {
 	THERM_TEMP_ONEWIRE = 0,
 	THERM_TEMP_SHT20,
 	THERM_TEMP_NTC,
+	THERM_TEMP_REMOTE,
 };
 
 enum {
@@ -49,6 +50,7 @@ struct therm_device_t {
 	float	current_t;
 	int		temp_provider;
 	uint16_t	temp_id;
+	char	*temp_name;
 	mqtt_component_t mqtt_comp[THERM_MQTT_MAX];
 };
 
@@ -143,6 +145,13 @@ static int therm_device_read_temperature(struct therm_device_t *dev)
 #ifdef HAVE_TEMPERATURE
 		ret = temperature_get_data(TEMPERATURE_TYPE_NTC, dev->temp_id, &dev->current_t);
 #endif /* HAVE_TEMPERATURE */
+		break;
+	case THERM_TEMP_REMOTE:
+#ifdef HAVE_REMOTE_SENSOR
+		if (dev->temp_id == UINT16_MAX)
+			dev->temp_id = rsensor_get_index(dev->temp_name);
+		ret = rsensor_get_value(dev->temp_id, &dev->current_t);
+#endif /* HAVE_REMOTE_SENSOR */
 		break;
 	}
 	return ret;
@@ -304,8 +313,9 @@ static bool therm_config_get(struct thermostat_context_t **ctx)
 {
 	char *config_defaults = param_get(THERMOSTAT_DEF);
 	char *config_therm = param_get(THERMOSTAT);
-	char *rest, *tok, *rest1, *tok1, *rest2, *tok2;
+	char *rest, *tok, *rest1, *tok1, *rest2, *tok2, *str;
 	struct therm_device_t dev;
+	bool valid;
 	int p, c;
 	float f;
 
@@ -355,11 +365,39 @@ static bool therm_config_get(struct thermostat_context_t **ctx)
 #else
 			hlog_info(THERMOSTAT_MODULE, "NTC temperature sensors are not enabled.");
 #endif /* HAVE_TEMPERATURE */
+		} else if (p == strlen("remote") && !strncmp(tok2, "remote", p)) {
+#ifdef HAVE_REMOTE_SENSOR
+			dev.temp_provider = THERM_TEMP_REMOTE;
+#else
+			hlog_info(THERMOSTAT_MODULE, "Remote sensors are not enabled.");
+#endif /* HAVE_REMOTE_SENSOR */
 		} else {
 			hlog_info(THERMOSTAT_MODULE, "Invalid temperature provider [%s]", (p > 1) ? tok2 : "NULL");
 			continue;
 		}
-		dev.temp_id = (int)strtol(rest2, NULL, 0);
+		valid = false;
+		switch(dev.temp_provider) {
+		case THERM_TEMP_ONEWIRE:
+		case THERM_TEMP_SHT20:
+		case THERM_TEMP_NTC:
+			dev.temp_id = (int)strtol(rest2, &str, 0);
+			if (dev.temp_id == 0 && rest2 == str)
+				valid = false;
+			else
+				valid = true;
+			break;
+		case THERM_TEMP_REMOTE:
+			dev.temp_name = strdup(rest2);
+			if (dev.temp_name) {
+				dev.temp_id = UINT16_MAX;
+				valid = true;
+			}
+			break;
+		default:
+			break;
+		}
+		if (!valid)
+			continue;
 		(*ctx)->devices[c] = calloc(1, sizeof(dev));
 		if (!(*ctx)->devices[c])
 			continue;
