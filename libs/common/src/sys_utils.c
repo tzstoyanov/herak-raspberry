@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <malloc.h>
-
+#include "pico/float.h"
 #include "pico/cyw43_arch.h"
 #include "herak_sys.h"
 #include "common_internal.h"
@@ -14,6 +14,25 @@
 #include "base64.h"
 
 extern char __StackLimit, __bss_end__;
+
+int sys_strtof(const char *strp, float *val)
+{
+	char *rest = NULL;
+	float v;
+
+	if (!strp)
+		return -1;
+
+	v = strtof(strp, &rest);
+	if (v == 0 && strp == rest)
+		return -1;
+	if (isnan(v) || isinf(v))
+		return -1;
+	if (val)
+		*val = v;
+
+	return 0;
+}
 
 int sys_asprintf(char **strp, const char *fmt, ...)
 {
