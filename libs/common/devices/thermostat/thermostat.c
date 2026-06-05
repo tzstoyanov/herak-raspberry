@@ -48,6 +48,7 @@ struct therm_device_t {
 	float	off_t;
 	float	on_t;
 	float	current_t;
+	bool	valid_t;
 	int		temp_provider;
 	uint16_t	temp_id;
 	char	*temp_name;
@@ -63,6 +64,24 @@ struct thermostat_context_t {
 	struct therm_device_t *devices[MAX_THERMOSTAT_DEVICES];
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 };
+
+static char *therm_temp_senor_name(int temp_provider)
+{
+	switch (temp_provider) {
+	case THERM_TEMP_ONEWIRE:
+		return "OneWire";
+	case THERM_TEMP_SHT20:
+		return "SHT20";
+	case THERM_TEMP_NTC:
+		return "NTC";
+	case THERM_TEMP_REMOTE:
+		return "Remote";
+	default:
+		break;
+	}
+
+	return "Uknown";
+}
 
 #define TIME_STR	64
 #define ADD_MQTT_MSG(_S_) { if ((len - count) < 0) { printf("%s: Buffer full\n\r", __func__); return -1; } \
@@ -129,6 +148,7 @@ static int therm_device_read_temperature(struct therm_device_t *dev)
 {
 	int ret = -1;
 
+	dev->valid_t = false;
 	switch (dev->temp_provider) {
 	case THERM_TEMP_ONEWIRE:
 #ifdef HAVE_ONE_WIRE
@@ -154,6 +174,8 @@ static int therm_device_read_temperature(struct therm_device_t *dev)
 #endif /* HAVE_REMOTE_SENSOR */
 		break;
 	}
+	if (!ret)
+		dev->valid_t = true;
 	return ret;
 }
 
@@ -177,12 +199,14 @@ static int therm_device_run(struct thermostat_context_t *ctx, int idx)
 	}
 	state = dev->ssr_state;
 	ret = therm_device_read_temperature(dev);
-	if (ret)
-		return ret;
-	if (dev->current_t >= dev->off_t)
+	if (!ret && dev->valid_t) {
+		if (dev->current_t >= dev->off_t)
+			state = false;
+		else if (dev->current_t <= dev->on_t)
+			state = true;
+	} else {
 		state = false;
-	else if (dev->current_t <= dev->on_t)
-		state = true;
+	}
 #ifdef HAVE_SSR
 	ret = ssr_api_state_set(dev->ssr_id, state, 0, 0);
 #else
@@ -227,12 +251,12 @@ static bool therm_log(void *context)
 				  i, ctx->devices[i]->enable ? "enabled" : "disabled");
 		if (!ctx->devices[i]->enable)
 			continue;
-		hlog_info(THERMOSTAT_MODULE, "\tSensor 0x%04X (%s); Temperatures: On %3.2f, Off %3.2f, current %3.2f; SSR%d is %s",
-				  ctx->devices[i]->temp_id, ctx->devices[i]->temp_provider == THERM_TEMP_ONEWIRE ? "OneWire" :
-				  (ctx->devices[i]->temp_provider == THERM_TEMP_SHT20 ? "SHT20" : "NTC"),
+		hlog_info(THERMOSTAT_MODULE, "\tSensor 0x%04X (%s); SSR%d is %s",
+				  ctx->devices[i]->temp_id, therm_temp_senor_name(ctx->devices[i]->temp_provider),
+				  ctx->devices[i]->ssr_id, ctx->devices[i]->ssr_state ? "On" : "Off");
+		hlog_info(THERMOSTAT_MODULE, "\tTemperatures: On %3.2f°C, Off %3.2f°C, current %3.2f%s",
 				  ctx->devices[i]->on_t, ctx->devices[i]->off_t,
-				  ctx->devices[i]->current_t, ctx->devices[i]->ssr_id,
-				  ctx->devices[i]->ssr_state ? "On" : "Off");
+				  ctx->devices[i]->current_t, ctx->devices[i]->valid_t ? "°C" : " (invalid)");
 	}
 
 	return true;
@@ -318,6 +342,7 @@ static bool therm_config_get(struct thermostat_context_t **ctx)
 	bool valid;
 	int p, c;
 	float f;
+	int res;
 
 	(*ctx) = NULL;
 	if (!config_therm || strlen(config_therm) < 1)
@@ -376,7 +401,7 @@ static bool therm_config_get(struct thermostat_context_t **ctx)
 			continue;
 		}
 		valid = false;
-		switch(dev.temp_provider) {
+		switch (dev.temp_provider) {
 		case THERM_TEMP_ONEWIRE:
 		case THERM_TEMP_SHT20:
 		case THERM_TEMP_NTC:
@@ -424,9 +449,14 @@ static bool therm_config_get(struct thermostat_context_t **ctx)
 			(*ctx)->devices[c]->enable = true;
 		else
 			(*ctx)->devices[c]->enable = false;
-		(*ctx)->devices[c]->off_t = strtof(tok2, NULL);
-		f = strtof(rest2, NULL);
-		if (f <= (*ctx)->devices[c]->off_t)
+		f = 0;
+		res = sys_strtof(tok2, &f);
+		if (!res) {
+			(*ctx)->devices[c]->off_t = f;
+			f = 0;
+			res = sys_strtof(rest2, &f);
+		}
+		if (!res && f <= (*ctx)->devices[c]->off_t)
 			(*ctx)->devices[c]->on_t = (*ctx)->devices[c]->off_t - f;
 		else
 			(*ctx)->devices[c]->enable = false;
@@ -587,8 +617,8 @@ static int cmd_therm_state(cmd_run_context_t *ctx, char *cmd, char *params, void
 static int cmd_therm_set_temperature(struct thermostat_context_t *ctx, char *params, bool hist)
 {
 	char *tok, *rest = params;
-	float temp;
-	int id;
+	float temp = 0;
+	int res, id;
 
 	tok = strtok_r(rest, ":", &rest);
 	if (!tok || !rest)
@@ -596,7 +626,9 @@ static int cmd_therm_set_temperature(struct thermostat_context_t *ctx, char *par
 	id = (int)strtol(tok, NULL, 0);
 	if (id < 0)
 		return -1;
-	temp = strtof(rest, NULL);
+	res = sys_strtof(rest, &temp);
+	if (res)
+		return -1;
 	return therm_set_temperatures(ctx, id, temp, hist);
 }
 
