@@ -42,6 +42,7 @@ struct temperature_t {
 	float		min;
 	float		max;
 	float		temperature;
+	bool		valid;
 	uint64_t	last_read;
 	uint		count;
 	enum temp_sensor_type	type;
@@ -240,11 +241,12 @@ static void temperature_measure(struct temperature_context_t *ctx)
 	sensor = ctx->sensors[ctx->idx];
 	if (now - sensor->last_read < READ_INTERVAL_MS)
 		goto out;
+	sensor->valid = false;
 	adc_sensor_measure(sensor->adc);
-
 	temp = sensor->calc(sensor, adc_sensor_get_volt(sensor->adc));
 	if (temp < sensor->min || temp > sensor->max)
 		return;
+	sensor->valid = true;
 	if (sensor->temperature != temp) {
 		sensor->mqtt_comp.force = true;
 		sensor->temperature = temp;
@@ -358,14 +360,16 @@ int temperature_get_data(enum temp_sensor_type type, int id, float *temperature)
 		if (ctx->sensors[i]->type != type)
 			continue;
 		if (j == id) {
+			if (!ctx->sensors[i]->valid)
+				return -1;
 			if (temperature)
 				(*temperature) = ctx->sensors[i]->temperature;
-			break;
+			return 0;
 		}
 		j++;
 	}
 
-	return ((i < ctx->count) ? 0 : -1);
+	return -1;
 }
 
 float temperature_internal_get(void)

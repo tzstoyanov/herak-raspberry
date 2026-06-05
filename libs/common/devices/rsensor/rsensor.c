@@ -3,6 +3,7 @@
  * Copyright (C) 2026, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
  */
 
+#include "pico/float.h"
 #include "lwjson/lwjson.h"
 #include "herak_sys.h"
 #include "common_internal.h"
@@ -24,6 +25,7 @@ struct rsensor_t {
 	char *topic;
 	char *key;
 	float val;
+	bool valid;
 	bool subscribed;
 	uint64_t last_data;
 	struct rsens_context_t *ctx;
@@ -57,8 +59,10 @@ static bool rsens_log(void *context)
 		if (ctx->sensors[i]->last_data) {
 			time_msec2datetime(&date, now - ctx->sensors[i]->last_data);
 			time_date2str(time_buff, TIME_STR, &date);
-			hlog_info(RSENS_MODULE, "Sensor %s (%d):  %3.2f, last data [%s]",
-					  ctx->sensors[i]->name, i, ctx->sensors[i]->val, time_buff);
+			hlog_info(RSENS_MODULE, "Sensor %s (%d):  %3.2f%s last data [%s]",
+					  ctx->sensors[i]->name, i, ctx->sensors[i]->val,
+					  ctx->sensors[i]->valid ? "," : " (invalid),",
+					  time_buff);
 		} else {
 			hlog_info(RSENS_MODULE, "Sensor %s (%d), No valid reading yet",
 					  ctx->sensors[i]->name, i);
@@ -73,23 +77,24 @@ static bool rsens_log(void *context)
 static int rsens_json_parse(struct rsensor_t *sens, lwjson_t *lwjson)
 {
 	const lwjson_token_t *tok;
-	char *res = NULL;
+	float val = 0;
 	int ret = -1;
-	float val;
 
 	if (!lwjson)
 		goto out;
 
 	/* Find sensor key in JSON */
 	tok = lwjson_find(lwjson, sens->key);
-	if (!tok)
-		goto out;
+	if (!tok) {
+		if (IS_DEBUG(sens->ctx))
+			hlog_info(RSENS_MODULE, "No valid JSON key [%s]", sens->key);
+		return ret;
+	}
 	switch (tok->type) {
 	case LWJSON_TYPE_STRING:
 		if (!tok->u.str.token_value || tok->u.str.token_value_len < 1)
 			goto out;
-		val = strtof(tok->u.str.token_value, &res);
-		if (val == 0 && tok->u.str.token_value == res)
+		if (sys_strtof(tok->u.str.token_value, &val))
 			goto out;
 		sens->val = val;
 		break;
@@ -97,6 +102,8 @@ static int rsens_json_parse(struct rsensor_t *sens, lwjson_t *lwjson)
 		sens->val = tok->u.num_int;
 		break;
 	case LWJSON_TYPE_NUM_REAL:
+		if (isnan(tok->u.num_real) || isinf(tok->u.num_real))
+			goto out;
 		sens->val = tok->u.num_real;
 		break;
 	default:
@@ -107,9 +114,9 @@ static int rsens_json_parse(struct rsensor_t *sens, lwjson_t *lwjson)
 out:
 	if (IS_DEBUG(sens->ctx)) {
 		if (!ret)
-			hlog_info(RSENS_MODULE, "Found JSON key [%s], type %d", sens->key, (int)tok->type);
+			hlog_info(RSENS_MODULE, "Found JSON key [%s], type %d, val %f", sens->key, (int)tok->type, sens->val);
 		else
-			hlog_info(RSENS_MODULE, "No valid JSON key [%s]", sens->key);
+			hlog_info(RSENS_MODULE, "No valid JSON value for key [%s]", sens->key);
 	}
 	return ret;
 }
@@ -117,9 +124,7 @@ out:
 static void rsens_data_cb(void *ctx, char *topic, char *data, int size, lwjson_t *lwjson)
 {
 	struct rsensor_t *sens = (struct rsensor_t *)ctx;
-	char *res = NULL;
 	int ret = -1;
-	float val;
 
 	UNUSED(topic);
 
@@ -129,21 +134,17 @@ static void rsens_data_cb(void *ctx, char *topic, char *data, int size, lwjson_t
 	if (sens->key) {
 		ret = rsens_json_parse(sens, lwjson);
 	} else {
-		val = strtof(data, &res);
-		if (val == 0 && data == res) {
-			ret = -1;
-		} else  {
-			sens->val = val;
-			ret = 0;
-		}
+		ret = sys_strtof(data, &sens->val);
 	}
 
 	if (!ret) {
 		sens->last_data = time_ms_since_boot();
+		sens->valid = true;
 		if (IS_DEBUG(sens->ctx))
 			hlog_info(RSENS_MODULE, "Got %d bytes data for %s on topic %s: [%s] %3.2f",
 					  size, sens->name, sens->topic, data, sens->val);
 	} else {
+		sens->valid = false;
 		if (IS_DEBUG(sens->ctx))
 			hlog_info(RSENS_MODULE, "Got %d bytes data for %s on topic %s: [%s]: failed to parse data",
 					  size, sens->name, sens->topic, data);
@@ -303,7 +304,8 @@ int rsensor_get_value(int index, float *val)
 		return -1;
 	if (!ctx->sensors[index])
 		return -1;
-
+	if (!ctx->sensors[index]->valid)
+		return -1;
 	if (val)
 		*val = ctx->sensors[index]->val;
 	return 0;

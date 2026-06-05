@@ -90,6 +90,7 @@ struct sht20_sensor {
 	float humidity;
 	float vpd;	//  Vapor Pressure Deficit
 	float dew_point;
+	bool valid;
 	bool force;
 	bool connected;
 	bool hard_reset;
@@ -367,10 +368,10 @@ static bool sht20_log(void *context)
 	hlog_info(SHT20_MODULE, "Reading %d sensors:", ctx->count);
 	for (i = 0; i < ctx->count; i++) {
 		q = ((ctx->sensors[i]->ok_stat * 100) / (ctx->sensors[i]->ok_stat + ctx->sensors[i]->err_stat));
-		hlog_info(SHT20_MODULE, "\tid %d attached to %d,%d(%s %d%%), power pin (%d)",
+		hlog_info(SHT20_MODULE, "\tid %d attached to %d,%d(%s %d%%), power pin (%d)%s",
 				  i, ctx->sensors[i]->sda_pin, ctx->sensors[i]->scl_pin,
 				  ctx->sensors[i]->connected ? "connected" : "not connected", q,
-				  ctx->sensors[i]->power_pin);
+				  ctx->sensors[i]->power_pin, ctx->sensors[i]->valid ? " " : ", invalid measurement");
 		hlog_info(SHT20_MODULE, "\t\tTemperature %3.2f°C, Humidity %3.2f%%, VPD %3.2fkPa, Dew Point %3.2f%%",
 				  ctx->sensors[i]->temperature, ctx->sensors[i]->humidity,
 				  ctx->sensors[i]->vpd, ctx->sensors[i]->dew_point);
@@ -498,6 +499,7 @@ static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 		return SHT20_RET_IN_PROGRESS;
 
 	sensor->read_requested = 0;
+	sensor->valid = false;
 	ret = i2c_read_blocking(sensor->i2c, sensor->sht20_addr, buff, SHT20_DATA_SIZE, false);
 	if (ret != SHT20_DATA_SIZE) {
 		ret = SHT20_RET_ERR;
@@ -570,6 +572,7 @@ out:
 		sensor->err_stat++;
 		sensor->raw_idx = 0;
 	} else {
+		sensor->valid = true;
 		sensor->ok_stat++;
 	}
 	return ret;
@@ -742,6 +745,8 @@ int sht20_get_data(int id, float *temperature,
 	if (!ctx)
 		return -1;
 	if (id < 0 || id >= ctx->count)
+		return -1;
+	if (!ctx->sensors[id]->valid)
 		return -1;
 	if (temperature)
 		(*temperature) = ctx->sensors[id]->temperature;

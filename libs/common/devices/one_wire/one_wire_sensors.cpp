@@ -35,6 +35,7 @@ struct one_wire_sensor {
 	rom_address_t	rom_addr;
 	uint64_t		address;
 	float			temperature;
+	bool			valid;
 	uint64_t		mqtt_last_send;
 	mqtt_component_t mqtt_comp;
 	uint64_t		ok_stat;
@@ -149,8 +150,9 @@ static bool one_wire_log(void *context)
 			if (!ctx->lines[i]->sensors[j].address)
 				continue;
 			q = ((ctx->lines[i]->sensors[j].ok_stat * 100) / (ctx->lines[i]->sensors[j].ok_stat + ctx->lines[i]->sensors[j].err_stat));
-			hlog_info(ONEWIRE_MODULE, "\t\tId %d, address 0x%llX: %3.2f°C, connection %d%%",
-					  j, ctx->lines[i]->sensors[j].address, ctx->lines[i]->sensors[j].temperature, q);
+			hlog_info(ONEWIRE_MODULE, "\t\tId %d, address 0x%llX: %3.2f%s, connection %d%%",
+					  j, ctx->lines[i]->sensors[j].address, ctx->lines[i]->sensors[j].temperature,
+					  ctx->lines[i]->sensors[j].valid ? "°C" : " (invalid)", q);
 		}
 	}
 
@@ -173,6 +175,7 @@ static void one_wire_read_measure(struct one_wire_context_t *ctx, uint8_t idx)
 	for (i = 0; i < ONEWIRE_SENORS_MAX; i++) {
 		if (!line->sensors[i].address)
 			continue;
+		line->sensors[i].valid = false;
 		val = line->tempSensor->temperature(line->sensors[i].rom_addr);
 		if (val == One_wire::invalid_conversion) {
 			if (ctx->debug)
@@ -183,6 +186,7 @@ static void one_wire_read_measure(struct one_wire_context_t *ctx, uint8_t idx)
 			if (ctx->debug)
 				hlog_info(ONEWIRE_MODULE, "Got %3.2f°C from sensor 0x%llX on GPIO %d",
 						  val, line->sensors[i].address, line->pin);
+			line->sensors[i].valid = true;
 			if (line->sensors[i].temperature != val) {
 				line->sensors[i].mqtt_comp.force = true;
 				line->sensors[i].temperature = val;
@@ -565,6 +569,8 @@ int one_wire_get_sensor_data(uint8_t line_id, int sensor_id, float *temperature)
 	if (sensor_id >= ONEWIRE_SENORS_MAX)
 		return -1;
 	if (!ctx->lines[line_id]->sensors[sensor_id].address)
+		return -1;
+	if (!ctx->lines[line_id]->sensors[sensor_id].valid)
 		return -1;
 	if (temperature)
 		(*temperature) = ctx->lines[line_id]->sensors[sensor_id].temperature;
