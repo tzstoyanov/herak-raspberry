@@ -65,6 +65,8 @@ static int opentherm_config_get(opentherm_context_t **ctx)
 	int rx_pin, tx_pin;
 	char *rest, *tok;
 	int ret = -1;
+	int res;
+	float f;
 
 	if (!config || strlen(config) < 1)
 		goto out;
@@ -85,12 +87,14 @@ static int opentherm_config_get(opentherm_context_t **ctx)
 	if (qm && strlen(qm) > 1) {
 		rest = qm;
 		tok = strtok_r(rest, ";", &rest);
-		(*ctx)->data.qmin = strtof(tok, NULL);
-		if ((*ctx)->data.qmin > 0.0)
-			(*ctx)->data.qmin /= (60*60);	// comvert to l/sec
-		(*ctx)->data.qmax = strtof(rest, NULL);
-		if ((*ctx)->data.qmax > 0.0)
-			(*ctx)->data.qmax /= (60*60);	// comvert to l/sec
+		f = 0;
+		res = sys_strtof(tok, &f);
+		if (!res && f > 0)
+			(*ctx)->data.qmin = f / (60*60);	// comvert to l/sec
+		f = 0;
+		res = sys_strtof(rest, &f);
+		if (!res && f > 0)
+			(*ctx)->data.qmax = f / (60*60);	// comvert to l/sec
 	}
 	ret = 0;
 

@@ -131,6 +131,7 @@ static int cmd_set_param_float(cmd_run_context_t *ctx, char *params, void *user_
 	opentherm_context_t *octx = (opentherm_context_t *)user_data;
 	char *val = NULL;
 	float f = 0;
+	int res;
 
 	UNUSED(ctx);
 	if (IS_CMD_LOG(octx->log_mask))
@@ -140,8 +141,8 @@ static int cmd_set_param_float(cmd_run_context_t *ctx, char *params, void *user_
 		goto out_err;
 	if (!val)
 		goto out_err;
-	f = (float)strtof(val, NULL);
-	if (f < 0 || f > 100)
+	res = sys_strtof(val, &f);
+	if (res || f < 0 || f > 100)
 		goto out_err;
 
 	switch (id) {

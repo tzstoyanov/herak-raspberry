@@ -75,6 +75,7 @@ static bool flow_yf_config_get(struct flow_yf_context_t **ctx)
 	char *rest, *rest1, *tok, *ptok;
 	float pps;
 	int pin;
+	int res;
 
 	(*ctx) = NULL;
 	if (!config || strlen(config) < 1)
@@ -92,8 +93,9 @@ static bool flow_yf_config_get(struct flow_yf_context_t **ctx)
 		pin = (int)strtol(ptok, NULL, 0);
 		if (pin < GPIO_PIN_MIN || pin > GPIO_PIN_MAX)
 			continue;
-		pps = strtof(rest1, NULL);
-		if (pps <= 0)
+		pps = 0;
+		res = sys_strtof(rest1, &pps);
+		if (res || pps <= 0)
 			continue;
 		(*ctx)->sensors[(*ctx)->count] = calloc(1, sizeof(struct flow_yf_sensor));
 		if (!(*ctx)->sensors[(*ctx)->count])

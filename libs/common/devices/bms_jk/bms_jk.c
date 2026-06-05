@@ -22,6 +22,8 @@ static const uint8_t __in_flash() jk_request_pkt_start[] = {0xAA, 0x55, 0x90, 0x
 
 #define TIME_STR_LEN	64
 
+#define CELL_VOLTAGE_MAX	65
+
 /*
 
 Device Information 0x180A
@@ -451,11 +453,12 @@ static bool get_bms_config(bms_context_t **ctx)
 	char *bt_max_charge = USER_PRAM_GET(BMS_CHARGE_CURRENT_THRESHOLD);
 	char *dev, *addr, *ch;
 	char *mod, *mod_rest;
+	float val1, val2;
 	char *rest, *rest1;
 	bt_addr_t address;
 	bool ret = false;
 	uint32_t i;
-	int val1, val2;
+	int res;
 
 	(*ctx) = NULL;
 	if (!bt_mod || strlen(bt_mod) < 1)
@@ -520,10 +523,15 @@ static bool get_bms_config(bms_context_t **ctx)
 			mod = strtok_r(rest1, ",", &rest1);
 			if (!mod || !rest1)
 				continue;
-			val1 = strtof(mod, NULL) * 1000;	// cell_v_low
-			val2 = strtof(rest1, NULL) * 1000;	// cell_v_high
-			if (val1 > 0 && val2 > 0)
-				jk_bt_enable_battery_track((*ctx)->devices[i], val1, val2);
+			val1 = 0;
+			val2 = 0;
+			res = sys_strtof(mod, &val1);		// cell_v_low
+			if (!res)
+				res = sys_strtof(rest1, &val2);	// cell_v_high
+			if (!res && val1 > 0 && val2 > 0 && val1 <= CELL_VOLTAGE_MAX && val2 <= CELL_VOLTAGE_MAX) {
+				jk_bt_enable_battery_track((*ctx)->devices[i],
+										   (uint16_t)(val1 * 1000), (uint16_t)(val2 * 1000));
+			}
 			i++;
 			if (i >= (*ctx)->count)
 				break;
