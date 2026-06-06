@@ -87,10 +87,11 @@ struct sht20_sensor {
 	uint8_t  raw_idx;
 	uint32_t raw_data[SHT20_DATA_COUNT];
 	float temperature;
+	bool valid_t;
 	float humidity;
+	bool valid_h;
 	float vpd;	//  Vapor Pressure Deficit
 	float dew_point;
-	bool valid;
 	bool force;
 	bool connected;
 	bool hard_reset;
@@ -368,13 +369,17 @@ static bool sht20_log(void *context)
 	hlog_info(SHT20_MODULE, "Reading %d sensors:", ctx->count);
 	for (i = 0; i < ctx->count; i++) {
 		q = ((ctx->sensors[i]->ok_stat * 100) / (ctx->sensors[i]->ok_stat + ctx->sensors[i]->err_stat));
-		hlog_info(SHT20_MODULE, "\tid %d attached to %d,%d(%s %d%%), power pin (%d)%s",
+		hlog_info(SHT20_MODULE, "\tid %d attached to %d,%d(%s %d%%), power pin (%d)",
 				  i, ctx->sensors[i]->sda_pin, ctx->sensors[i]->scl_pin,
 				  ctx->sensors[i]->connected ? "connected" : "not connected", q,
-				  ctx->sensors[i]->power_pin, ctx->sensors[i]->valid ? " " : ", invalid measurement");
-		hlog_info(SHT20_MODULE, "\t\tTemperature %3.2f°C, Humidity %3.2f%%, VPD %3.2fkPa, Dew Point %3.2f%%",
-				  ctx->sensors[i]->temperature, ctx->sensors[i]->humidity,
-				  ctx->sensors[i]->vpd, ctx->sensors[i]->dew_point);
+				  ctx->sensors[i]->power_pin);
+		hlog_info(SHT20_MODULE, "\t\tTemperature %3.2f%s, Humidity %3.2f%s, VPD %3.2f%s, Dew Point %3.2f%s",
+				  ctx->sensors[i]->temperature, ctx->sensors[i]->valid_t ? "°C" : "(invalid)",
+				  ctx->sensors[i]->humidity, ctx->sensors[i]->valid_t ? "%" : "(invalid)",
+				  ctx->sensors[i]->vpd,
+				  (ctx->sensors[i]->valid_t && ctx->sensors[i]->valid_h) ? "kPa" : "(invalid)",
+				  ctx->sensors[i]->dew_point,
+				  (ctx->sensors[i]->valid_t && ctx->sensors[i]->valid_h) ? "%" : "(invalid)");
 	}
 
 	return true;
@@ -405,10 +410,23 @@ static int sth20_mqtt_data_send(struct sht20_context_t *ctx, int idx)
 	ms = &ctx->sensors[idx]->mqtt_comp[SHT20_MQTT_TEMPERATURE];
 	ADD_MQTT_MSG("{");
 		ADD_MQTT_MSG_VAR("\"time\": \"%s\"", get_current_time_str(time_buff, TIME_STR));
-		ADD_MQTT_MSG_VAR(",\"temperature\": \"%3.2f\"", ctx->sensors[idx]->temperature);
-		ADD_MQTT_MSG_VAR(",\"humidity\": \"%3.2f\"", ctx->sensors[idx]->humidity);
-		ADD_MQTT_MSG_VAR(",\"vpd\": \"%3.2f\"", ctx->sensors[idx]->vpd);
-		ADD_MQTT_MSG_VAR(",\"dew_point\": \"%3.2f\"", ctx->sensors[idx]->dew_point);
+		if (ctx->sensors[idx]->valid_t) {
+			ADD_MQTT_MSG_VAR(",\"temperature\": \"%3.2f\"", ctx->sensors[idx]->temperature);
+		} else {
+			ADD_MQTT_MSG_VAR(",\"temperature\": \"%s\"", "nan");
+		}
+		if (ctx->sensors[idx]->valid_h) {
+			ADD_MQTT_MSG_VAR(",\"humidity\": \"%3.2f\"", ctx->sensors[idx]->humidity);
+		} else {
+			ADD_MQTT_MSG_VAR(",\"humidity\": \"%s\"", "nan");
+		}
+		if (ctx->sensors[idx]->valid_t && ctx->sensors[idx]->valid_h) {
+			ADD_MQTT_MSG_VAR(",\"vpd\": \"%3.2f\"", ctx->sensors[idx]->vpd);
+			ADD_MQTT_MSG_VAR(",\"dew_point\": \"%3.2f\"", ctx->sensors[idx]->dew_point);
+		} else {
+			ADD_MQTT_MSG_VAR(",\"vpd\": \"%s\"", "nan");
+			ADD_MQTT_MSG_VAR(",\"dew_point\": \"%s\"", "nan");
+		}
 	ADD_MQTT_MSG("}")
 
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;
@@ -499,17 +517,16 @@ static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 		return SHT20_RET_IN_PROGRESS;
 
 	sensor->read_requested = 0;
-	sensor->valid = false;
 	ret = i2c_read_blocking(sensor->i2c, sensor->sht20_addr, buff, SHT20_DATA_SIZE, false);
 	if (ret != SHT20_DATA_SIZE) {
 		ret = SHT20_RET_ERR;
 		goto out;
 	}
 
-	if (IS_DEBUG(sensor->ctx))
-		hlog_info(SHT20_MODULE, "Got raw data from sensor %d: [0x%2X 0x%2X 0x%2X]",
-				  sensor->sda_pin, buff[0], buff[1], buff[2]);
 	ret = sht20_check_crc(sensor, buff, 2, buff[2]);
+	if (IS_DEBUG(sensor->ctx))
+		hlog_info(SHT20_MODULE, "Got raw data from sensor %d: [0x%2X 0x%2X 0x%2X], CRC %s",
+				  sensor->sda_pin, buff[0], buff[1], buff[2], ret ? "ERR" : "OK");
 	if (ret) {
 		ret = SHT20_RET_ERR;
 		goto out;
@@ -533,6 +550,7 @@ static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 			sensor->force = true;
 			sensor->temperature = data;
 		}
+		sensor->valid_t = true;
 		sensor->read_cmd = SHT20_HUMID;
 	} else {
 		data = raw * (125.0 / 65536.0) - 6.0;
@@ -540,6 +558,7 @@ static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 			sensor->force = true;
 			sensor->humidity = data;
 		}
+		sensor->valid_h = true;
 		sensor->read_cmd = SHT20_TEMP;
 	}
 
@@ -571,8 +590,11 @@ out:
 	if (ret == SHT20_RET_ERR) {
 		sensor->err_stat++;
 		sensor->raw_idx = 0;
+		if (sensor->read_cmd == SHT20_TEMP)
+			sensor->valid_t = false;
+		else
+			sensor->valid_h = false;
 	} else {
-		sensor->valid = true;
 		sensor->ok_stat++;
 	}
 	return ret;
@@ -746,7 +768,7 @@ int sht20_get_data(int id, float *temperature,
 		return -1;
 	if (id < 0 || id >= ctx->count)
 		return -1;
-	if (!ctx->sensors[id]->valid)
+	if (!ctx->sensors[id]->valid_t || !ctx->sensors[id]->valid_h)
 		return -1;
 	if (temperature)
 		(*temperature) = ctx->sensors[id]->temperature;

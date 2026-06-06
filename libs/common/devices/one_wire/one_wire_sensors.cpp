@@ -94,7 +94,11 @@ static int one_wire_mqtt_data_send(struct one_wire_context_t *ctx, int lidx, int
 	ADD_MQTT_MSG("{");
 		ADD_MQTT_MSG_VAR("\"time\": \"%s\"", get_current_time_str(time_buff, TIME_STR));
 		ADD_MQTT_MSG_VAR(",\"id\": \"%llX\"", ctx->lines[lidx]->sensors[sidx].address);
-		ADD_MQTT_MSG_VAR(",\"temperature\": \"%3.2f\"", ctx->lines[lidx]->sensors[sidx].temperature);
+		if (ctx->lines[lidx]->sensors[sidx].valid) {
+			ADD_MQTT_MSG_VAR(",\"temperature\": \"%3.2f\"", ctx->lines[lidx]->sensors[sidx].temperature);
+		} else {
+			ADD_MQTT_MSG_VAR(",\"temperature\": \"%s\"", "nan");
+		}
 	ADD_MQTT_MSG("}")
 
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;

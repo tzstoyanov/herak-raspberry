@@ -98,9 +98,14 @@ static int temperature_mqtt_data_send(struct temperature_context_t *ctx, int idx
 	ms = &ctx->sensors[idx]->mqtt_comp;
 	ADD_MQTT_MSG("{");
 		ADD_MQTT_MSG_VAR("\"time\": \"%s\"", get_current_time_str(time_buff, TIME_STR));
-		ADD_MQTT_MSG_VAR(",\"%s\": \"%3.2f\"",
-						 ctx->sensors[idx]->mqtt_comp.name,
-						 ctx->sensors[idx]->temperature);
+		if (ctx->sensors[idx]->valid) {
+			ADD_MQTT_MSG_VAR(",\"%s\": \"%3.2f\"",
+							 ctx->sensors[idx]->mqtt_comp.name,
+							 ctx->sensors[idx]->temperature);
+		} else {
+			ADD_MQTT_MSG_VAR(",\"%s\": \"%s\"",
+							 ctx->sensors[idx]->mqtt_comp.name, "nan");
+		}
 	ADD_MQTT_MSG("}")
 
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;
