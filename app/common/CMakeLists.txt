@@ -22,7 +22,7 @@ option(ADD_SONAR "AJ-SR04M sonar sensor" ON)			# libs/common/devices/sonar/READM
 option(ADD_FLOW_YF "Water Flow YF sensor" ON)			# libs/common/devices/flow_yf/README.md
 option(ADD_PRESS_ANALOG "Analog pressure sensor" ON)  # libs/common/devices/apress/README.md
 option(ADD_THERMOSTAT "Thermostat" ON)			# libs/common/devices/thermostat/README.md
-
+option(ADD_REMOTE_SENSOR "Remote Sensor" ON)			# libs/common/devices/rsensor/README.md
 
 # CMake settings
 set(CMAKE_C_STANDARD 11)
