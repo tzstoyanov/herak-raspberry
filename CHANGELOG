@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.0] - 2026-06-13
+- New devices:
+  - Remote sensors
+  - Thermostat
+- New APIs for devices interaction.
+- Bug fixes.
+- Code refactoring.
+
 ## [2.1.0] - 2026-03-14
 - Improved support for multiple devices:
   - Bluethoot
