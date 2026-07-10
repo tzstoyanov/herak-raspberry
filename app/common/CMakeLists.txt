@@ -60,6 +60,16 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_LIST_DIR}/main.c
 )
 
+if(${PICO_PLATFORM} STREQUAL "rp2350-arm-s" OR ${PICO_PLATFORM} STREQUAL "rp2350")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+                          PICOTOOL_EXTRA_UF2_ARGS "--platform;rp2350")
+elseif(${PICO_PLATFORM} STREQUAL "rp2040")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+                          PICOTOOL_EXTRA_UF2_ARGS "--platform;rp2040")
+else()
+    message(FATAL_ERROR "Platform not supported: ${PICO_PLATFORM}")
+endif()
+
 target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INLUDE_DIR})
 target_compile_options(${PROJECT_NAME} PRIVATE -DMEM_HEAP_SIZE=${HEAP_SIZE})
 target_link_libraries(${PROJECT_NAME} PRIVATE pico_stdlib herak_common)

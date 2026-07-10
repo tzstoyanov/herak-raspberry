@@ -65,6 +65,16 @@ add_executable(${PROJECT_NAME}
   ${MPTT_TEST}
 )
 
+if(${PICO_PLATFORM} STREQUAL "rp2350-arm-s" OR ${PICO_PLATFORM} STREQUAL "rp2350")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+                          PICOTOOL_EXTRA_UF2_ARGS "--platform;rp2350")
+elseif(${PICO_PLATFORM} STREQUAL "rp2040")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+                          PICOTOOL_EXTRA_UF2_ARGS "--platform;rp2040")
+else()
+    message(FATAL_ERROR "Platform not supported: ${PICO_PLATFORM}")
+endif()
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE PIO_USB_USE_TINYUSB)
 
 
