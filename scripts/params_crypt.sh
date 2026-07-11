@@ -1,6 +1,6 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2023, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2023-2026, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
 
 fname=$1
 fname_all=$2
@@ -32,8 +32,8 @@ function write_param_len() {
 	echo "const int $1_len = sizeof($1);" >> $fname.c
 }
 
-LicenseString="// SPDX-License-Identifier: GPL-2.0-or-later"
-CopyStr="// Copyright (C) 2023, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>"
+LicenseString="// SPDX-License-Identifier: GPL-3.0-or-later"
+CopyStr="// Copyright (C) 2023-2026, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>"
 WarnString="// The file is auto generated at compile time, do not edit manually"
 IncludeString="#include \"pico/platform/sections.h\""
 # $1 - file

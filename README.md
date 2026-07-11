@@ -135,4 +135,4 @@ and run the script:
 It automatically reboots the device in bootloader mode and copies the new image.
 
 ## License
-herak-raspberry is available under the [GPLv2.0 or later license](LICENSE).
+herak-raspberry is available under the [GPLv3.0 or later license](LICENSE).

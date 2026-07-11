@@ -1,6 +1,6 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2025, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2025-2026, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
 
 top_dir=$1
 build_dir=$2

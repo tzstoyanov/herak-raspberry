@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * Copyright (C) 2026, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
  */
