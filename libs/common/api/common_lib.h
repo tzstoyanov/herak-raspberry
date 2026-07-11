@@ -26,6 +26,25 @@ extern "C" {
 #define SYS_VERSION_STR	PROJECT_VERSION "-" GIT_COMMIT_HASH
 #define SYS_BUILD_DATE	BUILD_DATE " " BUILD_TIME
 
+#define SYS_VER_STR "\n\r\
+Image " IMAGE_NAME SYS_VERSION_STR " compiled " SYS_BUILD_DATE ", running on " DEV_ARCH "\n\r\
+"
+
+#define SYS_ABOUT_STR   "\n\r\
+github.com/tzstoyanov/herak-raspberry\n\r\
+Raspberry Pico applications for monitoring and controlling various devices.\n\r\
+Integrated with Home Assistant.\n\r\
+"
+
+#define SYS_LICENSE_STR "\n\r\
+Copyright (C) 2025-" BUILD_YEAR " Tzvetomir Stoyanov.\n\r\
+License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n\r\
+This is free software: you are free to change and redistribute it.\n\r\
+There is NO WARRANTY, to the extent permitted by law.\n\r\
+\n\r\
+Written by Tzvetomir Stoyanov <tz.stoyanov@gmail.com>.\n\r\
+"
+
 #define LED_ON	{ cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1); }
 #define LED_OFF { cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0); }
 #define param_get(X) base64_decode(X, X ## _len)

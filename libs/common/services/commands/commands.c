@@ -85,7 +85,6 @@ static bool sys_cmd_log_status(void *context)
 	for (i = 0; i < ctx->count; i++)
 		hlog_info(CMD_MODULE, "\t%s",ctx->handlers[i]->module);
 	hlog_info(CMD_MODULE, "Run `<module_name>?help` for more information.");
-
 	return true;
 }
 
@@ -129,7 +128,33 @@ static int cmd_help(struct cmd_context_t *ctx, cmd_run_context_t *cmd_ctx, char 
 		return -1;
 	if (strncmp(HELP_CMD, cmd_str, strlen(HELP_CMD)))
 		return -1;
+	hlog_info(CMD_MODULE, "help - display this help");
+	hlog_info(CMD_MODULE, "version - display version information");
+	hlog_info(CMD_MODULE, "about - display information about the program");
 	sys_cmd_log_status(ctx);
+	return 0;
+}
+
+#define ABOUT_CMD	"about"
+#define VER_CMD		"version"
+static int cmd_about(struct cmd_context_t *ctx, cmd_run_context_t *cmd_ctx, char *cmd_str)
+{
+	UNUSED(ctx);
+	UNUSED(cmd_ctx);
+
+	if (strlen(ABOUT_CMD) == strlen(cmd_str) &&
+		!strncmp(ABOUT_CMD, cmd_str, strlen(ABOUT_CMD)))
+		goto print_about;
+	if (strlen(VER_CMD) == strlen(cmd_str) &&
+		!strncmp(VER_CMD, cmd_str, strlen(VER_CMD)))
+		goto print_ver;
+	return -1;
+
+print_about:
+	hlog_info("about", SYS_ABOUT_STR);
+print_ver:
+	sys_state_log_version();
+	hlog_info("license", SYS_LICENSE_STR);
 	return 0;
 }
 
@@ -186,6 +211,11 @@ int cmd_exec(cmd_run_context_t *cmd_ctx, char *cmd_str)
 
 	if (!exec) {
 		ret = cmd_help(ctx, cmd_ctx, cmd_str);
+		if (!ret)
+			exec = true;
+	}
+	if (!exec) {
+		ret = cmd_about(ctx, cmd_ctx, cmd_str);
 		if (!ret)
 			exec = true;
 	}
