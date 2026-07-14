@@ -7,8 +7,7 @@ Configuration parameters in params.txt file:
 ```
 LCD_CONFIG   <address>;<sda gpio pin>
 ```
-Where `<address>` is the I2C address of the LCD, usually 0x27 or 0x3F; `<sda gpio pin>` is the Raspberry PIN where the SDA of the LCD is attached.
-The SCL of the sensor must be attached next to SDA: `<sda gpio pin>` + 1.
+- `LCD_CONFIG`, mandatory. `<address>` is the I2C address of the LCD, usually 0x27 or 0x3F; `<sda gpio pin>` is the Raspberry pin where the SDA of the LCD is attached. The SCL of the sensor must be attached next to SDA: `<sda gpio pin>` + 1.
 
 Example configuration of LCD attached to SDA;SCL - GPIO8;GPIO9:
 ```

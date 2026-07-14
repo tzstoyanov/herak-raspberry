@@ -2,6 +2,7 @@
 Set of useful commands. The commands can be sent to the device with a HTTP or a MQTT request. The result is printed on the current HTTP session, on the system console and on a remote log server. The device listens for HTTP commands on the `WEBSERVER_PORT` HTTP port and on `<MQTT_TOPIC>/command` MQTT topic, where these are configured in the `params.txt` file.
 
 ## Commands
+Commands can be executed using the [commands engine](../commands/README.md).  
 - `reboot:<delay_ms>` - Reboot the device after `delay_ms` milliseconds.  
 - `status` - Print the full status of the system, all services and attached devices.  
 - `log_sys` - Print the status of the system - uptime, chip temperature, system resources and errors.  

@@ -15,12 +15,6 @@ SONAR_CONFIG   0;1
 ```
 
 ## Monitor
-### MQTT
-MQTT AJ-SR04M sensor is auto-discovered by Home Assistant. The state is published using the following topics, where `<user-topic>` is defined in `params.txt` - as `MQTT_TOPIC`. The connection details for the MQTT server are also set in `params.txt`.  
+The status of these sensors is reported over [MQTT](../../services/mqtt/README.md):  
 `<user-topic>/sonar/sonar_sensor/status` - Status of the sonar sensor:  
-&nbsp;&nbsp;&nbsp;&nbsp;`distance:<value>` - Measured distance, in cm.  
-
-### HTTP
-The status of all sensors is reported with this http request, where `port` is defined in `params.txt` - as `WEBSERVER_PORT`:  
-    `curl http://<device_ip>:<port>/sonar/status`
-
+- `distance:<value>` - Measured distance, in cm.  

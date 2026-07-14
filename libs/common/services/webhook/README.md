@@ -8,8 +8,9 @@ WEBHOOK_SERVER      <web_server>
 WEBHOOK_PORT        <port>
 WEBHOOK_ENDPOINT    <url>
 ```
-Where `web_server` is domain name or IP address of a webhook server and `port` is the TCP port of that server. If no port is specified, `80` is used by default.
-The webhook URL is defined by the `url` parameter.  
+- `WEBHOOK_SERVER`, mandatory. `web_server` is domain name or IP address of a webhook server 
+- `WEBHOOK_PORT`, optional. `port` is the TCP port of that server. If no port is specified, `80` is used by default.
+- `WEBHOOK_ENDPOINT`, mandatory. The webhook URL is defined by the `url` parameter.  
 
 Example configurations:
 ```

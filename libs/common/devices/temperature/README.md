@@ -17,14 +17,9 @@ TEMPERATURE_NTC     26:50000:3950;28:50000:3950
 ```
 
 ## Monitor
-### MQTT
-MQTT temperature sensors are auto-discovered by Home Assistant. The state is published using the following topics, where `<user-topic>` is defined in `params.txt` - as `MQTT_TOPIC`. The connection details for the MQTT server are also set in `params.txt`.  
+The status of these sensors is reported over [MQTT](../../services/mqtt/README.md):  
 `<user-topic>/temperature/temperature_chip_0/status` - Status of all sensors:  
-&nbsp;&nbsp;&nbsp;&nbsp;`temperature_<type>_<id>:<val>` - The current temperature measurement `val`, where `type` is type of sensor: `chip` or `ntc` and `id` is an identifier of the sensor.  
-
-### HTTP
-The status of all sensors is reported with this http request, where `port` is defined in `params.txt` - as `WEBSERVER_PORT`:  
-    `curl http://<device_ip>:<port>/temperature/status`  
+- `temperature_<type>_<id>:<val>` - The current temperature measurement `val`, where `type` is type of sensor: `chip` or `ntc` and `id` is an identifier of the sensor.  
 
 ## API
 ```

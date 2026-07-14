@@ -8,7 +8,8 @@ Configuration parameters in params.txt file:
 SHT20_SDA_PIN   <gpio pin>;<gpio pin>;...
 SHT20_POWER_PIN <gpio pin>;<gpio pin>;...
 ```
-Where `SHT20_SDA_PIN <gpio pin>` is the Raspberry PIN where the SDA of the sensor is attached. Up to 6 sensors are supported, attached to the Raspberry I2C outputs. The SCL of the sensor must be attached next to SDA: `SHT20_SDA_PIN <gpio pin>` + 1. Each configured sensor has an ID, starting from 0. The `SHT20_POWER_PIN <gpio pin>` parameter is optional, depending on the sensor wiring - the GPIO pin, used to power the sensor. If the sensor is not powered by a GPIO pin, the parameter can be omitted or set to -1. The order of `SHT20_POWER_PIN` list must correspond to the order of `SHT20_SDA_PIN` list.
+- `SHT20_SDA_PIN <gpio pin>`, mandatory. The Raspberry pin where the SDA of the sensor is attached. Up to 6 sensors are supported, attached to the Raspberry I2C outputs. The SCL of the sensor must be attached next to SDA: `SHT20_SDA_PIN <gpio pin>` + 1. Each configured sensor has an ID, starting from 0.  
+- `SHT20_POWER_PIN <gpio pin>`, optional, depending on the sensor wiring - the GPIO pin, used to power the sensor. If the sensor is not powered by a GPIO pin, the parameter can be omitted or set to -1. The order of `SHT20_POWER_PIN` list must correspond to the order of `SHT20_SDA_PIN` list.
 
 Example configuration of two sensors. The first one is attached to pico's 3.3V power output, the  second one is powered by GPIO 22:
 ```
@@ -19,20 +20,15 @@ Sensor 0 <SDA,SCL> pins are attached to GPIO0,GPIO1.
 Sensor 1 <SDA,SCL> pins are attached to GPIO2,GPIO3, powered by GPIO22
 
 ## Wiring Note
-SHT20 sensors share the same I2C address. If more than one sensor has to be attached to same Pico's I2C buss, the sensors must use GPIO pin for power - the `SHT20_POWER_PIN <gpio pin>` must be set. In that case, the Raspberry resolves the address collision by powering only the sensor being read at the moment, all others are power down.
+SHT20 sensors share the same I2C address. If more than one sensor has to be attached to same Pico's I2C buss, the sensors must use GPIO pin for power - the `SHT20_POWER_PIN <gpio pin>` must be set. In that case, the Raspberry resolves the address collision by powering only the sensor being read at the moment, all other sensors are power down.
 
 ## Monitor
-### MQTT
-MQTT SHT20 sensors are auto-discovered by Home Assistant. The state is published using the following topics, where `<user-topic>` is defined in `params.txt` - as `MQTT_TOPIC`. The connection details for the MQTT server are also set in `params.txt`.  
+The status of these sensors is reported over [MQTT](../../services/mqtt/README.md):  
 `<user-topic>/sht20/Temperature_<id>/status` - Status of the sensor with the given `id`:  
-&nbsp;&nbsp;&nbsp;&nbsp;`temperature:<value>` - Temperature, in °C.  
-&nbsp;&nbsp;&nbsp;&nbsp;`humidity:<value>` - Humidity, in %.  
-&nbsp;&nbsp;&nbsp;&nbsp;`vpd:<value>` - Vapor Pressure Deficit, in kPa.
-&nbsp;&nbsp;&nbsp;&nbsp;`dew_point:<value>` - Dew Point, in °C.
-
-### HTTP
-The status of all sensors is reported with this http request, where `port` is defined in `params.txt` - as `WEBSERVER_PORT`:  
-    `curl http://<device_ip>:<port>/sht20/status`
+- `temperature:<value>` - Temperature, in °C.  
+- `humidity:<value>` - Humidity, in %.  
+- `vpd:<value>` - Vapor Pressure Deficit, in kPa.
+- `dew_point:<value>` - Dew Point, in °C.
 
 ## API
 ```

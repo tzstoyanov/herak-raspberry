@@ -13,12 +13,12 @@ Where:
 - `<value key>` the JSON key of the data into the MQTT payload, if the payload is in JSON format. This parameter is optional. If `<value key>` is not set the MQTT payload is not parsed as JSON, the entire payload is considered as sensor data.
 
 Example configuration of three remote sensors:
- - `sensor1` transmits data on the MQTT topic `test/sensors/data` in JSON format, using the `temperature` key.
- - `sensor2` transmits data on the MQTT topic `test/health`, not using JSON.
- - `sensor3` transmits data on the MQTT topic `test/sensors/data` in JSON format, using the `pressure` key.
 ```
 REMOTE_SENSOR     sensor1:test/sensors/data:temperature;sensor2:test/health;sensor3:test/sensors/data:pressure
 ```
+ - `sensor1` transmits data on the MQTT topic `test/sensors/data` in JSON format, using the `temperature` key.
+ - `sensor2` transmits data on the MQTT topic `test/health`, not using JSON.
+ - `sensor3` transmits data on the MQTT topic `test/sensors/data` in JSON format, using the `pressure` key.
 
 ## APIs
 ```

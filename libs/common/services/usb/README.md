@@ -7,6 +7,7 @@ Configuration parameters in `params.txt` file:
 USB_PORTS   <dp_pin>,<dm_pin>;<dp_pin>,<dm_pin>;...
 ```
 Where `dp_pin` is GPIO pin where the USB D+ is attached, `dm_pin` is GPIO pin where D- is attached. Up to 4 USB ports are supported.  
+
 Example configurations:
 ```
 USB_PORTS	1,2;8,9

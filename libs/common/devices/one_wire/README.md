@@ -7,22 +7,27 @@ Configuration parameters in params.txt file:
 ```
 ONE_WIRE_DEVICES   <gpio pin>;<gpio pin>;...
 ```
-Where `<gpio pin>` is the Raspberry pin where one-wire sensors are attached. Up to 10 pins can be configured, with up to 3 sensors attached to each pin.
+- `ONE_WIRE_DEVICES`, mandatory. `<gpio pin>` is the Raspberry pin where one-wire sensors are attached. Up to 10 pins can be configured, with up to 3 sensors attached to each pin.
 
 Example configuration of 2 pins:
 ```
 ONE_WIRE_DEVICES   2;8
 ```
 
+## Monitor
+The status of these sensors is reported over [MQTT](../../services/mqtt/README.md):  
+`<topic>/Temperature_<id>/status` - Measurement of the sensor with `id`:  
+ - `temperature:<value>` - measured temperature, °C in float.
+
 ## Commands
-The commands can be sent to the device with a HTTP or a MQTT request. The result is printed on the current HTTP session, on the system console and on a remote log server. The device listens for HTTP commands on the `WEBSERVER_PORT` HTTP port and on `<MQTT_TOPIC>/command` MQTT topic, where these are configured in the `params.txt` file.  
+The commands can be executed using the [commands engine](../../services/commands/README.md).  
 - `map_save` - Store the current mapping of discovered sensors to allocated indexes. This configuration ensures that on every boot, the sensors will have the same indexes.  
 - `map_clear` - Deleted saved mapping of discovered sensors to allocated indexes.
 - `map_show` - Show saved mapping of discovered sensors to allocated indexes.
 
 Example command for displaying the stored sensors mapping. The device has address `192.168.1.1`, listens on HTTP port `8080` and uses MQTT topic `test/dev`  
-- Using HTTP: `curl http://192.168.1.1:8080/one_wire?map_show`  
 - Using MQTT: send request to topic `test/dev/command` with content `one_wire?map_show`.  
+- Using HTTP: `curl http://192.168.1.1:8080/one_wire?map_show`  
 
 ## API
 ```

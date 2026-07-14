@@ -1,16 +1,18 @@
 # OTA updates
 Over The Air updates of the firmware, using tftp client to download the new image. When `OTA` is enabled, the 
-[fota](https://github.com/JZimnol/pico_fota_bootloader) bootloader is used to boot the device. The `pico_fota_bootloader.uf2` file is generated during the compilation, and on first install must be copied on the device using the `BOOTSEL` button method. When `pico_fota_bootloader` boots, the application image `<device name>.uf2` can be copied using the same `BOOTSEL` button method. Two additional files are generated during the compilation, that can be used for OTA updates:  
+[fota](https://github.com/JZimnol/pico_fota_bootloader) bootloader is used to boot the device. The `pico_fota_bootloader.uf2` file is generated during the compilation, and on first install must be copied on the device using the `BOOTSEL` button method. When `pico_fota_bootloader` boots, the application image `<device name>.uf2` can be copied using the same `BOOTSEL` button method. A few additional files are generated during the compilation, that can be used for OTA updates:  
 - `<device name>_fota_image.bin` - unencrypted application image, can be used only if AES encryption is not enabled.
 - `<device name>_fota_image_encrypted.bin` - encrypted application image, can be used only if AES encryption is enabled.
+- `<device name>.meta` - Metadata of the image - target platform, sw version, hash, build date, image name and file name. This file is used from OTA logic to check if the new image should be used for automatic upgrade.
 
 ## Configuration
 In application's `CMakeList.txt` file:  
 `set(BOOT_AES_KEY "secret key")`: If defined, the generated image will be AES encrypted with that key. The `pico_fota_bootloader` must be generated using the same key. When AES encryption is used, if there is mismatch in keys between the bootloader and the application, the new image will not be applied. That check is only for OTA updates, the `BOOTSEL` button method still can be used to copy any image. The `secret key` must be 32 bytes long and contain only characters from the set [0-9a-zA-Z].  
 
 ## Commands
+Commands can be executed using the [commands engine](../commands/README.md).  
 - `update:tftp://<server>[:<port>]/<file>` - Download new `file` image from tftp `server` running on `port`. If `port` is omitted, the default tftp port is used. The `server` can be domain name or IP address. The image is validated and if valid the device is rebooted with the new image.
-- `check:tftp://<server>[:<port>]/[<file>]` - Check for updates on tftp `<server>:[port]`, looking for meta `[<file>]`. If `<file>` is not specified, a file with name `<application image>.meta` is used. If new image is found, it is not applied automatically.
+- `check:tftp://<server>[:<port>]/[<file>]` - Check for updates on tftp `<server>:[port]`, looking for meta `[<file>]`. If `<file>` is not specified, a file with name `<application image>.meta` is used. If new image is found, it is not applied automatically. The metadata file must exist on the TFTP server.  
 - `apply`- Apply pending update, found by `check` command.
 - `check_apply:tftp://<server>[:<port>]/[<file>]` - The same as `check` command, but if new image is detected it is downloaded and applied.
 - `check_strategy:[new]:[version]:[time]` - Control the logic used to check for new versions. If `new` is set, only newer images are accepted. If `version` is set, the version string is analyzed for detecting new image. If `time` is set, the build time is analyzed for detecting new image. Any combinations of these 3 parameters are allowed, but these 6 are useful:

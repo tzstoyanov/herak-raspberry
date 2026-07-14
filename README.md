@@ -5,7 +5,7 @@ Raspberry Pico applications for monitoring and controlling devices in my house. 
 using Raspberry C SDK and runs directly on Raspberry PicoW and Pico2W without an operating system.  
 Support for all services, devices and sensors is implemented as modules. Modules can be easily selected and combined together into a single application, depending on the use cases and available hardware resources.  
 
-### Services:
+### Services: 
 - [Network](libs/common/services/wifi/README.md)
 - [File System](libs/common/services/fs/README.md)
 - [NTP client](libs/common/services/ntp/README.md)
@@ -18,10 +18,12 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - [Webhooks](libs/common/services/webhook/README.md)
 - [Commands engine](libs/common/services/commands/README.md)
 - [System Commands](libs/common/services/syscmd/README.md)
+- [System State Report](libs/common/sys_state/README.md)
 - [Persistent user configuration](libs/common/services/cfg_store/README.md)
 - [Scripts](libs/common/services/scripts/README.md)
 - [OTA Updates](libs/common/services/ota/README.md)
 - [WoL sender](libs/common/services/wol/README.md)
+- JSON parser
 - Watchdog
 
 ### Devices and Sensors:
@@ -56,6 +58,7 @@ Minimal application - only the system main loop. Uses the system modules defined
 ### Prerequisites
 - Raspberry PicoW or Pico2W.
 - Wiring, depending on the use case.
+- [Picotool v2.3.0](https://github.com/raspberrypi/picotool)
 
 ### Get the code
 The project uses sub-modules, so clone the repo with all sub-modules:

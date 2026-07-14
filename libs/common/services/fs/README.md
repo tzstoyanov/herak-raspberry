@@ -2,7 +2,7 @@
 A small fail-safe filesystem based on [littlefs](https://github.com/littlefs-project/littlefs).
 
 ## Commands
-The commands can be sent to the device with a HTTP or a MQTT request. The result is printed on the current HTTP session, on the system console and on a remote log server. The device listens for HTTP commands on the `WEBSERVER_PORT` HTTP port and on `<MQTT_TOPIC>/command` MQTT topic, where these are configured in the `params.txt` file.  
+The commands can be executed using the [commands engine](../commands/README.md).  
 - `ls:[<path>]` - List a directory content.  
 - `cat:<path>`  - Display content of a file.  
 - `format`      - Format the file system.  
