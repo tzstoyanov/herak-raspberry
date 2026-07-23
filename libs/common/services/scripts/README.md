@@ -3,12 +3,13 @@
 The script engine runs scripts from files, saved in the file system of the device. A script is a list of commands, executed one after another in the order from the file. On startup, all files from the `/scripts` directory with extension `.run` are loaded as scripts. The files can be uploaded to the device using [tftp](../tftp_client/README.md).  
 - Scripts are loaded only at boot time. If a new script is uploaded, the device must be rebooted to load it.  
 - The format of the script file is:  
-`@name <script name>` - optional, the name of the script, used to address it. If the name is not set, the name of the file is used (without the extension).  
+`@name <script_name>` - optional, the name of the script, used to address it. If the name is not set, the name of the file is used (without the extension). The name should not contain intervals or any special characters, as it is used as parameter in URLs. 
 `@desc <script description>` - optional, description of the script.  
 `@corn <cron string>` - optional, cron schedule for running the script.  
 `@cron_enable <0/1>` - optional, enable or disable the cron schedule of the script.  
 `@notify <0/1>` - optional, enable or disable sending the web hook notifications when the script is started.  
 `@startup <delay_ms>` - optional, run the script at device startup, given msec after the device boot or WiFi connection is established.  
+`@wait <wait_ms>` - Wait given msec interval, before executing the next command. It can be located anywhere in the script, one or multiple times.  
 `#` - any line starting with this symbol is a comment and is not parsed by the script engine.  
 `<module_name>?<command>[:<param1>:[param2]:...]` - command to be executed, one per line.  
 
@@ -23,18 +24,19 @@ Example script to trigger given set of [SSRs](../../devices/ssr/README.md) which
 @cron 0  */10   *    *      *    *
 @cron_enable 1
 ssr?reset
-ssr?set:0:1>:20:0
-ssr?set:1:1>:20:20
-ssr?set:4:1>:20:40
-ssr?set:7:1>:20:60
+@wait 100
+ssr?set:0:1:20:0
+ssr?set:1:1:20:20
+ssr?set:4:1:20:40
+ssr?set:7:1:20:60
 ```
 Save the file as `ssr.run` and upload it to the device:  
-` tftp <ip_addr> -p put ssr.run /scripts/ssr.run`  
+`tftp <ip_addr> -p put ssr.run /scripts/ssr.run`  
 Execute the script:  
 `curl http://<ip_addr>:<port>/scripts?run:ssr_trigger`
 
 ## Commands
-The commands can be sent to the device with a HTTP or a MQTT request. The result is printed on the current HTTP session, on the system console and on a remote log server. The device listens for HTTP commands on the `WEBSERVER_PORT` HTTP port and on `<MQTT_TOPIC>/command` MQTT topic, where these are configured in the `params.txt` file.  
+Commands can be executed using the [commands engine](../commands/README.md).  
 - `run:<name>` - run the script with given name.
 - `auto_run:<name>:<0/1>` - disable / enable auto run of the script with given name, according to the configured cron schedule.
 

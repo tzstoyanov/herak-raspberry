@@ -39,14 +39,16 @@
 #define SCRIPT_PARAM_CRON_ENABLE	"@cron_enable"
 #define SCRIPT_PARAM_NOTIFY			"@notify"
 #define SCRIPT_PARAM_STARTUP		"@startup"
+#define SCRIPT_PARAM_WAIT			"@wait"
 enum script_params_id {
-	SCRIPT_CFG_NAME = 0,
-	SCRIPT_CFG_DESC = 1,
-	SCRIPT_CFG_CRON_ENABLE = 2,
-	SCRIPT_CFG_CRON = 3,
-	SCRIPT_CFG_NOTIFY = 4,
-	SCRIPT_CFG_STARTUP = 5,
-	SCRIPT_CFG_MAX	= 6
+	SCRIPT_CFG_NAME			= 0,
+	SCRIPT_CFG_DESC			= 1,
+	SCRIPT_CFG_CRON_ENABLE	= 2,
+	SCRIPT_CFG_CRON			= 3,
+	SCRIPT_CFG_NOTIFY		= 4,
+	SCRIPT_CFG_STARTUP		= 5,
+	SCRIPT_CFG_WAIT			= 6,
+	SCRIPT_CFG_MAX			= 7
 };
 static __in_flash() char *script_configs[SCRIPT_CFG_MAX] = {
 	 SCRIPT_PARAM_NAME,
@@ -54,7 +56,8 @@ static __in_flash() char *script_configs[SCRIPT_CFG_MAX] = {
 	 SCRIPT_PARAM_CRON_ENABLE,
 	 SCRIPT_PARAM_CRON,
 	 SCRIPT_PARAM_NOTIFY,
-	 SCRIPT_PARAM_STARTUP
+	 SCRIPT_PARAM_STARTUP,
+	 SCRIPT_PARAM_WAIT
 };
 
 struct script_cron_t {
@@ -77,6 +80,7 @@ struct script_t {
 	char *desc;
 	char *file;
 	uint64_t run_now;
+	uint64_t wait;
 	int32_t startup_ms;
 	int exec_count;
 	int fd;
@@ -221,6 +225,7 @@ static int script_param_load(struct script_t *script, char *param)
 	case SCRIPT_CFG_STARTUP:
 		script->startup_ms = 1 + strtol(data, NULL, 0);
 		break;
+	case SCRIPT_CFG_WAIT:
 	default:
 		return 0;
 	}
@@ -254,8 +259,6 @@ static int script_load(struct scripts_context_t *ctx, char *fname, struct script
 			continue;
 
 		params += script_param_load(script, ldata);
-		if (params >= SCRIPT_CFG_MAX)
-			break;
 	} while (true);
 
 	if (!script->name) {
@@ -354,6 +357,30 @@ static void script_startup(struct scripts_context_t *ctx)
 	ctx->startup_count = 0;
 }
 
+static int script_exec_param(struct scripts_context_t *ctx, char *line)
+{
+	int32_t w;
+
+	if (strlen(line) < 1 || line[0] != SPEC_CHAR)
+		return -1;
+
+	/* @wait <ms> */
+	if (strlen(line) > strlen(script_configs[SCRIPT_CFG_WAIT]) &&
+		!strncmp(line, script_configs[SCRIPT_CFG_WAIT], strlen(script_configs[SCRIPT_CFG_WAIT]))) {
+
+		w = strtol(line + strlen(script_configs[SCRIPT_CFG_WAIT]), NULL, 0);
+		if (w == LONG_MIN || w == LONG_MAX || w <= 0) {
+			ctx->run->wait = 0;
+		} else {
+			ctx->run->wait = w + time_ms_since_boot();
+			if (IS_DEBUG(ctx))
+				hlog_info(SCRIPTS_MODULE, "Wait for [%ld] msec", w);
+		}
+	}
+
+	return 0;
+}
+
 static void script_exec(struct scripts_context_t *ctx)
 {
 	struct tm date;
@@ -364,7 +391,8 @@ static void script_exec(struct scripts_context_t *ctx)
 		ctx->run->fd = fs_open(ctx->run->file, LFS_O_RDONLY);
 	if (ctx->run->fd < 0)
 		goto out_end;
-
+	if (ctx->run->wait && ctx->run->wait > time_ms_since_boot())
+		return;
 	do {
 		ret = fs_gets(ctx->run->fd, ctx->line, MAX_LINE);
 		if (ret < 0)
@@ -373,8 +401,10 @@ static void script_exec(struct scripts_context_t *ctx)
 			continue;
 		ldata = ctx->line;
 		ldata += strspn(ldata, " \t");
-		if (ldata[0] == COMMENT_CHAR || ldata[0] == SPEC_CHAR)
+		if (ldata[0] == COMMENT_CHAR)
 			continue;
+		if (!script_exec_param(ctx, ldata))
+			break;
 		ret = cmd_exec(&(ctx->cmd_ctx), ldata);
 		if (IS_DEBUG(ctx))
 			hlog_info(SCRIPTS_MODULE, "Executed command [%s]: %d", ldata, ret);
@@ -387,6 +417,7 @@ out_end:
 	if (ctx->run->fd >= 0) {
 		fs_close(ctx->run->fd);
 		ctx->run->fd = -1;
+		ctx->run->wait = 0;
 		ctx->run->last_run = time_ms_since_boot();
 		if (tz_datetime_get(&date))
 			time2epoch(&date, &ctx->run->last_run_date);
