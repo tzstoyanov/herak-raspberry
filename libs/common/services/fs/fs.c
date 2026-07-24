@@ -694,6 +694,37 @@ int fs_read(int fd, char *buff, int buff_size)
 	return fs_read_check(fd, buff, buff_size, NULL, 0);
 }
 
+int fs_get_pos(int fd)
+{
+	struct fs_context_t *ctx = fs_context_get();
+
+	if (!ctx)
+		return -1;
+
+	if (fd < 0 || fd >= MAX_OPENED_FILES || ctx->open_fd[fd] == -1) {
+		if (IS_DEBUG(ctx))
+			hlog_info(FS_MODULE, "Cannot read [%d]: invalid descriptor", fd);
+		return -1;
+	}
+
+	return (int)pico_tell(ctx->open_fd[fd]);
+}
+
+int fs_lseek(int fd, int off, int whence)
+{
+	struct fs_context_t *ctx = fs_context_get();
+
+	if (!ctx)
+		return -1;
+
+	if (fd < 0 || fd >= MAX_OPENED_FILES || ctx->open_fd[fd] == -1) {
+		if (IS_DEBUG(ctx))
+			hlog_info(FS_MODULE, "Cannot read [%d]: invalid descriptor", fd);
+		return -1;
+	}
+	return (int)pico_lseek(ctx->open_fd[fd], (lfs_soff_t)off, whence);
+}
+
 int fs_write(int fd, char *buff, int buff_size)
 {
 	struct fs_context_t *ctx = fs_context_get();

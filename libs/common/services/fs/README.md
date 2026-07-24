@@ -36,6 +36,8 @@ void fs_close(int fd);
 int fs_gets(int fd, char *buff, int buff_size);
 int fs_read(int fd, char *buff, int buff_size);
 int fs_write(int fd, char *buff, int buff_size);
+int fs_get_pos(int fd);
+int fs_lseek(int fd, int off, int whence);
 ```
 
 ## Credits
