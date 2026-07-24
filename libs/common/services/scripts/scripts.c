@@ -33,6 +33,9 @@
 #define SPEC_CHAR		'@'
 #define SCRIPT_EXTENSION			".run"
 
+#define IS_COMMENT(L) ((L)[0] == COMMENT_CHAR)
+#define IS_SPEC_COMMAND(L) ((L)[0] == SPEC_CHAR)
+
 #define SCRIPT_PARAM_NAME			"@name"
 #define SCRIPT_PARAM_DESC			"@desc"
 #define SCRIPT_PARAM_CRON			"@cron"
@@ -75,6 +78,8 @@ struct script_mqtt_t {
 	mqtt_component_t corn;
 };
 
+struct scripts_context_t;
+
 struct script_t {
 	char *name;
 	char *desc;
@@ -87,6 +92,7 @@ struct script_t {
 	bool notify_enable;
 	uint64_t last_run;
 	time_t last_run_date;
+	struct scripts_context_t *ctx;
 	struct script_cron_t cron;
 	struct script_mqtt_t mqtt;
 };
@@ -184,61 +190,147 @@ static void script_cron_set_next(struct scripts_context_t *ctx, struct script_t 
 
 }
 
-static int script_param_load(struct script_t *script, char *param)
+/* @name <script_name> */
+static int script_exec_name(struct script_t *script, char *param, bool init)
+{
+	if (!init || script->name)
+		return -1;
+	script->name = strdup(param);
+	if (!script->name)
+		return -1;
+	return 0;
+}
+
+/* @desc <script description> */
+static int script_exec_desc(struct script_t *script, char *param, bool init)
+{
+	if (!init || script->desc)
+		return -1;
+	script->desc = strdup(param);
+	if (!script->desc)
+		return -1;
+	return 0;
+}
+
+/* @cron_enable <0/1> */
+static int script_exec_cron_enable(struct script_t *script, char *param, bool init)
+{
+	if (!init)
+		return -1;
+	script->cron.enable = (bool)strtol(param, NULL, 0);
+}
+
+/* @corn <cron string> */
+static int script_exec_cron(struct script_t *script, char *param, bool init)
+{
+	const char *err = NULL;
+
+	if (!init)
+		return -1;
+	cron_parse_expr(param, &script->cron.schedule, &err);
+	if (err) {
+		hlog_info(SCRIPTS_MODULE, "Invalid cron [%s]: %s", param, err);
+		return -1;
+	}
+	script->cron.valid = true;
+	return 0;
+}
+
+/* @notify <0/1> */
+static int script_exec_notify_enable(struct script_t *script, char *param, bool init)
+{
+	if (!init)
+		return -1;
+	script->notify_enable = (bool)strtol(param, NULL, 0);
+}
+
+/* @startup <delay_ms> */
+static int script_exec_startup(struct script_t *script, char *param, bool init)
+{
+	if (!init)
+		return -1;
+	script->startup_ms = 1 + strtol(param, NULL, 0);
+}
+
+/* @wait <ms> */
+static int script_exec_wait(struct script_t *script, char *param, bool init)
+{
+	int32_t w;
+
+	if (init)
+		return -1;
+
+	w = strtol(param, NULL, 0);
+	if (w == LONG_MIN || w == LONG_MAX || w <= 0) {
+		script->wait = 0;
+	} else {
+		script->wait = w + time_ms_since_boot();
+		if (IS_DEBUG(script->ctx))
+			hlog_info(SCRIPTS_MODULE, "Wait for [%ld] msec", w);
+	}
+
+	return 0;
+}
+
+typedef int (*param_exec_cb_t) (struct script_t *script, char *param, bool init);
+
+struct {
+	int id;
+	param_exec_cb_t hook;
+} script_params_exec[] = {
+	{ SCRIPT_CFG_NAME, script_exec_name},
+	{ SCRIPT_CFG_DESC, script_exec_desc},
+	{ SCRIPT_CFG_CRON_ENABLE, script_exec_cron_enable},
+	{ SCRIPT_CFG_CRON, script_exec_cron},
+	{ SCRIPT_CFG_NOTIFY, script_exec_notify_enable},
+	{ SCRIPT_CFG_STARTUP, script_exec_startup},
+	{ SCRIPT_CFG_WAIT, script_exec_wait}
+};
+
+static int script_param_exec(struct script_t *script, char *line, bool init)
 {
 	const char *err;
-	char *data;
-	int n, i;
+	int ret = -1;
+	int i, j;
 
-	n = strspn(param, " \t");
 	for (i = 0; i < SCRIPT_CFG_MAX; i++) {
-		if (strlen(param + n) > strlen(script_configs[i]) && !strncmp(param + n, script_configs[i], strlen(script_configs[i])))
+		if (strlen(line) > strlen(script_configs[i]) &&
+			!strncmp(line, script_configs[i], strlen(script_configs[i])))
 			break;
 	}
-	if (i >= SCRIPT_CFG_MAX)
-		return 0;
-	data = param + strlen(script_configs[i]) + n;
-	data += strspn(data, " \t");
-	if (strlen(data) < 1)
-		return 0;
-	switch (i) {
-	case SCRIPT_CFG_NAME:
-		script->name = strdup(data);
-		break;
-	case SCRIPT_CFG_DESC:
-		script->desc = strdup(data);
-		break;
-	case SCRIPT_CFG_CRON:
-		err = NULL;
-		cron_parse_expr(data, &script->cron.schedule, &err);
-		if (err)
-			hlog_info(SCRIPTS_MODULE, "Invalid cron [%s]: %s", data, err ? err : "N/A");
-		else
-			script->cron.valid = true;
-		break;
-	case SCRIPT_CFG_CRON_ENABLE:
-		script->cron.enable = (bool)strtol(data, NULL, 0);
-		break;
-	case SCRIPT_CFG_NOTIFY:
-		script->notify_enable = (bool)strtol(data, NULL, 0);
-		break;
-	case SCRIPT_CFG_STARTUP:
-		script->startup_ms = 1 + strtol(data, NULL, 0);
-		break;
-	case SCRIPT_CFG_WAIT:
-	default:
-		return 0;
+	if (i >= SCRIPT_CFG_MAX) {
+		if (IS_DEBUG(script->ctx))
+			hlog_info(SCRIPTS_MODULE, "Uknown special command [%s], ignoring", line);
+		return ret;
+	}
+	line += strlen(script_configs[i]);
+	line += strspn(line, " \t");
+	if (strlen(line) < 1) {
+		if (IS_DEBUG(script->ctx))
+			hlog_info(SCRIPTS_MODULE, "Special command [%s] has no parameter, ignoring",
+					  script_configs[i]);
+		return ret;
+	}
+	for (j = 0; j < SCRIPT_CFG_MAX; j++) {
+		if (script_params_exec[j].id == i) {
+			if (script_params_exec[j].hook)
+				ret = script_params_exec[j].hook(script, line, init);
+			break;
+		}
 	}
 
-	return 1;
+	if (IS_DEBUG(script->ctx))
+		hlog_info(SCRIPTS_MODULE, "%s [%s] [%s]: %d", init ? "Load" : "Executed",
+				  script_configs[i], line, ret);
+
+	return ret;
 }
 
 static int script_load(struct scripts_context_t *ctx, char *fname, struct script_t *script)
 {
 	int elen = strlen(SCRIPT_EXTENSION);
-	int params = 0;
-	char *ldata;
 	int fd = -1;
+	char *ldata;
 	int ret;
 
 	if (sys_asprintf(&script->file, "%s/%s", SCRIPTS_DIR, fname) <= 0)
@@ -247,6 +339,8 @@ static int script_load(struct scripts_context_t *ctx, char *fname, struct script
 	fd = fs_open(script->file, LFS_O_RDONLY);
 	if (fd < 0)
 		goto out_err;
+	script->fd = fd;
+	script->ctx = ctx;
 	do {
 		ret = fs_gets(fd, ctx->line, MAX_LINE);
 		if (ret < 0)
@@ -255,10 +349,12 @@ static int script_load(struct scripts_context_t *ctx, char *fname, struct script
 			continue;
 		ldata = ctx->line;
 		ldata += strspn(ldata, " \t");
-		if (ldata[0] == COMMENT_CHAR)
+		if (strlen(ldata) < 1)
 			continue;
-
-		params += script_param_load(script, ldata);
+		if (IS_COMMENT(ldata))
+			continue;
+		if (IS_SPEC_COMMAND(ldata))
+			script_param_exec(script, ldata, true);
 	} while (true);
 
 	if (!script->name) {
@@ -357,30 +453,6 @@ static void script_startup(struct scripts_context_t *ctx)
 	ctx->startup_count = 0;
 }
 
-static int script_exec_param(struct scripts_context_t *ctx, char *line)
-{
-	int32_t w;
-
-	if (strlen(line) < 1 || line[0] != SPEC_CHAR)
-		return -1;
-
-	/* @wait <ms> */
-	if (strlen(line) > strlen(script_configs[SCRIPT_CFG_WAIT]) &&
-		!strncmp(line, script_configs[SCRIPT_CFG_WAIT], strlen(script_configs[SCRIPT_CFG_WAIT]))) {
-
-		w = strtol(line + strlen(script_configs[SCRIPT_CFG_WAIT]), NULL, 0);
-		if (w == LONG_MIN || w == LONG_MAX || w <= 0) {
-			ctx->run->wait = 0;
-		} else {
-			ctx->run->wait = w + time_ms_since_boot();
-			if (IS_DEBUG(ctx))
-				hlog_info(SCRIPTS_MODULE, "Wait for [%ld] msec", w);
-		}
-	}
-
-	return 0;
-}
-
 static void script_exec(struct scripts_context_t *ctx)
 {
 	struct tm date;
@@ -401,10 +473,15 @@ static void script_exec(struct scripts_context_t *ctx)
 			continue;
 		ldata = ctx->line;
 		ldata += strspn(ldata, " \t");
-		if (ldata[0] == COMMENT_CHAR)
+		if (strlen(ldata) < 1)
 			continue;
-		if (!script_exec_param(ctx, ldata))
-			break;
+		if (IS_COMMENT(ldata))
+			continue;
+		if (IS_SPEC_COMMAND(ldata)) {
+			if (!script_param_exec(ctx->run, ldata, false))
+				break;
+			continue;
+		}
 		ret = cmd_exec(&(ctx->cmd_ctx), ldata);
 		if (IS_DEBUG(ctx))
 			hlog_info(SCRIPTS_MODULE, "Executed command [%s]: %d", ldata, ret);
