@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.3.0] - 2026-07-25
+- Switch to GPL3.0+ license.
+- Update to latest versions of submodules:
+  - Pico SDK 2.3.0
+  - Pico fota bootloader
+  - littlefs 2.11.3
+- New commands: `version` and `about`.
+- New FS APIs.
+- Script enchantments:
+  - New `@wait` command.
+  - Support for loops - new `@label` and `@jump` commands.
+- Documentation update.
+- Code cleanup.
+
 ## [2.2.0] - 2026-06-13
 - New devices:
   - Remote sensors
