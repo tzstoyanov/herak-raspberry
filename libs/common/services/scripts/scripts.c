@@ -27,6 +27,10 @@
 #define CRON_CHECK_MS		30000
 #define	WH_PAYLOAD_TEMPLATE "Scripts [%s] is running"
 
+#define LABEL_NAME_MAX		11
+#define LABEL_COUNT_MAX		10
+#define JUMP_COUNT_MAX		10
+
 #define IS_DEBUG(C)	((C)->debug)
 
 #define COMMENT_CHAR	'#'
@@ -43,6 +47,9 @@
 #define SCRIPT_PARAM_NOTIFY			"@notify"
 #define SCRIPT_PARAM_STARTUP		"@startup"
 #define SCRIPT_PARAM_WAIT			"@wait"
+#define SCRIPT_PARAM_LABEL			"@label"
+#define SCRIPT_PARAM_JUMP			"@jump"
+
 enum script_params_id {
 	SCRIPT_CFG_NAME			= 0,
 	SCRIPT_CFG_DESC			= 1,
@@ -51,7 +58,9 @@ enum script_params_id {
 	SCRIPT_CFG_NOTIFY		= 4,
 	SCRIPT_CFG_STARTUP		= 5,
 	SCRIPT_CFG_WAIT			= 6,
-	SCRIPT_CFG_MAX			= 7
+	SCRIPT_CFG_LABEL		= 7,
+	SCRIPT_CFG_JUMP			= 8,
+	SCRIPT_CFG_MAX			= 9
 };
 static __in_flash() char *script_configs[SCRIPT_CFG_MAX] = {
 	 SCRIPT_PARAM_NAME,
@@ -60,9 +69,10 @@ static __in_flash() char *script_configs[SCRIPT_CFG_MAX] = {
 	 SCRIPT_PARAM_CRON,
 	 SCRIPT_PARAM_NOTIFY,
 	 SCRIPT_PARAM_STARTUP,
-	 SCRIPT_PARAM_WAIT
+	 SCRIPT_PARAM_WAIT,
+	 SCRIPT_PARAM_LABEL,
+	 SCRIPT_PARAM_JUMP
 };
-
 struct script_cron_t {
 	bool valid;
 	bool enable;
@@ -76,6 +86,18 @@ struct script_mqtt_t {
 	mqtt_component_t last_run;
 	mqtt_component_t next_run;
 	mqtt_component_t corn;
+};
+
+struct script_label_t {
+	char name[LABEL_NAME_MAX];
+	int offset;
+};
+
+struct script_jump_t {
+	struct script_label_t *to;
+	int offset;
+	int limit;
+	int count;
 };
 
 struct scripts_context_t;
@@ -95,6 +117,8 @@ struct script_t {
 	struct scripts_context_t *ctx;
 	struct script_cron_t cron;
 	struct script_mqtt_t mqtt;
+	struct script_label_t *labels[LABEL_COUNT_MAX];
+	struct script_jump_t *jumps[JUMP_COUNT_MAX];
 };
 
 struct scripts_context_t {
@@ -198,6 +222,8 @@ static int script_exec_name(struct script_t *script, char *param, bool init)
 	script->name = strdup(param);
 	if (!script->name)
 		return -1;
+	if (IS_DEBUG(script->ctx))
+		hlog_info(SCRIPTS_MODULE, "Got script name [%s]", script->name);
 	return 0;
 }
 
@@ -209,6 +235,8 @@ static int script_exec_desc(struct script_t *script, char *param, bool init)
 	script->desc = strdup(param);
 	if (!script->desc)
 		return -1;
+	if (IS_DEBUG(script->ctx))
+		hlog_info(SCRIPTS_MODULE, "Got script description [%s]", script->desc);
 	return 0;
 }
 
@@ -218,6 +246,9 @@ static int script_exec_cron_enable(struct script_t *script, char *param, bool in
 	if (!init)
 		return -1;
 	script->cron.enable = (bool)strtol(param, NULL, 0);
+	if (IS_DEBUG(script->ctx))
+		hlog_info(SCRIPTS_MODULE, "Got script cron enable [%d]", script->cron.enable);
+	return 0;
 }
 
 /* @corn <cron string> */
@@ -233,6 +264,8 @@ static int script_exec_cron(struct script_t *script, char *param, bool init)
 		return -1;
 	}
 	script->cron.valid = true;
+	if (IS_DEBUG(script->ctx))
+		hlog_info(SCRIPTS_MODULE, "Got script cron [%s]", param);
 	return 0;
 }
 
@@ -242,6 +275,9 @@ static int script_exec_notify_enable(struct script_t *script, char *param, bool 
 	if (!init)
 		return -1;
 	script->notify_enable = (bool)strtol(param, NULL, 0);
+	if (IS_DEBUG(script->ctx))
+		hlog_info(SCRIPTS_MODULE, "Got script notify enable [%d]", script->notify_enable);
+	return 0;
 }
 
 /* @startup <delay_ms> */
@@ -250,6 +286,9 @@ static int script_exec_startup(struct script_t *script, char *param, bool init)
 	if (!init)
 		return -1;
 	script->startup_ms = 1 + strtol(param, NULL, 0);
+	if (IS_DEBUG(script->ctx))
+		hlog_info(SCRIPTS_MODULE, "Got script startup delay [%d]ms", script->startup_ms);
+	return 0;
 }
 
 /* @wait <ms> */
@@ -272,6 +311,108 @@ static int script_exec_wait(struct script_t *script, char *param, bool init)
 	return 0;
 }
 
+/* @label <label_name> */
+static int script_exec_label(struct script_t *script, char *param, bool init)
+{
+	int i;
+
+	if (!init)
+		return -1;
+
+	for (i = 0; i < LABEL_COUNT_MAX; i++) {
+		if (!script->labels[i])
+			break;
+	}
+	if (i >= LABEL_COUNT_MAX)
+		return -1;
+	script->labels[i] = calloc(1, sizeof(struct script_label_t));
+	if (!script->labels[i])
+		return -1;
+	strncpy(script->labels[i]->name, param, LABEL_NAME_MAX);
+	script->labels[i]->name[LABEL_NAME_MAX - 1] = 0;
+	script->labels[i]->offset = fs_get_pos(script->fd);
+	if (IS_DEBUG(script->ctx))
+		hlog_info(SCRIPTS_MODULE, "Got script label [%s] at position %d",
+				  script->labels[i]->name, script->labels[i]->offset);
+	return 0;
+}
+
+/* @jump <label>;<count> */
+static int script_exec_jump(struct script_t *script, char *param,  bool init)
+{
+	char *count_str = NULL;
+	char *label = NULL;
+	int32_t limit;
+	int pos, i, j;
+
+	if (init)
+		return -1;
+
+	pos = fs_get_pos(script->fd);
+	for (i = 0; i < JUMP_COUNT_MAX; i++) {
+		if (!script->jumps[i])
+			break;
+		if (script->jumps[i]->offset == pos)
+			break;
+	}
+	if (i >= JUMP_COUNT_MAX) {
+		if (IS_DEBUG(script->ctx))
+			hlog_info(SCRIPTS_MODULE, "Max jump count %d reached, ignoring", JUMP_COUNT_MAX);
+		return -1;
+	}
+	if (!script->jumps[i]) {
+		script->jumps[i] = calloc(1, sizeof(struct script_jump_t));
+		if (!script->jumps[i]) {
+			if (IS_DEBUG(script->ctx))
+				hlog_info(SCRIPTS_MODULE, "Failed to alloc new jump, ignoring");
+			return -1;
+		}
+		label = strtok_r(param, ";", &count_str);
+		if (!label || !count_str) {
+			if (IS_DEBUG(script->ctx))
+				hlog_info(SCRIPTS_MODULE, "Invalid jump params [%s], ignoring", param);
+			return -1;
+		}
+		limit = strtol(count_str, NULL, 0);
+		if (limit == LONG_MIN || limit == LONG_MAX || limit < 0) {
+			if (IS_DEBUG(script->ctx))
+				hlog_info(SCRIPTS_MODULE, "Invalid jump count param [%s], ignoring", param);
+			return -1;
+		}
+		for (j = 0; j < LABEL_COUNT_MAX; j++) {
+			if (!script->labels[j])
+				break;
+			if (strlen(label) == strlen(script->labels[j]->name) &&
+				!strncmp(label, script->labels[j]->name, strlen(label))) {
+					script->jumps[i]->to = script->labels[j];
+					break;
+				}
+		}
+		script->jumps[i]->offset = pos;
+		script->jumps[i]->limit = limit;
+	}
+	if (!script->jumps[i]->to) {
+		if (IS_DEBUG(script->ctx))
+			hlog_info(SCRIPTS_MODULE, "Jump to uknown label [%s], ignoring", param);
+		return -1;
+	}
+	if (script->jumps[i]->limit &&
+		script->jumps[i]->count >= script->jumps[i]->limit) {
+		if (IS_DEBUG(script->ctx))
+			hlog_info(SCRIPTS_MODULE, "Jump at %d limit %d reached, ignoring",
+					  script->jumps[i]->offset, script->jumps[i]->count);
+		return 0;
+	}
+	fs_lseek(script->fd, script->jumps[i]->to->offset, LFS_SEEK_SET);
+	script->jumps[i]->count++;
+	if (IS_DEBUG(script->ctx))
+		hlog_info(SCRIPTS_MODULE, "Jump at %d to [%s]:%d, count %d",
+				  script->jumps[i]->offset, script->jumps[i]->to->name,
+				  script->jumps[i]->to->offset, script->jumps[i]->count);
+
+	return 0;
+}
+
 typedef int (*param_exec_cb_t) (struct script_t *script, char *param, bool init);
 
 struct {
@@ -284,18 +425,21 @@ struct {
 	{ SCRIPT_CFG_CRON, script_exec_cron},
 	{ SCRIPT_CFG_NOTIFY, script_exec_notify_enable},
 	{ SCRIPT_CFG_STARTUP, script_exec_startup},
-	{ SCRIPT_CFG_WAIT, script_exec_wait}
+	{ SCRIPT_CFG_WAIT, script_exec_wait},
+	{ SCRIPT_CFG_LABEL, script_exec_label},
+	{ SCRIPT_CFG_JUMP, script_exec_jump}
 };
 
 static int script_param_exec(struct script_t *script, char *line, bool init)
 {
-	const char *err;
 	int ret = -1;
+	size_t len;
 	int i, j;
 
 	for (i = 0; i < SCRIPT_CFG_MAX; i++) {
-		if (strlen(line) > strlen(script_configs[i]) &&
-			!strncmp(line, script_configs[i], strlen(script_configs[i])))
+		len = strlen(script_configs[i]);
+		if (strlen(line) > len && !strncmp(line, script_configs[i], len) &&
+			isspace((int)line[len]))
 			break;
 	}
 	if (i >= SCRIPT_CFG_MAX) {
@@ -303,7 +447,7 @@ static int script_param_exec(struct script_t *script, char *line, bool init)
 			hlog_info(SCRIPTS_MODULE, "Uknown special command [%s], ignoring", line);
 		return ret;
 	}
-	line += strlen(script_configs[i]);
+	line += len;
 	line += strspn(line, " \t");
 	if (strlen(line) < 1) {
 		if (IS_DEBUG(script->ctx))
@@ -453,9 +597,31 @@ static void script_startup(struct scripts_context_t *ctx)
 	ctx->startup_count = 0;
 }
 
-static void script_exec(struct scripts_context_t *ctx)
+static void script_reset(struct script_t *script)
 {
 	struct tm date;
+	int i;
+
+	if (script->fd >= 0) {
+		fs_close(script->fd);
+		script->fd = -1;
+	}
+	script->wait = 0;
+	script->last_run = time_ms_since_boot();
+	if (tz_datetime_get(&date))
+		time2epoch(&date, &script->last_run_date);
+	script->exec_count++;
+	script->mqtt.script.force = true;
+
+	for (i = 0; i < JUMP_COUNT_MAX; i++) {
+		if (!script->jumps[i])
+			continue;
+		script->jumps[i]->count = 0;
+	}
+}
+
+static void script_exec(struct scripts_context_t *ctx)
+{
 	char *ldata;
 	int ret;
 
@@ -491,16 +657,7 @@ static void script_exec(struct scripts_context_t *ctx)
 	return;
 
 out_end:
-	if (ctx->run->fd >= 0) {
-		fs_close(ctx->run->fd);
-		ctx->run->fd = -1;
-		ctx->run->wait = 0;
-		ctx->run->last_run = time_ms_since_boot();
-		if (tz_datetime_get(&date))
-			time2epoch(&date, &ctx->run->last_run_date);
-		ctx->run->exec_count++;
-		ctx->run->mqtt.script.force = true;
-	}
+	script_reset(ctx->run);
 	ctx->run = NULL;
 }
 

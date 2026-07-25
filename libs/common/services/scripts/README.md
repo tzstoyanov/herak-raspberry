@@ -1,6 +1,6 @@
 # Scripts
 
-The script engine runs scripts from files, saved in the file system of the device. A script is a list of commands, executed one after another in the order from the file. On startup, all files from the `/scripts` directory with extension `.run` are loaded as scripts. The files can be uploaded to the device using [tftp](../tftp_client/README.md).  
+The script engine runs scripts from files, saved in the file system of the device. A script is a list of commands, executed one after another in the order from the file. On startup, all files from the `/scripts` directory with extension `.run` are loaded as scripts. The files can be uploaded to the device using [fs cp](../fs/README.md) command and external tftp server.  
 - Scripts are loaded only at boot time. If a new script is uploaded, the device must be rebooted to load it.  
 - The format of the script file is:  
 `@name <script_name>` - optional, the name of the script, used to address it. If the name is not set, the name of the file is used (without the extension). The name should not contain intervals or any special characters, as it is used as parameter in URLs. 
@@ -8,15 +8,17 @@ The script engine runs scripts from files, saved in the file system of the devic
 `@corn <cron string>` - optional, cron schedule for running the script.  
 `@cron_enable <0/1>` - optional, enable or disable the cron schedule of the script.  
 `@notify <0/1>` - optional, enable or disable sending the web hook notifications when the script is started.  
-`@startup <delay_ms>` - optional, run the script at device startup, given msec after the device boot or WiFi connection is established.  
-`@wait <wait_ms>` - Wait given msec interval, before executing the next command. It can be located anywhere in the script, one or multiple times.  
-`#` - any line starting with this symbol is a comment and is not parsed by the script engine.  
+`@startup <delay_ms>` - optional, run the script at device startup, with a given `delay_ms` delay after the device boot or WiFi connection is established.  
+`@wait <wait_ms>` - Wait given `wait_ms` interval, before executing the next command. It can be located anywhere in the script, one or multiple times.  
+`@label <label_name>` - Define a label at the given script line. The label can be used to set loops. The `label_name` is limited up to 10 characters. Up to 10 `@label`s per script are supported.  
+`@jump <label_name>;<count>` - Jump to the line with the given `label_name` and continue the execution from there. The jump is executed `count` number of times, before continuing with the command right after the `@jump` instruction. Count of `0` means infinite loop. Up to 10 `@jump`s per script are supported.  
+`#` - any line starting with this symbol is a comment and is ignored by the script engine.  
 `<module_name>?<command>[:<param1>:[param2]:...]` - command to be executed, one per line.  
 
-All startup scripts are executed once, following a specified millisecond delay. If WiFi is configured, the delay if after the connection is established; otherwise, it is after the device boot.  
+All startup scripts are executed once, following a specified `delay_ms` delay. If WiFi is configured, the delay if after the connection is established, otherwise it is after the device boot.  
 
-## Example
-Example script to trigger given set of [SSRs](../../devices/ssr/README.md) which runs on every 10 minutes:  
+## Examples
+- Example script to trigger given set of [SSRs](../../devices/ssr/README.md) which runs on every 10 minutes:  
 ```
 @name ssr_trigger
 @desc Run the given relays for 20sec, one after another
@@ -30,10 +32,43 @@ ssr?set:1:1:20:20
 ssr?set:4:1:20:40
 ssr?set:7:1:20:60
 ```
-Save the file as `ssr.run` and upload it to the device:  
-`tftp <ip_addr> -p put ssr.run /scripts/ssr.run`  
+Save the file as `ssr1.run` on a tftp server and upload it to the device:  
+`curl http://<device_ip>:<port>/fs?cp:tftp://<tftp_server_ip>/ssr1.run?/scripts/`  
+Reboot the device to load the new script:  
+`curl http://<device_ip>:<port>/sys?reboot`  
 Execute the script:  
-`curl http://<ip_addr>:<port>/scripts?run:ssr_trigger`
+`curl http://<device_ip>:<port>/scripts?run:ssr_trigger`  
+
+- Example script to trigger given set of [SSRs](../../devices/ssr/README.md) using loop.
+The script triggers each SSR for 5sec. The command set is executed 10 times,
+with interval 30sec between the runs.
+```
+@name ssr_loop
+@desc Run the given relays for 5sec, one after another, 10 times with 30sec interval.
+ssr?reset
+@wait 100
+@label start
+ssr?set:0:1
+@wait 5000
+ssr?set:0:0
+ssr?set:1:1
+@wait 5000
+ssr?set:1:0
+ssr?set:4:1
+@wait 5000
+ssr?set:4:0
+ssr?set:7:1
+@wait 5000
+ssr?set:7:0
+@wait 30000
+@jump start;10
+```
+Save the file as `ssr2.run` on a tftp server and upload it to the device:  
+`curl http://<device_ip>:<port>/fs?cp:tftp://<tftp_server_ip>/ssr2.run?/scripts/`  
+Reboot the device to load the new script:  
+`curl http://<device_ip>:<port>/sys?reboot`  
+Execute the script:  
+`curl http://<device_ip>:<port>/scripts?run:ssr_loop`  
 
 ## Commands
 Commands can be executed using the [commands engine](../commands/README.md).  
@@ -52,5 +87,5 @@ int script_auto(char *name, bool prefix_match, bool enable);
 ```
 
 ## Credits
-[https://github.com/staticlibs/ccronexpr](https://github.com/staticlibs/ccronexpr)
-[https://github.com/shaneapowell/time.ccronexpr](https://github.com/shaneapowell/time.ccronexpr)
+[https://github.com/staticlibs/ccronexpr](https://github.com/staticlibs/ccronexpr)  
+[https://github.com/shaneapowell/time.ccronexpr](https://github.com/shaneapowell/time.ccronexpr)  
