@@ -11,9 +11,9 @@ extern "C" {
 #endif
 
 typedef enum {
-    WIFI_OFF,
-    WIFI_CONNECTED,
-    WIFI_NOT_CONNECTED
+	WIFI_OFF,
+	WIFI_CONNECTED,
+	WIFI_NOT_CONNECTED
 } wifi_state_t;
 
 wifi_state_t wifi_get_state(void);

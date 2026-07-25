@@ -141,22 +141,22 @@ void sys_modules_init(void)
 		sys_module_debug_init(sys_modules_context.modules[i]);
 		if (sys_modules_context.modules[i]->commands.hooks)	{
 #ifdef HAVE_COMMANDS
-		ret = cmd_handler_add(sys_modules_context.modules[i]->name,
+			ret = cmd_handler_add(sys_modules_context.modules[i]->name,
 					 sys_modules_context.modules[i]->commands.hooks, sys_modules_context.modules[i]->commands.count,
 					 sys_modules_context.modules[i]->commands.description, sys_modules_context.modules[i]->context);
 			if (ret < 0)
 				hlog_warning(SYSMODLOG, "Failed to register commands for module %s",
-							 sys_modules_context.modules[i]->name);					 
+							 sys_modules_context.modules[i]->name);
 #endif /* HAVE_COMMANDS */
 		}
 #ifdef HAVE_COMMANDS
-		ret = cmd_handler_add(sys_modules_context.modules[i]->name,
+			ret = cmd_handler_add(sys_modules_context.modules[i]->name,
 				 module_common_requests, ARRAY_SIZE(module_common_requests),
 				 CMD_COMMON_DESC, sys_modules_context.modules[i]);
-		if (ret < 0)
-			hlog_warning(SYSMODLOG, "Failed to register common commands for module %s",
-						 sys_modules_context.modules[i]->name);
-#endif /* HAVE_COMMANDS */			
+			if (ret < 0)
+				hlog_warning(SYSMODLOG, "Failed to register common commands for module %s",
+							 sys_modules_context.modules[i]->name);
+#endif /* HAVE_COMMANDS */
 		if (sys_modules_context.modules[i]->log) {
 			ret = sys_state_callback_add(sys_modules_context.modules[i]->log, sys_modules_context.modules[i]->context);
 			if (ret < 0)

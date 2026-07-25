@@ -46,7 +46,7 @@ static struct cmd_context_t *cmd_context_get(void)
 static void sys_cmd_module_help(struct cmd_mod_handler_t *handler)
 {
 	int i, j;
-	
+
 	hlog_info(CMD_MODULE, "\tModule [%s]:", handler->module);
 	for (i = 0; i < handler->count; i++) {
 		for (j = 0; j < handler->mod_cb[i]->count; j++) {
@@ -83,7 +83,7 @@ static bool sys_cmd_log_status(void *context)
 
 	hlog_info(CMD_MODULE, "Registered modules:");
 	for (i = 0; i < ctx->count; i++)
-		hlog_info(CMD_MODULE, "\t%s",ctx->handlers[i]->module);
+		hlog_info(CMD_MODULE, "\t%s", ctx->handlers[i]->module);
 	hlog_info(CMD_MODULE, "Run `<module_name>?help` for more information.");
 	return true;
 }

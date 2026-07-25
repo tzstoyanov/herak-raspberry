@@ -218,7 +218,7 @@ static bool soil_log(void *context)
 
 	for (i = 0; i < ctx->sensors_count; i++) {
 		hlog_info(SOIL_MODULE, "Sensor %d: digital %d, analog %3.2f / %d%%",
-				  i, ctx->sensors[i].last_digital, 
+				  i, ctx->sensors[i].last_digital,
 				  ctx->sensors[i].analog ? adc_sensor_get_value(ctx->sensors[i].analog->adc) : 0,
 				  ctx->sensors[i].analog ? adc_sensor_get_percent(ctx->sensors[i].analog->adc) : -1);
 	}

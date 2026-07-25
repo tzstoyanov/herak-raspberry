@@ -460,6 +460,7 @@ static uint8_t *get_hid_buf(struct usb_context_t *ctx, uint8_t daddr)
 void free_hid_buf(uint8_t daddr)
 {
 	struct usb_context_t *ctx =  usb_context_get();
+
 	if (!ctx)
 		return;
 
@@ -611,6 +612,7 @@ static void print_device_descriptor(tuh_xfer_t *xfer)
 void tuh_mount_cb(uint8_t daddr)
 {
 	struct usb_context_t *ctx =  usb_context_get();
+
 	hlog_info(USB_MODULE, "RAW Device attached, address = %d\r\n", daddr);
 
 	if (!ctx)

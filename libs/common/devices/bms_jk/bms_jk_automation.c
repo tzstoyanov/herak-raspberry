@@ -19,7 +19,7 @@
 
 // Solar excess
 #define BATT_STATE_CHARGE_THR			90		// in %
-#define BATT_STATE_CHARGE_TRY_DELAY_MS 	120000	// 2 min
+#define BATT_STATE_CHARGE_TRY_DELAY_MS	120000	// 2 min
 
 /* Run automation scripts on state change */
 static void jk_bt_auto_action(struct bt_auto_action_t *aauto)

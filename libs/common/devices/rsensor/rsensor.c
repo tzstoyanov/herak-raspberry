@@ -131,11 +131,10 @@ static void rsens_data_cb(void *ctx, char *topic, char *data, int size, lwjson_t
 	if (!sens || !data || size < 1)
 		return;
 
-	if (sens->key) {
+	if (sens->key)
 		ret = rsens_json_parse(sens, lwjson);
-	} else {
+	else
 		ret = sys_strtof(data, &sens->val);
-	}
 
 	if (!ret) {
 		sens->last_data = time_ms_since_boot();

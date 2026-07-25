@@ -25,7 +25,6 @@ static const uint8_t __in_flash() jk_request_pkt_start[] = {0xAA, 0x55, 0x90, 0x
 #define CELL_VOLTAGE_MAX	65
 
 /*
-
 Device Information 0x180A
 	char 00002a29 0000 1000 8000 00805F9B34FB; Manufacturer name; string, Read
 		[BEKEN SAS]
@@ -53,7 +52,6 @@ Custom Service 0000FFE0 0000 1000 8000 00805F9B34FB ??
 Custom Service F000FFC0 0451 4000 B000 000000000000
 	char F000FFC1 0451 4000 B000 000000000000; Write Notify
 	char F000FFC2 0451 4000 B000 000000000000; Write Notify
-
 */
 
 /* Terminal */

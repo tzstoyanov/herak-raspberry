@@ -43,7 +43,7 @@ enum bt_dev_state_t {
 //#define BT_LOCAL_LOCK(C)		if ((C)) mutex_enter_blocking(&((C)->lock));
 //#define BT_LOCAL_UNLOCK(C)	if ((C)) mutex_exit(&((C)->lock));
 
-#define BT_LOCAL_LOCK(C) 	{ (void)(C); }
+#define BT_LOCAL_LOCK(C)	{ (void)(C); }
 #define BT_LOCAL_UNLOCK(C)	{ (void)(C); }
 
 #define BT_DEV_MAX_NAME	32

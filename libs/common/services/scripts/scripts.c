@@ -384,9 +384,9 @@ static int script_exec_jump(struct script_t *script, char *param,  bool init)
 				break;
 			if (strlen(label) == strlen(script->labels[j]->name) &&
 				!strncmp(label, script->labels[j]->name, strlen(label))) {
-					script->jumps[i]->to = script->labels[j];
-					break;
-				}
+				script->jumps[i]->to = script->labels[j];
+				break;
+			}
 		}
 		script->jumps[i]->offset = pos;
 		script->jumps[i]->limit = limit;

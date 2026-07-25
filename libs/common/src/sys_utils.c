@@ -39,7 +39,9 @@ int sys_asprintf(char **strp, const char *fmt, ...)
 	va_list args;
 
 	va_start(args, fmt);
+
 	int size = vsnprintf(NULL, 0, fmt, args);
+
 	va_end(args);
 
 	if (size < 0)

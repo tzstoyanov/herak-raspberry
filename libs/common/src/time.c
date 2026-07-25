@@ -197,7 +197,7 @@ char *get_current_time_log_str(char *buf, int buflen)
 	struct tm date = {0};
 
 	tz_datetime_get(&date);
-    snprintf(buf, buflen, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+	snprintf(buf, buflen, "%04d-%02d-%02dT%02d:%02d:%02dZ",
 			 date.tm_year + 1900, date.tm_mon + 1, date.tm_mday,
 			 date.tm_hour, date.tm_min, date.tm_sec);
 	return buf;

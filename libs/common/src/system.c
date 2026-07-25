@@ -30,7 +30,7 @@ bi_decl(bi_program_url("github.com/tzstoyanov/herak-raspberry"));
 
 //#define MAIN_WAIT_MS	10
 #ifdef MAIN_WAIT_MS
-#define	BUSY_WAIT		busy_wait_ms(MAIN_WAIT_MS);
+#define	BUSY_WAIT		busy_wait_ms(MAIN_WAIT_MS)
 #else
 #define	BUSY_WAIT
 #endif

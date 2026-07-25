@@ -58,7 +58,7 @@ static bool get_wifi_cfg(struct wifi_context_t **ctx)
 		free(rest);
 		return false;
 	}
-	
+
 	idx = 0;
 	while ((tok = strtok_r(rest, ";", &rest)) && idx < MAX_WIFI_NETS) {
 		(*ctx)->all_nets[idx] = (struct wifi_net_t *)calloc(1, sizeof(struct wifi_net_t));

@@ -14,7 +14,7 @@
 #define SYS_REGISTER(F) {\
 		extern void F(void);\
 		if (SYS_REG_DEBUG)\
-			hlog_info(SYSMODLOG,"Call %s", #F);\
+			hlog_info(SYSMODLOG, "Call %s", #F);\
 		F();\
 		wd_update();\
 	}
