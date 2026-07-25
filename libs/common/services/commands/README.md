@@ -3,13 +3,13 @@
 Store, parse and execute commands on the system. There is no shell, but there are other ways to interact with the system.  
 The format of a command is `<module_name>?<command>[:<param1>:[param2]:...]`. The command string can be passed as URL, that's why there are no intervals in it.  
 There are 3 ways to send commands to a device:  
-- *Web command*. If the web server is enabled, it listens on its configured port for commands. The command is passed as part of the URL: `curl http://<ip_address>:<port>/<module_name>?<command>[:<param1>:[param2]:...]`.  
-- *MQTT command*. If the MQTT client is enabled, it is registered for topic `<mqtt_topic>/command`. The command can be send to that topic: `<module_name>?<command>[:<param1>:[param2]:...]`.  
+- *Web command*. If the [web server](../webserver/README.md) is enabled, it listens on its configured port for commands. The command is passed as part of the URL: `curl http://<ip_address>:<port>/<module_name>?<command>[:<param1>:[param2]:...]`.  
+- *MQTT command*. If the [MQTT client](../mqtt/README.md) is enabled, it is registered for topic `<mqtt_topic>/command`. The command can be send to that topic: `<module_name>?<command>[:<param1>:[param2]:...]`.  
 - *Scripts*. The script engine can execute list of commands from a file.
 
 The output of the command is send back to the user in these channels:  
 - System console, if attached to the usb port.  
-- Logs to a remote log server, if it is configured and connected when the command is executed.  
+- [Logs](../log/README.md) to a remote log server, if it is configured and connected when the command is executed.  
 - HTTP response packet, if the command is received on the web server.  
 
 All modules can register their own commands using the api `cmd_handler_add()`. Additional to them, these commands are auto created for each module:
