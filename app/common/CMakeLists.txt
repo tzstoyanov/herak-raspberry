@@ -20,7 +20,7 @@ option(ADD_LCD "LCD HD44780" ON)		# libs/common/devices/lcd/README.md
 option(ADD_BMS_JK "JK BMS" ON)			# libs/common/devices/bms_jk/README.md
 option(ADD_SONAR "AJ-SR04M sonar sensor" ON)			# libs/common/devices/sonar/README.md
 option(ADD_FLOW_YF "Water Flow YF sensor" ON)			# libs/common/devices/flow_yf/README.md
-option(ADD_PRESS_ANALOG "Analog pressure sensor" ON)  # libs/common/devices/apress/README.md
+option(ADD_PRESS_ANALOG "Analog pressure sensor" ON)  # libs/common/devices/pressure/README.md
 option(ADD_THERMOSTAT "Thermostat" ON)			# libs/common/devices/thermostat/README.md
 option(ADD_REMOTE_SENSOR "Remote Sensor" ON)			# libs/common/devices/rsensor/README.md
 
