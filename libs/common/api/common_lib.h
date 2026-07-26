@@ -37,8 +37,8 @@ Integrated with Home Assistant.\n\r\
 "
 
 #define SYS_LICENSE_STR "\n\r\
-Copyright (C) 2025-" BUILD_YEAR " Tzvetomir Stoyanov.\n\r\
-License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n\r\
+Copyright (C) 2024-" BUILD_YEAR " Tzvetomir Stoyanov.\n\r\
+License GPLv3+: GNU GPL version 3 or later <gnu.org/licenses/gpl-3.0>.\n\r\
 This is free software: you are free to change and redistribute it.\n\r\
 There is NO WARRANTY, to the extent permitted by law.\n\r\
 \n\r\

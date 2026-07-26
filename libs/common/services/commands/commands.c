@@ -147,12 +147,11 @@ static int cmd_about(struct cmd_context_t *ctx, cmd_run_context_t *cmd_ctx, char
 		goto print_about;
 	if (strlen(VER_CMD) == strlen(cmd_str) &&
 		!strncmp(VER_CMD, cmd_str, strlen(VER_CMD)))
-		goto print_ver;
+		goto print_about;
 	return -1;
 
 print_about:
 	hlog_info("about", SYS_ABOUT_STR);
-print_ver:
 	sys_state_log_version();
 	hlog_info("license", SYS_LICENSE_STR);
 	return 0;
