@@ -1,9 +1,9 @@
 # Scripts
 
-The script engine runs scripts from files, saved in the file system of the device. A script is a list of commands, executed one after another in the order from the file. On startup, all files from the `/scripts` directory with extension `.run` are loaded as scripts. The files can be uploaded to the device using [fs cp](../fs/README.md) command and external tftp server.  
+The script engine runs scripts from files, saved on the file system of the device. A script is a list of commands, executed one after another in the order from the file. On startup, all files from the `/scripts` directory with extension `.run` are loaded as scripts. The files can be uploaded to the device using the [fs cp](../fs/README.md) command and external tftp server.  
 - Scripts are loaded only at boot time. If a new script is uploaded, the device must be rebooted to load it.  
 - The format of the script file is:  
-`@name <script_name>` - optional, the name of the script, used to address it. If the name is not set, the name of the file is used (without the extension). The name should not contain intervals or any special characters, as it is used as parameter in URLs. 
+`@name <script_name>` - optional, the name of the script, used to address it. If the name is not set, the name of the file is used (without the extension). The name should not contain intervals or any special characters, as it is used as parameter in URLs.  
 `@desc <script description>` - optional, description of the script.  
 `@corn <cron string>` - optional, cron schedule for running the script.  
 `@cron_enable <0/1>` - optional, enable or disable the cron schedule of the script.  
@@ -15,7 +15,7 @@ The script engine runs scripts from files, saved in the file system of the devic
 `#` - any line starting with this symbol is a comment and is ignored by the script engine.  
 `<module_name>?<command>[:<param1>:[param2]:...]` - command to be executed, one per line.  
 
-All startup scripts are executed once, following a specified `delay_ms` delay. If WiFi is configured, the delay if after the connection is established, otherwise it is after the device boot.  
+All startup scripts are executed once, following the specified `delay_ms` delay. If WiFi is configured, the delay if after the connection is established, otherwise it is after the device boot.  
 
 ## Examples
 - Example script to trigger given set of [SSRs](../../devices/ssr/README.md) which runs on every 10 minutes:  

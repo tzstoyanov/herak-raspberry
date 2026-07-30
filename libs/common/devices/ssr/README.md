@@ -25,22 +25,23 @@ The status of these sensors is reported over [MQTT](../../services/mqtt/README.m
 - `run_time:<sec>`    - Number of seconds the relay is going to stay in the current state, 0 means infinitely.  
 - `delay:<sec>`       - Number of seconds the relay waits before switching to the opposite state, 0 means never.  
 
-## Control
+## Commands
 The commands can be executed using the [commands engine](../../services/commands/README.md).  
 - `ssr?set:<id>:<state>:<time_sec>:<delay_sec>` - Where `id` is index of the relay 0-28, `state` is the desired state 0-1, `time_sec` is time in seconds the relay must stay in the desired state, `delay_sec` is the delay after that the relay will transition into the desired state. The `time_sec` and `delay_sec` are optional. If `time_sec` is 0 or is omitted, the relay will stay in the desired state infinitely. If `delay_sec` is 0 or is omitted, the relay will transition into the desired state immediately.
+- `ssr?reset` - Turn off all SSRs and resets all run time and delay.
 
 ## Example
 Turn `on` a relay with index `2` for `60` seconds after a delay of `30` seconds:  
 - with MQTT, send request to `<user-topic>/command`:  
-  - `ssr?set/2:1:60:30`  
+  - `ssr?set:2:1:60:30`  
 - with HTTP, send this request to a device with IP address `192.168.0.1` and port `8080`  
   - `curl http://192.168.0.1:8080/ssr?set:2:1:60:30`  
 
 Turn `off` a relay with index `2` immediately:  
 - with MQTT, send request to `<user-topic>/command/ssr`:  
-  - `ssr/set/2:0`  
+  - `ssr?set:2:0`  
 - with HTTP, send this request to a device with IP address `192.168.0.1` and port `8080`  
-  - `curl http://192.168.0.1:8080/ssr/set:2:0`  
+  - `curl http://192.168.0.1:8080/ssr?set:2:0`  
 
 ## API
 ```
