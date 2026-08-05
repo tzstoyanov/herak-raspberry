@@ -51,7 +51,7 @@ uint64_t time_msec2datetime(struct tm *date, uint64_t msec)
 	date->tm_sec = sec;
 	date->tm_min = min;
 	date->tm_hour = hour;
-	date->tm_mday = day;
+	date->tm_yday = day;
 	date->tm_year = year - 1900;
 
 	return msec;
