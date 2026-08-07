@@ -52,6 +52,7 @@ static void opentherm_data_init(opentherm_data_t *data)
 	data->status.ch2_enabled = false;
 	data->status.cooling_enabled = false;
 	data->status.otc_active = false;
+	data->gas_send = true;
 	data->param_desired.ch_temperature_setpoint = 25.0;
 	data->param_desired.dhw_temperature_setpoint = 40.0;
 	data->param_desired.ch_max = 40.0;
