@@ -60,20 +60,27 @@ uint64_t time_msec2datetime(struct tm *date, uint64_t msec)
 char *time_date2str(char *buf, int str_len, struct tm *date)
 {
 	if (date->tm_year > 0)
-		snprintf(buf, str_len, "%d years, %d days, %.2d:%.2d:%.2d hours",
-				date->tm_year + 1900, date->tm_yday, date->tm_hour, date->tm_min, date->tm_sec);
+		snprintf(buf, str_len, "%d %s, %d %s, %.2d:%.2d:%.2d %s",
+				 date->tm_year + 1900, ((date->tm_year + 1900) > 1) ? "years" : "year",
+				 date->tm_yday, (date->tm_yday > 1) ? "days" : "day",
+				 date->tm_hour, date->tm_min, date->tm_sec,
+				 (date->tm_hour > 1) ? "hours" : "hour");
 	else if (date->tm_yday)
-		snprintf(buf, str_len, "%d days, %.2d:%.2d:%.2d hours",
-				date->tm_yday, date->tm_hour, date->tm_min, date->tm_sec);
+		snprintf(buf, str_len, "%d %s, %.2d:%.2d:%.2d %s",
+				 date->tm_yday, (date->tm_yday > 1) ? "days" : "day",
+				 date->tm_hour, date->tm_min, date->tm_sec,
+				 (date->tm_hour > 1) ? "hours" : "hour");
 	else if (date->tm_hour)
-		snprintf(buf, str_len, "%.2d:%.2d:%.2d hours",
-				date->tm_hour, date->tm_min, date->tm_sec);
+		snprintf(buf, str_len, "%.2d:%.2d:%.2d %s",
+				 date->tm_hour, date->tm_min, date->tm_sec,
+				 (date->tm_hour > 1) ? "hours" : "hour");
 	else if (date->tm_min)
-		snprintf(buf, str_len, "%.2d:%.2d minutes",
-				date->tm_min, date->tm_sec);
+		snprintf(buf, str_len, "%.2d:%.2d %s",
+				 date->tm_min, date->tm_sec,
+				 (date->tm_min > 1) ? "minutes" : "minute");
 	else if (date->tm_sec)
 		snprintf(buf, str_len, "%.2d sec",
-				date->tm_sec);
+				 date->tm_sec);
 	else
 		snprintf(buf, str_len, "0");
 
