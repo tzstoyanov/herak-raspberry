@@ -413,19 +413,19 @@ static int sth20_mqtt_data_send(struct sht20_context_t *ctx, int idx)
 		if (ctx->sensors[idx]->valid_t) {
 			ADD_MQTT_MSG_VAR(",\"temperature\": \"%3.2f\"", ctx->sensors[idx]->temperature);
 		} else {
-			ADD_MQTT_MSG_VAR(",\"temperature\": \"%s\"", "nan");
+			ADD_MQTT_MSG(",\"temperature\": null");
 		}
 		if (ctx->sensors[idx]->valid_h) {
 			ADD_MQTT_MSG_VAR(",\"humidity\": \"%3.2f\"", ctx->sensors[idx]->humidity);
 		} else {
-			ADD_MQTT_MSG_VAR(",\"humidity\": \"%s\"", "nan");
+			ADD_MQTT_MSG(",\"humidity\": null");
 		}
 		if (ctx->sensors[idx]->valid_t && ctx->sensors[idx]->valid_h) {
 			ADD_MQTT_MSG_VAR(",\"vpd\": \"%3.2f\"", ctx->sensors[idx]->vpd);
 			ADD_MQTT_MSG_VAR(",\"dew_point\": \"%3.2f\"", ctx->sensors[idx]->dew_point);
 		} else {
-			ADD_MQTT_MSG_VAR(",\"vpd\": \"%s\"", "nan");
-			ADD_MQTT_MSG_VAR(",\"dew_point\": \"%s\"", "nan");
+			ADD_MQTT_MSG(",\"vpd\": null");
+			ADD_MQTT_MSG(",\"dew_point\": null");
 		}
 	ADD_MQTT_MSG("}")
 

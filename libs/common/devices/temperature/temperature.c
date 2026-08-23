@@ -103,8 +103,8 @@ static int temperature_mqtt_data_send(struct temperature_context_t *ctx, int idx
 							 ctx->sensors[idx]->mqtt_comp.name,
 							 ctx->sensors[idx]->temperature);
 		} else {
-			ADD_MQTT_MSG_VAR(",\"%s\": \"%s\"",
-							 ctx->sensors[idx]->mqtt_comp.name, "nan");
+			ADD_MQTT_MSG_VAR(",\"%s\": %s",
+							 ctx->sensors[idx]->mqtt_comp.name, "null");
 		}
 	ADD_MQTT_MSG("}")
 

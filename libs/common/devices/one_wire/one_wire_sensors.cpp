@@ -97,7 +97,7 @@ static int one_wire_mqtt_data_send(struct one_wire_context_t *ctx, int lidx, int
 		if (ctx->lines[lidx]->sensors[sidx].valid) {
 			ADD_MQTT_MSG_VAR(",\"temperature\": \"%3.2f\"", ctx->lines[lidx]->sensors[sidx].temperature);
 		} else {
-			ADD_MQTT_MSG_VAR(",\"temperature\": \"%s\"", "nan");
+			ADD_MQTT_MSG(",\"temperature\": null");
 		}
 	ADD_MQTT_MSG("}")
 
