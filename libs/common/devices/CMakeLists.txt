@@ -54,6 +54,9 @@ if(ADD_REMOTE_SENSOR)
 include(${CMAKE_CURRENT_LIST_DIR}/rsensor/CMakeLists.txt)
 endif()
 
+if(ADD_SONIC_A20)
+include(${CMAKE_CURRENT_LIST_DIR}/sonic_a20/CMakeLists.txt)
+endif()
 
 target_sources(${lib_name} INTERFACE
    ${CMAKE_CURRENT_LIST_DIR}/devices_init.c

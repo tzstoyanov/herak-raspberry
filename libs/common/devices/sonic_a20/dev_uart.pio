@@ -1,0 +1,28 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+;
+; Copyright (C) 2026, Tzvetomir Stoyanov <tz.stoyanov@gmail.com>
+;
+
+.program uart_tx
+.side_set 1 opt
+
+.wrap_target
+    pull block                  ; Line rests HIGH at idle while waiting for FIFO
+    set x, 7                    ; Load 8-bit counter
+    set pins, 0         [7]     ; Send Start Bit (0) for 8 clock cycles
+tx_bitloop:
+    out pins, 1         [6]     ; Shift out 1 data bit (LSB first)
+    jmp x-- tx_bitloop          ; Loop 8 times
+    set pins, 1         [7]     ; Send Stop Bit (1) for 8 clock cycles
+.wrap                           ; Pin remains HIGH (1) when wrapping back to pull block
+
+.program uart_rx
+
+.wrap_target
+    wait 0 pin 0                ; Wait for Start Bit (falling edge on RX pin)
+    set x, 7           [12]     ; Delay 1.5 bit periods (12 cycles) to hit middle of bit 0
+rx_bitloop:
+    in pins, 1          [6]     ; Sample 1 bit from RX pin, wait 7 cycles
+    jmp x-- rx_bitloop          ; Loop 8 times (8 cycles per bit)
+    push block                  ; Push completed 8-bit frame to RX FIFO
+.wrap

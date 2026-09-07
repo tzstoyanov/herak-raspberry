@@ -23,6 +23,7 @@ option(ADD_FLOW_YF "Water Flow YF sensor" ON)			# libs/common/devices/flow_yf/RE
 option(ADD_PRESS_ANALOG "Analog pressure sensor" ON)  # libs/common/devices/pressure/README.md
 option(ADD_THERMOSTAT "Thermostat" ON)			# libs/common/devices/thermostat/README.md
 option(ADD_REMOTE_SENSOR "Remote Sensor" ON)			# libs/common/devices/rsensor/README.md
+option(ADD_SONIC_A20 "A20 Ultrasonic Distance Sensor" ON)			# libs/common/devices/sonic_a20/README.md
 
 # CMake settings
 set(CMAKE_C_STANDARD 11)

@@ -35,6 +35,7 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - [Soil Moisture Sensor](libs/common/devices/soil/README.md)
 - [SHT20 temperature and humidity sensor](libs/common/devices/sht20/README.md)
 - [AJ-SR04M sonar sensor](libs/common/devices/sonar/README.md)
+- [A02 ultrasonic sensor](libs/common/devices/sonic_a20/README.md)
 - [One-Wire sensor](libs/common/devices/one_wire/README.md)
 - [YF Liquid Flow sensor](libs/common/devices/flow_yf/README.md)
 - [Analog Pressure Sensor](libs/common/devices/pressure/README.md)

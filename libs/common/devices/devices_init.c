@@ -73,4 +73,8 @@ void devices_register_and_init(void)
 	DEV_REGISTER(rsens_register);
 #endif /* HAVE_REMOTE_SENSOR */
 
+#ifdef HAVE_SONIC_A20
+	DEV_REGISTER(sonica20_register);
+#endif /* HAVE_SONIC_A20 */
+
 }
