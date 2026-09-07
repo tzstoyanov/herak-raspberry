@@ -4,7 +4,12 @@ Controls heating device attached to Raspberry using [OpenTherm](../../../../docs
 The device must be connected using hardware interface board, as the electrical signals are not directly compatible. Tested with that [OpenTherm Adapter](https://ihormelnyk.com/opentherm_adapter).
 
 ## Configuration
-Configuration in the params.txt file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_OPENTHERM "OneTherm device" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 OPENTHERM_PINS     <RX gpio pin>;<TX gpio pin>
 OPENTHERM_Q         <Qmin>;<Qmax>

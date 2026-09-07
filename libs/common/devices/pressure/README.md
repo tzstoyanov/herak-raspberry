@@ -3,7 +3,12 @@
 Reads pressure sensor, attached directly to ADC. The sensor output must be between 0v and 3.3V. Tested with `YD4080`.
 
 ## Configuration
-Configuration parameters in `params.txt` file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_PRESS_ANALOG "Analog pressure sensor" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 APRESS_PIN   <gpio pin>;<gpio pin>;...
 APRESS_CORR  <a>:<b>;<a>:<b>;...

@@ -3,7 +3,12 @@
 Support for reading one-wire devices such as temperature sensors Dallas DS18S20, [DS18B20](../../../../docs/OneWire-ds18b20.pdf), DS1822, Maxim MAX31820 and MAX31826.
 
 ## Configuration
-Configuration parameters in params.txt file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_ONE_WIRE "OneWire" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 ONE_WIRE_DEVICES   <gpio pin>;<gpio pin>;...
 ```

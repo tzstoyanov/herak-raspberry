@@ -3,7 +3,12 @@
 Reads [AJ-SR04M sonar sensor](../../../../docs/AJ-SR04M-sonar.pdf).
 
 ## Configuration
-Configuration parameters in params.txt file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_SONAR "AJ-SR04M sonar sensor" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 SONAR_CONFIG   <echo pin>;<trigger pin>;...
 ```

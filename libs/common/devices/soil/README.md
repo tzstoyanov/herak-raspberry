@@ -3,7 +3,12 @@
 Reads [Soil Moisture Sensor](../../../../docs/Soil_moisture_sensor_module_EN.pdf).
 
 ## Configuration
-Configuration parameters in params.txt file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_SOIL "Soil sensor" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 SOIL_D		            <id>:<gpio pin>;<id>:<gpio pin>
 SOIL_A		            <id>:<gpio pin>;<id>:<gpio pin>

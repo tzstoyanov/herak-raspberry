@@ -3,7 +3,12 @@
 Reads data from remote sensors via [MQTT](../../services/mqtt/README.md).
 
 ## Configuration
-Configuration parameters in params.txt file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_REMOTE_SENSOR "Remote Sensor" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 REMOTE_SENSOR         <sensor name>:<mqtt topic>:<value key>;<sensor name>:<mqtt topic>:<value key>;...
 ```

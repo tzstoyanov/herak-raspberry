@@ -3,7 +3,12 @@
 Reads [SHT20 Sensor](../../../../docs/Sensirion_Datasheet_Humidity_Sensor_SHT20.pdf).
 
 ## Configuration
-Configuration parameters in params.txt file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_SHT20 "SHT20 sensor" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 SHT20_SDA_PIN   <gpio pin>;<gpio pin>;...
 SHT20_POWER_PIN <gpio pin>;<gpio pin>;...

@@ -3,7 +3,12 @@
 Reads [Liquid Flow YF Sensor](../../../../docs/YF-Datasheet.pdf).
 
 ## Configuration
-Configuration parameters in params.txt file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_FLOW_YF "Water Flow YF sensor" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 FLOW_YF   <gpio pin>:<ppls>;<gpio pin>:<ppl>;...
 FLOW_ACC_SEC

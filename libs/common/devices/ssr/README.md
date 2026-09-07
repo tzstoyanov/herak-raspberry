@@ -3,7 +3,12 @@
 Controls SSRs attached directly to the Raspberry device. Tested with [8 Channel Solid State Relay](../../../../docs/SSR_8Channel_EN.pdf).
 
 ## Configuration
-Configuration parameters in params.txt file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_SSR "Solid State Relays" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 SSR             <id>:<gpio pin>;<id>:<gpio pin> ....
 SSR_TRIGGER     <0/1>

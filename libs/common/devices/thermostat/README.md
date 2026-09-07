@@ -3,7 +3,12 @@
 Controls temperature within given range, using attached SSR and temperature sensor.
 
 ## Configuration
-Configuration parameters in params.txt file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_THERMOSTAT "Thermostat" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 THERMOSTAT      <ssr_gpio>:<t_source>-<t_id>;<ssr_gpio>:<t_source>-<t_id>;...
 THERMOSTAT_DEF  <on/off>:<temperature>-<hysteresis>;<on/off>:<temperature>-<hysteresis>;...

@@ -2,7 +2,13 @@
 Support for [JK BMS](../../../../docs/jk-bms-manual-1520084771.pdf) over bluetooth and [HLK-B40](../../../../docs/HLK-B40.pdf) serial interface.
 
 ## Configuration
-Configuration parameters in `params.txt` file:
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_BMS_JK "JK BMS" ON)
+```
+### Configuration parameters in `params.txt` file:
+
 ```
 BMS_BT          <XX:XX:XX:XX:XX:XX>,<pin>;<XX:XX:XX:XX:XX:XX>,<pin> ...
 BMS_MODEL       JK;JK ...

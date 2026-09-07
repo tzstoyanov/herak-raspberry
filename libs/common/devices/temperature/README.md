@@ -5,7 +5,12 @@ Analog sensors for temperature measurements. Currently supported:
 - NTC sensors attached to ADC GPIO pins with 5K pull-up resistor.  
 
 ## Configuration
-Configuration parameters in params.txt file:  
+### Compile time option
+Use this flag in your CMake file to enable it:  
+```
+option(ADD_TEMPERATURE "Analog temperature" ON)
+```
+### Configuration parameters in `params.txt` file:
 ```
 TEMPERATURE_NTC     <gpio>:<nominal>:<const>;  
 ```

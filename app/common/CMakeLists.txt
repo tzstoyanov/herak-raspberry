@@ -24,6 +24,7 @@ option(ADD_PRESS_ANALOG "Analog pressure sensor" ON)  # libs/common/devices/pres
 option(ADD_THERMOSTAT "Thermostat" ON)			# libs/common/devices/thermostat/README.md
 option(ADD_REMOTE_SENSOR "Remote Sensor" ON)			# libs/common/devices/rsensor/README.md
 option(ADD_SONIC_A20 "A20 Ultrasonic Distance Sensor" ON)			# libs/common/devices/sonic_a20/README.md
+option(ADD_TEMPERATURE "Analog temperature" ON)   # libs/common/devices/temperature/README.md
 
 # CMake settings
 set(CMAKE_C_STANDARD 11)
