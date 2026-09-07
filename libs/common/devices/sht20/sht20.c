@@ -101,6 +101,7 @@ struct sht20_sensor {
 	uint8_t read_cmd;
 	uint64_t read_requested;
 	mqtt_component_t mqtt_comp[SHT20_MQTT_MAX];
+	uint64_t mqtt_last_send;
 	struct sht20_context_t *ctx;
 	uint64_t ok_stat;
 	uint64_t err_stat;
@@ -115,7 +116,6 @@ struct sht20_context_t {
 	uint64_t last_read;
 	struct sht20_sensor *sensors[SHT20_SENORS_MAX];
 	uint32_t debug;
-	uint64_t mqtt_last_send;
 	char mqtt_payload[MQTT_DATA_LEN + 1];
 };
 
@@ -432,7 +432,7 @@ static int sth20_mqtt_data_send(struct sht20_context_t *ctx, int idx)
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;
 	ret = mqtt_msg_component_publish(ms, ctx->mqtt_payload);
 	if (!ret)
-		ctx->mqtt_last_send = now;
+		ctx->sensors[idx]->mqtt_last_send = now;
 
 	return ret;
 }
@@ -440,17 +440,14 @@ static int sth20_mqtt_data_send(struct sht20_context_t *ctx, int idx)
 static void sht20_mqtt_send(struct sht20_context_t *ctx)
 {
 	uint64_t now = time_ms_since_boot();
-	bool refresh = false;
 	static uint8_t idx;
 	int i;
 
-	if ((now - ctx->mqtt_last_send) >= MQTT_REFRESH_MS)
-		refresh = true;
-
 	for (i = 0; i < ctx->count; i++) {
-		ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].force = refresh || ctx->sensors[i]->force;
-		ctx->sensors[i]->force = false;
+		if ((now - ctx->sensors[i]->mqtt_last_send) >= MQTT_REFRESH_MS)
+			ctx->sensors[i]->mqtt_comp[SHT20_MQTT_TEMPERATURE].force = true;
 	}
+
 	if (idx >= ctx->count)
 		idx = 0;
 	for (i = idx; i < ctx->count; i++) {
