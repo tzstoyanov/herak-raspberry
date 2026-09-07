@@ -23,6 +23,8 @@ extern "C" {
 #define GPIO_PIN_MIN	0
 #define GPIO_PIN_MAX	28
 
+#define GPIO_IS_VALID(P)    (((P) >= GPIO_PIN_MIN) && ((P) <= GPIO_PIN_MAX))
+
 #define SYS_VERSION_STR	PROJECT_VERSION "-" GIT_COMMIT_HASH
 #define SYS_BUILD_DATE	BUILD_DATE " " BUILD_TIME
 
