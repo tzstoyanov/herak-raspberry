@@ -91,7 +91,7 @@ static bool flow_yf_config_get(struct flow_yf_context_t **ctx)
 		if (!ptok || !rest1)
 			continue;
 		pin = (int)strtol(ptok, NULL, 0);
-		if (pin < GPIO_PIN_MIN || pin > GPIO_PIN_MAX)
+		if (!GPIO_IS_VALID(pin))
 			continue;
 		pps = 0;
 		res = sys_strtof(rest1, &pps);

@@ -201,7 +201,7 @@ static void temperature_init_ntc(struct temperature_context_t *ctx)
 		if (i < 3)
 			continue;
 		pin = (int)strtol(tok_map[0], NULL, 10);
-		if (pin < 0 || pin >= GPIO_PIN_MAX)
+		if (!GPIO_IS_VALID(pin))
 			continue;
 		params = calloc(1, sizeof(struct temperature_ntc_t));
 		if (!params)

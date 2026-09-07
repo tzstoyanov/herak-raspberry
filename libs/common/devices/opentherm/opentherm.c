@@ -74,10 +74,10 @@ static int opentherm_config_get(opentherm_context_t **ctx)
 	rest = config;
 	tok = strtok_r(rest, ";", &rest);
 	rx_pin = (int)strtol(tok, NULL, 10);
-	if (rx_pin < GPIO_PIN_MIN || rx_pin > GPIO_PIN_MAX)
+	if (!GPIO_IS_VALID(rx_pin))
 		goto out;
 	tx_pin = (int)strtol(rest, NULL, 10);
-	if (tx_pin < GPIO_PIN_MIN || tx_pin > GPIO_PIN_MAX)
+	if (!GPIO_IS_VALID(tx_pin))
 		goto out;
 	(*ctx) = calloc(1, sizeof(opentherm_context_t));
 	if (!(*ctx))

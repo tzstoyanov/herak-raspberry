@@ -342,7 +342,7 @@ static bool sht20_config_get(struct sht20_context_t **ctx)
 		if (i >= (*ctx)->count || !(*ctx)->sensors[i])
 			break;
 		p = (int)strtol(tok, NULL, 0);
-		if (p >= GPIO_PIN_MIN && p <= GPIO_PIN_MAX)
+		if (GPIO_IS_VALID(p))
 			(*ctx)->sensors[i]->power_pin = p;
 		i++;
 	}

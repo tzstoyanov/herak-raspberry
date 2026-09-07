@@ -24,7 +24,7 @@ static struct {
 
 int sys_add_irq_callback(int gpio_pin, gpio_irq_cb_t cb, uint32_t event_mask, void *user_context)
 {
-	if (gpio_pin < GPIO_PIN_MIN || gpio_pin > GPIO_PIN_MAX)
+	if (!GPIO_IS_VALID(gpio_pin))
 		return -1;
 
 	if (sys_irq_table.handlers[gpio_pin])
