@@ -26,6 +26,8 @@
 #endif
 #define MEMP_NUM_UDP_PCB            16
 #define MEMP_NUM_TCP_SEG			32
+#define MEMP_NUM_TCP_PCB            32
+#define MEMP_NUM_ALTCP_PCB          32
 #define MEMP_NUM_ARP_QUEUE			5
 #define PBUF_POOL_SIZE				32
 #define LWIP_TCPIP_CORE_LOCKING		1
