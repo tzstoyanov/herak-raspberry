@@ -25,6 +25,7 @@ struct wifi_net_t {
 	char *ssid;
 	char *pass;
 	bool connected;
+	uint32_t reconnect_count;
 };
 
 struct wifi_context_t {
@@ -105,7 +106,9 @@ static bool sys_wifi_log_status(void *context)
 		return true;
 	}
 
-	hlog_info(WIFI_MODULE, "Connected to %s -> %s", ctx->all_nets[ctx->net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
+	hlog_info(WIFI_MODULE, "Connected to %s -> %s, reconnected %d times",
+			  ctx->all_nets[ctx->net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr),
+			  ctx->all_nets[ctx->net_id]->reconnect_count);
 
 	return true;
 }
@@ -149,15 +152,19 @@ wifi_state_t wifi_get_state(void)
 static void sys_wifi_connect(void *context)
 {
 	struct wifi_context_t *ctx = (struct wifi_context_t *)context;
+	bool log = false;
 	int ret;
 
 	if (WIFI_IS_CONNECTED) {
 		if (ctx->connect_in_progress) {
-			hlog_info(WIFI_MODULE, "Connected to %s -> got %s", ctx->all_nets[ctx->net_id]->ssid, inet_ntoa(cyw43_state.netif[0].ip_addr));
 			system_reconnect();
+			ctx->all_nets[ctx->net_id]->reconnect_count++;
+			log = true;
 		}
 		ctx->connect_in_progress = false;
 		ctx->all_nets[ctx->net_id]->connected = true;
+		if (log)
+			sys_wifi_log_status(ctx);
 		return;
 	}
 
@@ -186,7 +193,7 @@ static void sys_wifi_connect(void *context)
 			ret = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
 		LWIP_LOCK_END;
 		hlog_info(WIFI_MODULE, "TimeOut connecting to %s: %d",
-				ctx->all_nets[ctx->net_id]->ssid, ret);
+				  ctx->all_nets[ctx->net_id]->ssid, ret);
 	}
 }
 
