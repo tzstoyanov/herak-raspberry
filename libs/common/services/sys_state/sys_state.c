@@ -296,7 +296,7 @@ bool sys_state_log_in_progress(void)
 		hlog_info(SYS_STAT_MODULE, "\tnet [%s]: err %d, rcv %d, xmit %d, fwd %d, drop %d, cachehit %d",	\
 				(N), (M)->err, (M)->recv, (M)->xmit, (M)->fw, (M)->drop, (M)->cachehit); \
 		hlog_info(SYS_STAT_MODULE, "\t\tchkerr %d, lenerr %d, memerr %d, proterr %d, rterr %d, opterr %d",	\
-				(M)->chkerr, (M)->lenerr, (M)->xmit, (M)->memerr, (M)->proterr, (M)->rterr, (M)->opterr); \
+				(M)->chkerr, (M)->lenerr, (M)->memerr, (M)->proterr, (M)->rterr, (M)->opterr); \
 	} while (0)
 
 bool sys_state_is_healthy(void)
@@ -389,7 +389,7 @@ void sys_state_log_resources(void)
 #endif
 
 #if UDP_STATS
-	LOG_SYS_PROTO("UCP", &lwip_stats.udp);
+	LOG_SYS_PROTO("UDP", &lwip_stats.udp);
 #endif
 
 #if ICMP_STATS
