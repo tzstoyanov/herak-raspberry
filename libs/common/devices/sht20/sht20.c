@@ -26,7 +26,7 @@
 #define SHT20_CLOCK	50000
 #define SHT20_DATA_SIZE		3
 #define SHT20_CMD_RETRY		5
-#define SHT20_DATA_COUNT	5
+#define SHT20_DATA_COUNT	10
 
 #define SHT0_READ_INTERVAL_MS		1000
 #define SHT0_MEASURE_DELAY_MS		100
@@ -539,7 +539,7 @@ static int sht20_sensor_get_data(struct sht20_sensor *sensor)
 			ret = SHT20_RET_IN_PROGRESS;
 		goto out;
 	}
-	raw = samples_filter(sensor->raw_data, SHT20_DATA_COUNT, 1);
+	raw = samples_filter(sensor->raw_data, SHT20_DATA_COUNT, 2);
 	sensor->raw_idx = 0;
 	if (sensor->read_cmd == SHT20_TEMP) {
 		data = raw * (175.72 / 65536.0)-46.85;
