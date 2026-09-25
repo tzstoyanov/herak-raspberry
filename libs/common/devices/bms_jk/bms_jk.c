@@ -84,14 +84,17 @@ static void charc_new(struct jk_bms_dev_t *dev, bt_characteristic_t *charc)
 		return;
 	if (memcmp(dev->jk_term_charc.charc_uid128, charc->uuid128, BT_UUID128_LEN))
 		return;
+	if (dev->jk_term_charc.valid)
+		return;
 
 	dev->jk_term_charc.char_id = charc->char_id;
 	dev->jk_term_charc.properties = charc->properties;
 	dev->jk_term_charc.valid = true;
 
 	if (BMC_DEBUG(dev->ctx))
-		hlog_info(BMS_JK_MODULE, "[%s] Got new characteristic [%s] %d: properties 0x%X, svc 0x%X ("UUID_128_FMT"), "UUID_128_FMT"",
-				  DEV_NAME(dev), dev->jk_term_charc.desc, charc->char_id, charc->properties, svc16, svc128, charc->uuid128);
+		hlog_info(BMS_JK_MODULE, "[%s] Got new characteristic [%s] 0x%X: properties 0x%X, svc 0x%X ("UUID_128_FMT"), "UUID_128_FMT"",
+				  DEV_NAME(dev), dev->jk_term_charc.desc, charc->char_id,
+				  charc->properties, svc16, UUID_128_PARAM(svc128), UUID_128_PARAM(charc->uuid128));
 
 }
 
@@ -266,9 +269,10 @@ static void jk_bt_process_terminal(struct jk_bms_dev_t *dev, bt_characteristicva
 		return;
 
 	if (dev->jk_term_charc.char_id != val->charId) {
-		if (BMC_DEBUG(dev->ctx))
-			hlog_info(BMS_JK_MODULE, "[%s] Not on terminal service, ignoring: %d / %d",
-					  DEV_NAME(dev), dev->jk_term_charc.char_id != val->charId);
+		if (BMC_DEBUG(dev->ctx)) {
+			hlog_info(BMS_JK_MODULE, "[%s] Not on terminal service, ignoring: 0x%X / 0x%X",
+					  DEV_NAME(dev), dev->jk_term_charc.char_id, val->charId);
+		}
 		return;
 	}
 	if (val->len < ssize) {
