@@ -338,17 +338,25 @@ static void printUUID(uint8_t *uuid128, uint16_t uuid16)
 		hlog_info(BTLOG, UUID_128_FMT, UUID_128_PARAM(uuid128));
 }
 
-static void dump_characteristic(gatt_client_characteristic_t *characteristic)
+static void dump_characteristic(struct bt_char_t *chr, gatt_client_characteristic_t *characteristic)
 {
-	hlog_info(BTLOG, "\t * characteristic: [0x%04x-0x%04x-0x%04x], properties 0x%02x, uuid ",
-			  characteristic->start_handle, characteristic->value_handle, characteristic->end_handle, characteristic->properties);
+	hlog_info(BTLOG, "\t * characteristic (0x%X): [0x%04x-0x%04x-0x%04x], properties 0x%02x, uuid ",
+			  chr ? chr->id : 0xFFFFFFFF,
+			  characteristic->start_handle, characteristic->value_handle,
+			  characteristic->end_handle, characteristic->properties);
 	printUUID(characteristic->uuid128, characteristic->uuid16);
 }
 
-static void dump_service(gatt_client_service_t *service)
+static void dump_service(struct bt_svc_t *svc, gatt_client_service_t *service)
 {
-	hlog_info(BTLOG, "\t * service: [0x%04x-0x%04x], uuid ", service->start_group_handle, service->end_group_handle);
-	printUUID(service->uuid128, service->uuid16);
+	if (svc) {
+		hlog_info(BTLOG, "\t * service 0x%X %s, %d characteristic: [0x%04x-0x%04x], uuid ",
+				  svc->id, svc->primary ? "primary" : "secondary", svc->char_count,
+				  service->start_group_handle, service->end_group_handle);
+	} else {
+		hlog_info(BTLOG, "\t * service: [0x%04x-0x%04x], uuid ", service->start_group_handle, service->end_group_handle);
+		printUUID(service->uuid128, service->uuid16);
+	}
 }
 
 static void parse_advertising_report(struct bt_device_t *dev, struct advertising_report_t *e)
@@ -558,7 +566,7 @@ static void handle_gatt_client_event(uint8_t packet_type, uint16_t channel, uint
 				gatt_event_service_query_result_get_service(packet, &svc);
 				bt_new_service(dev, &svc);
 				if (IS_DEBUG(ctx))
-					dump_service(&svc);
+					dump_service(NULL, &svc);
 			}
 			break;
 		case GATT_EVENT_CHARACTERISTIC_QUERY_RESULT:
@@ -570,7 +578,7 @@ static void handle_gatt_client_event(uint8_t packet_type, uint16_t channel, uint
 				gatt_event_characteristic_query_result_get_characteristic(packet, &characteristic);
 				bt_new_characteristic(dev, &characteristic);
 				if (IS_DEBUG(ctx))
-					dump_characteristic(&characteristic);
+					dump_characteristic(NULL, &characteristic);
 			}
 			break;
 		case GATT_EVENT_QUERY_COMPLETE:
@@ -1079,13 +1087,13 @@ static bool sys_bt_log(void *context)
 				hlog_info(BTLOG, "\t%s to [%s].",
 						dev->state < BT_DEV_READY?"Connecting":"Connected",
 						dev->name);
-				if (dev->state == BT_DEV_CONNECTED) {
+				if (dev->state == BT_DEV_READY) {
 					hlog_info(BTLOG, "\t\tDiscovered [%d] services:", dev->svc_count);
 					for (j = 0; j < dev->svc_count; j++) {
-						dump_service(&(dev->services[j].gat_svc));
+						dump_service(&(dev->services[j]), &(dev->services[j].gat_svc));
 						hlog_info(BTLOG, "\t\t\t[%d] characteristic:", dev->services[j].char_count);
 						for (k = 0; k < dev->services[j].char_count; k++)
-							dump_characteristic(&(dev->services[j].chars[k].gat_char));
+							dump_characteristic(&(dev->services[j].chars[k]), &(dev->services[j].chars[k].gat_char));
 					}
 				}
 			} else {
