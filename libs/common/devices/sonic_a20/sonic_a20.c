@@ -24,6 +24,8 @@
 #define SONICA20_UART_DEBUG		0x2
 #define SONICA20_RESPONCE_WORD		4
 #define SONICA20_MEASSURE_DELAY_MS	50
+#define SONICA20_MEASSURE_CHANGE_MIN_MS		60000 // 1min
+#define SONICA20_THRESHOLD_CHANGE_MM	100 // mm
 
 #define SONICA20_MIN	0
 #define SONICA20_MAX	4500
@@ -31,7 +33,15 @@
 
 #define UART_BAUD	  9600
 
+#define VERBOSE_DEBUG	0x10
+#define IS_DEBUG_VERBOSE(C)	((C)->debug & VERBOSE_DEBUG)
 #define IS_DEBUG(C)	((C)->debug)
+
+enum {
+	SONICA20_MQTT_DISTANCE = 0,
+	SONICA20_MQTT_CHANGE,
+	SONICA20_MQTT_MAX,
+};
 
 struct sonica20_context;
 
@@ -40,10 +50,13 @@ struct sonica20_sensor {
 	int tx_pin;
 	struct dev_uart dev;
 	uint16_t distance;
+	float change;
+	int32_t change_acc;
+	uint64_t change_interval;
 	int id;
 	int idx;
 	uint32_t probes[SONICA20_PROBES];
-	mqtt_component_t mqtt_comp;
+	mqtt_component_t mqtt_comp[SONICA20_MQTT_MAX];
 	uint64_t mqtt_last_send;
 	struct sonica20_context *ctx;
 	uint64_t ok_stat;
@@ -99,7 +112,7 @@ static int sonica20_sensor_read(struct sonica20_sensor *sensor)
 	}
 
 	ret = (uint16_t)((buff[1] << 8) | buff[2]);
-	if (IS_DEBUG(sensor->ctx)) {
+	if (IS_DEBUG_VERBOSE(sensor->ctx)) {
 		if (VALID_DATA(ret))
 			hlog_info(SONICA20_MODULE, "[%d] correct reading: %d", sensor->id, ret);
 		else
@@ -163,8 +176,8 @@ static bool sonica20_log(void *context)
 	hlog_info(SONICA20_MODULE, "Reading %d sensors:", ctx->count);
 	for (i = 0; i < ctx->count; i++) {
 		q = ((ctx->sensors[i]->ok_stat * 100) / (ctx->sensors[i]->ok_stat + ctx->sensors[i]->err_stat));
-		hlog_info(SONICA20_MODULE, "\t[%d]: %d mm, accuracy %d%%",
-				  i, ctx->sensors[i]->distance, q);
+		hlog_info(SONICA20_MODULE, "\t[%d]: %d mm, change %.2f mm/min, accuracy %d%%",
+				  i, ctx->sensors[i]->distance, ctx->sensors[i]->change, q);
 	}
 
 	return true;
@@ -198,10 +211,11 @@ static int sonica20_mqtt_data_send(struct sonica20_context *ctx, int idx)
 	ADD_MQTT_MSG("{");
 		ADD_MQTT_MSG_VAR("\"time\": \"%s\"", get_current_time_str(time_buff, TIME_STR));
 		ADD_MQTT_MSG_VAR(",\"distance\": \"%d\"", ctx->sensors[idx]->distance / 10); // mm -> cm
+		ADD_MQTT_MSG_VAR(",\"change\": \"%.2f\"", ctx->sensors[idx]->change); // mm/min
 	ADD_MQTT_MSG("}")
 
 	ctx->mqtt_payload[MQTT_DATA_LEN] = 0;
-	ret = mqtt_msg_component_publish(&ctx->sensors[idx]->mqtt_comp, ctx->mqtt_payload);
+	ret = mqtt_msg_component_publish(&ctx->sensors[idx]->mqtt_comp[SONICA20_MQTT_DISTANCE], ctx->mqtt_payload);
 	if (!ret)
 		ctx->sensors[idx]->mqtt_last_send = now;
 
@@ -216,12 +230,12 @@ static void sonica20_mqtt_send(struct sonica20_context *ctx)
 
 	for (i = 0; i < ctx->count; i++) {
 		if ((now - ctx->sensors[i]->mqtt_last_send) >= MQTT_REFRESH_MS)
-			ctx->sensors[i]->mqtt_comp.force = true;
+			ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_DISTANCE].force = true;
 	}
 	if (idx >= ctx->count)
 		idx = 0;
 	for (i = idx; i < ctx->count; i++) {
-		if (ctx->sensors[i]->mqtt_comp.force) {
+		if (ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_DISTANCE].force) {
 			sonica20_mqtt_data_send(ctx, i);
 			idx++;
 			return;
@@ -231,11 +245,37 @@ static void sonica20_mqtt_send(struct sonica20_context *ctx)
 
 static void sonica20_sensor_calc(struct sonica20_sensor *sensor)
 {
-	uint32_t res;
+	uint64_t change_int, now = time_ms_since_boot();
+	int32_t res, ch;
 
 	res = samples_filter(sensor->probes, SONICA20_PROBES, 2);
-	if (sensor->distance != res)
-		sensor->mqtt_comp.force = true;
+
+	// Fillter out huge change, most probably wrong probe
+	ch = (res - sensor->distance);
+	if (abs(ch) < SONICA20_THRESHOLD_CHANGE_MM) {
+		sensor->change_acc += ch;
+		if (IS_DEBUG(sensor->ctx))
+			hlog_info(SONICA20_MODULE, "Change %d mm, accumulated %d", ch, sensor->change_acc);
+	} else {
+		if (IS_DEBUG(sensor->ctx))
+			hlog_info(SONICA20_MODULE, "Filter out huge change %d mm", ch);
+	}
+	change_int = (now - sensor->change_interval);
+	if (change_int >= SONICA20_MEASSURE_CHANGE_MIN_MS) {
+		sensor->change = sensor->change_acc;
+		if (IS_DEBUG(sensor->ctx))
+			hlog_info(SONICA20_MODULE, "Change for last %.2f min: %d mm",
+					  (float)(change_int / 60000), sensor->change);
+		sensor->change_interval = now;
+		sensor->change_acc = 0;
+		sensor->mqtt_comp[SONICA20_MQTT_DISTANCE].force = true;
+	}
+
+	if (sensor->distance != res) {
+		sensor->mqtt_comp[SONICA20_MQTT_DISTANCE].force = true;
+		if (IS_DEBUG(sensor->ctx))
+			hlog_info(SONICA20_MODULE, "Got new distance %d", sensor->distance);
+	}
 	sensor->distance = res;
 	memset(sensor->probes, 0, SONICA20_PROBES * sizeof(sensor->probes[0]));
 	sensor->idx = 0;
@@ -257,7 +297,7 @@ static void sonica20_run(void *context)
 			ctx->sensors[i]->probes[ctx->sensors[i]->idx++] = ret;
 			if (ctx->sensors[i]->idx >= SONICA20_PROBES) {
 				sonica20_sensor_calc(ctx->sensors[i]);
-				if (IS_DEBUG(ctx))
+				if (IS_DEBUG_VERBOSE(ctx))
 					hlog_info(SONICA20_MODULE, "Got from sensor %d: %d mm",
 							  i, ctx->sensors[i]->distance);
 			}
@@ -274,13 +314,24 @@ static void sonica20_mqtt_components_add(struct sonica20_context *ctx)
 	int i;
 
 	for (i = 0; i < ctx->count; i++) {
-		ctx->sensors[i]->mqtt_comp.module = SONICA20_MODULE;
-		ctx->sensors[i]->mqtt_comp.platform = "sensor";
-		ctx->sensors[i]->mqtt_comp.dev_class = "distance";
-		ctx->sensors[i]->mqtt_comp.unit = "cm";
-		ctx->sensors[i]->mqtt_comp.value_template = "{{ value_json['distance'] }}";
-		sys_asprintf(&ctx->sensors[i]->mqtt_comp.name, "Distance_%d", i);
-		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp));
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_DISTANCE].module = SONICA20_MODULE;
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_DISTANCE].platform = "sensor";
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_DISTANCE].dev_class = "distance";
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_DISTANCE].unit = "cm";
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_DISTANCE].value_template = "{{ value_json['distance'] }}";
+		sys_asprintf(&ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_DISTANCE].name, "Distance_%d", i);
+		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_DISTANCE]));
+
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_CHANGE].module = SONICA20_MODULE;
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_CHANGE].platform = "sensor";
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_CHANGE].dev_class = "distance";
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_CHANGE].unit = "mm";
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_CHANGE].value_template = "{{ value_json['change'] }}";
+		sys_asprintf(&ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_CHANGE].name, "Change_%d", i);
+		ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_CHANGE].state_topic =
+										ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_DISTANCE].state_topic;
+		mqtt_msg_component_register(&(ctx->sensors[i]->mqtt_comp[SONICA20_MQTT_CHANGE]));
+
 	}
 }
 
