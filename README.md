@@ -18,7 +18,7 @@ Support for all services, devices and sensors is implemented as modules. Modules
 - [Webhooks](libs/common/services/webhook/README.md)
 - [Commands engine](libs/common/services/commands/README.md)
 - [System Commands](libs/common/services/syscmd/README.md)
-- [System State Report](libs/common/sys_state/README.md)
+- [System State Report](libs/common/services/sys_state/README.md)
 - [Persistent user configuration](libs/common/services/cfg_store/README.md)
 - [Scripts](libs/common/services/scripts/README.md)
 - [OTA Updates](libs/common/services/ota/README.md)
